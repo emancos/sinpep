@@ -20,6 +20,10 @@ async function main() {
       { name: 'admin:access', description: 'Acesso total de administrador' },
       { name: 'users:read', description: 'Visualizar usuários' },
       { name: 'users:write', description: 'Gerenciar usuários' },
+      { name: 'health-centers:read', description: 'Visualizar unidades e agentes de saúde' },
+      { name: 'health-centers:write', description: 'Gerenciar unidades e agentes de saúde' },
+      { name: 'health-agents:read', description: 'Visualizar Agentes de Saúde' },
+      { name: 'health-agents:write', description: 'Gerir Agentes de Saúde' },
     ];
 
     const permissions = [];

@@ -13,7 +13,7 @@ export const ProtectedRoute = ({ requiredPermission }: ProtectedRouteProps) => {
  return <Navigate to="/login" replace />;
  }
 
- if (requiredPermission && !permissions.includes(requiredPermission)) {
+ if (requiredPermission && !permissions.includes(requiredPermission) && !permissions.includes('admin:access')) {
  // If authenticated but unauthorized, we can redirect to a main page or show an alert.
  toast.error('Acesso negado. Apenas para administradores.');
  return <Navigate to="/" replace />;
