@@ -68,7 +68,7 @@ export const Layout = () => {
 
         {/* Brand/Logo */}
         <div className={`h-12 lg:h-14 flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-4 lg:px-6'} border-b border-white/10 dark:border-[#001122]/50 transition-all duration-300`}>
-          {!isCollapsed && <span className="font-bold text-lg text-white tracking-wide">{import.meta.env.VITE_APP_NAME || "Base Project"}</span>}
+          {!isCollapsed && <span className="font-bold text-lg text-white tracking-wide">{import.meta.env.VITE_APP_NAME}</span>}
         </div>
 
         {/* Navigation Links */}
@@ -153,7 +153,7 @@ export const Layout = () => {
       <aside className={`fixed inset-y-0 left-0 w-64 bg-[#003B77] border-r border-white/10 dark:border-[#002244] z-40 transform transition-transform duration-300 md:hidden ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-12 lg:h-14 flex items-center justify-between px-4 lg:px-6 border-b border-white/10 dark:border-[#002244]/50">
           <div className="flex items-center gap-3">
-            <span className="font-bold text-lg text-white">{import.meta.env.VITE_APP_NAME || "Base Project"}</span>
+            <span className="font-bold text-lg text-white">{import.meta.env.VITE_APP_NAME}</span>
           </div>
           <button onClick={() => setMobileMenuOpen(false)} className="text-blue-200 hover:text-white">
             <X className="w-6 h-6" />

@@ -51,7 +51,7 @@ export const Login: React.FC = () => {
 
                 {/* Logo and Header */}
                 <div className="flex flex-col items-center mb-8">
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{import.meta.env.VITE_APP_NAME || "Base Project"}</h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{import.meta.env.VITE_APP_NAME}</h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Acesso ao Sistema</p>
                 </div>
 
