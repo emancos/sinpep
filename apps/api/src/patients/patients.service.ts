@@ -99,7 +99,7 @@ export class PatientsService {
     }
 
     if (search) {
-      q = q.where(p => p.name.contains(search, 'insensitive').or(p.cpf.contains(search)).or(p.cns.contains(search)));
+      q = q.where(p => p.name.ilike(`%${search}%`).or(p.cpf.ilike(`%${search}%`)).or(p.cns.ilike(`%${search}%`)));
     }
 
     const allData = await q.all();

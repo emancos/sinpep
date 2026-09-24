@@ -36,7 +36,7 @@ export class HealthCentersService {
     }
 
     if (search) {
-      q = q.where(hc => hc.name.contains(search) || hc.cnes.contains(search) || hc.address.contains(search));
+      q = q.where(hc => hc.name.ilike(`%${search}%`) || hc.cnes.ilike(`%${search}%`) || hc.address.ilike(`%${search}%`));
     }
 
     // TODO: implement order by and pagination for Prisma 8

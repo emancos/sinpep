@@ -40,7 +40,7 @@ export class HealthAgentsService {
     }
 
     if (search) {
-      q = q.where(ha => ha.name.contains(search) || ha.phone.contains(search) || ha.microArea.contains(search));
+      q = q.where(ha => ha.name.ilike(`%${search}%`) || ha.phone.ilike(`%${search}%`) || ha.microArea.ilike(`%${search}%`));
     }
 
     const allData = await q.all();
