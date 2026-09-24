@@ -1,0 +1,71 @@
+// use prisma-8
+// Contract inferred from the live database schema. Edit as needed, then run `prisma contract emit`.
+
+model Permissions {
+  id                    Uuid                    @id(map: "permissions_pkey")
+  name                  String
+  description           String?
+  createdAt             Timestamp(3)            @default(now()) @map("created_at")
+  updatedAt             Timestamp(3)            @map("updated_at")
+  profilePermissions    ProfilePermissions[]
+  userCustomPermissions UserCustomPermissions[]
+
+  @@index([name], map: "permissions_name_key", unique: true)
+  @@map("permissions")
+}
+
+model Profiles {
+  id                 Uuid                 @id(map: "profiles_pkey")
+  name               String
+  description        String?
+  createdAt          Timestamp(3)         @default(now()) @map("created_at")
+  updatedAt          Timestamp(3)         @map("updated_at")
+  profilePermissions ProfilePermissions[]
+  users              Users[]
+
+  @@index([name], map: "profiles_name_key", unique: true)
+  @@map("profiles")
+}
+
+model ProfilePermissions {
+  profileId    Uuid         @map("profile_id")
+  permissionId Uuid         @map("permission_id")
+  createdAt    Timestamp(3) @default(now()) @map("created_at")
+  permission   Permissions  @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "profile_permissions_permission_id_fkey", index: false)
+  profile      Profiles     @relation(fields: [profileId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "profile_permissions_profile_id_fkey", index: false)
+
+  @@id([profileId, permissionId], map: "profile_permissions_pkey")
+  @@map("profile_permissions")
+}
+
+model Users {
+  id                    Uuid                    @id(map: "users_pkey")
+  email                 String
+  passwordHash          String                  @map("password_hash")
+  name                  String
+  phone                 String?
+  avatar                String?
+  isActive              Boolean                 @default(true) @map("is_active")
+  createdAt             Timestamp(3)            @default(now()) @map("created_at")
+  updatedAt             Timestamp(3)            @map("updated_at")
+  profileId             Uuid                    @map("profile_id")
+  userCustomPermissions UserCustomPermissions[]
+  profile               Profiles                @relation(fields: [profileId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "users_profile_id_fkey", index: false)
+
+  @@index([email], map: "users_email_key", unique: true)
+  @@map("users")
+}
+
+model UserCustomPermissions {
+  id           Uuid         @id(map: "user_custom_permissions_pkey")
+  userId       Uuid         @map("user_id")
+  permissionId Uuid         @map("permission_id")
+  isAllowed    Boolean      @map("is_allowed")
+  createdAt    Timestamp(3) @default(now()) @map("created_at")
+  updatedAt    Timestamp(3) @map("updated_at")
+  permission   Permissions  @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "user_custom_permissions_permission_id_fkey", index: false)
+  user         Users        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "user_custom_permissions_user_id_fkey", index: false)
+
+  @@index([userId, permissionId], map: "user_custom_permissions_user_id_permission_id_key", unique: true)
+  @@map("user_custom_permissions")
+}

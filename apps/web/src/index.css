@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  padding: 0;
+  @apply bg-slate-50 text-slate-900;
+}
+
+.dark body {
+  @apply bg-[#020617] text-white; /* slate-950 */
+}
+
+/* Fix for native select options having white background when hovered/selected in dark mode on some browsers */
+.dark select option {
+  background-color: #0f172a; /* slate-900 */
+  color: #e2e8f0; /* slate-200 */
+}
+
+.dark select option:checked,
+.dark select option:hover,
+.dark select option:focus,
+.dark select option:active {
+  background-color: #1e293b !important; /* slate-800 */
+  color: #fff !important;
+}
+
+/* Fix for native calendar inputs (date, time, datetime-local) in dark mode */
+.dark {
+  color-scheme: dark;
+}
+
+.dark input[type="date"],
+.dark input[type="datetime-local"],
+.dark input[type="time"],
+.dark input[type="month"] {
+  color-scheme: dark;
+}

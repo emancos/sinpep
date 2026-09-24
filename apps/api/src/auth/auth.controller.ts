@@ -1,0 +1,38 @@
+import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { LoginDto } from './dto/login.dto';
+
+@Controller('auth')
+export class AuthController {
+  constructor(private authService: AuthService) {}
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  async login(@Body() loginDto: LoginDto) {
+    return this.authService.login(loginDto.email, loginDto.password);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() body: { email: string }) {
+    if (!body.email) {
+      // Retorna sucesso de qualquer forma para não vazar a existência do email, ou apenas pede o email
+      return { message: 'Se o email estiver cadastrado, você receberá um link de recuperação em breve.' };
+    }
+    // Fire and forget
+    this.authService.forgotPassword(body.email).catch(err => {
+      // Log ignorado ou tratado no service
+    });
+    return { message: 'Se o email estiver cadastrado, você receberá um link de recuperação em breve.' };
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() body: { token: string; password: string }) {
+    if (!body.token || !body.password) {
+      return { message: 'Token e nova senha são obrigatórios.' };
+    }
+    await this.authService.resetPassword(body.token, body.password);
+    return { message: 'Senha redefinida com sucesso.' };
+  }
+}
