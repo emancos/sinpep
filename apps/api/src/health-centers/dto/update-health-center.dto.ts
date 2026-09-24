@@ -1,0 +1,19 @@
+import { IsString, IsOptional } from 'class-validator';
+
+export class UpdateHealthCenterDto {
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @IsString()
+  @IsOptional()
+  cnes?: string;
+
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @IsString()
+  @IsOptional()
+  nurseName?: string;
+}

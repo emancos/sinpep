@@ -56,7 +56,7 @@ model HealthAgents {
   microArea      String?       @map("micro_area")
   createdAt      Timestamp(3)  @default(now()) @map("created_at")
   updatedAt      Timestamp(3)  @map("updated_at")
-  userId         Uuid?         @map("user_id")
+  userId         Uuid?         @unique @map("user_id")
   healthCenterId Uuid          @map("health_center_id")
   isActive       Boolean       @default(true) @map("is_active")
   patients       Patients[]
