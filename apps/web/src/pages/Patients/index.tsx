@@ -131,7 +131,7 @@ export const PatientsList: React.FC = () => {
         return (
             <th
                 onClick={() => handleSort(field)}
-                className="px-3 py-2.5 lg:px-4 lg:py-3 cursor-pointer hover:bg-slate-200 dark:bg-slate-800/40 hover:text-slate-900 dark:text-white transition-colors duration-150 select-none group"
+                className="px-2 py-1.5 lg:px-3 lg:py-2.5 cursor-pointer hover:bg-slate-200 dark:bg-slate-800/40 hover:text-slate-900 dark:text-white transition-colors duration-150 select-none group"
             >
                 <div className="flex items-center gap-1.5">
                     <span>{label}</span>
@@ -153,7 +153,7 @@ export const PatientsList: React.FC = () => {
     const total = data?.total || 0;
 
     return (
-        <div className="space-y-4 lg:space-y-6">
+        <div className="space-y-3 lg:space-y-5">
             {/* Page Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
@@ -163,7 +163,7 @@ export const PatientsList: React.FC = () => {
 
                 <button
                     onClick={() => navigate('/patients/create')}
-                    className="flex items-center gap-2 px-3 py-2 lg:px-4 lg:py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl text-sm transition-all duration-300 shadow-md active:scale-95 cursor-pointer"
+                    className="flex items-center gap-1.5 lg:gap-2 px-2.5 py-1.5 lg:px-3 lg:py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl text-sm transition-all duration-300 shadow-md active:scale-95 cursor-pointer"
                 >
                     <Plus className="w-4 h-4" />
                     <span>Novo Paciente</span>
@@ -171,7 +171,7 @@ export const PatientsList: React.FC = () => {
             </div>
 
             {/* Search and Filter bar */}
-            <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 lg:p-4 backdrop-blur-md flex flex-col sm:flex-row items-center gap-3 lg:gap-4">
+            <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 lg:p-4 backdrop-blur-md flex flex-col sm:flex-row items-center gap-2 lg:gap-4">
                 <div className="relative w-full sm:max-w-md">
                     <Search className="absolute left-3 top-3 w-5 h-5 text-slate-500" />
                     <input
@@ -179,7 +179,7 @@ export const PatientsList: React.FC = () => {
                         placeholder="Buscar por nome, CPF ou CNS..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
+                        className="w-full pl-9 pr-3 py-1.5 lg:py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-lg text-slate-700 dark:text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
                     />
                 </div>
 
@@ -233,17 +233,17 @@ export const PatientsList: React.FC = () => {
                             <thead>
                                 <tr className="border-b border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
                                     {renderSortHeader('Paciente', 'name')}
-                                    <th className="px-3 py-2.5 lg:px-4 lg:py-3">Documentos</th>
+                                    <th className="px-2 py-1.5 lg:px-3 lg:py-2.5">Documentos</th>
                                     {renderSortHeader('UBS Vinculada', 'healthCenter')}
-                                    <th className="px-3 py-2.5 lg:px-4 lg:py-3">Telefones</th>
-                                    <th className="px-3 py-2.5 lg:px-4 lg:py-3 text-right">Ações</th>
+                                    <th className="px-2 py-1.5 lg:px-3 lg:py-2.5">Telefones</th>
+                                    <th className="px-2 py-1.5 lg:px-3 lg:py-2.5 text-right">Ações</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 text-sm">
                                 {patientsList && patientsList.length > 0 ? (
                                     patientsList.map((patient: Patient) => (
                                         <tr key={patient.id} className="hover:bg-slate-200 dark:bg-slate-800/20 transition-colors duration-150 group">
-                                            <td className="px-3 py-2.5 lg:px-4 lg:py-3">
+                                            <td className="px-2 py-1.5 lg:px-3 lg:py-2.5">
                                                 <div className="flex flex-col">
                                                     <div className={`font-medium transition-colors duration-200 ${patient.isActive ? 'text-slate-900 dark:text-white group-hover:text-blue-400' : 'text-slate-500 line-through'}`}>
                                                         {patient.name}
@@ -258,7 +258,7 @@ export const PatientsList: React.FC = () => {
                                                 </div>
                                             </td>
 
-                                            <td className="px-3 py-2.5 lg:px-4 lg:py-3 space-y-1">
+                                            <td className="px-2 py-1.5 lg:px-3 lg:py-2.5 space-y-1">
                                                 <div className="text-xs font-mono text-slate-600 dark:text-slate-300">
                                                     <span className="text-slate-500 font-semibold uppercase tracking-wider">CPF:</span> {formatCPF(patient.cpf)}
                                                 </div>
@@ -269,7 +269,7 @@ export const PatientsList: React.FC = () => {
                                                 )}
                                             </td>
 
-                                            <td className="px-3 py-2.5 lg:px-4 lg:py-3 space-y-1.5 text-xs">
+                                            <td className="px-2 py-1.5 lg:px-3 lg:py-2.5 space-y-1.5 text-xs">
                                                 <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                                                     <Building className="w-3.5 h-3.5 text-slate-500" />
                                                     <span className="font-medium">{patient.healthCenter?.name || 'UBS não vinculada'}</span>
@@ -282,7 +282,7 @@ export const PatientsList: React.FC = () => {
                                                 )}
                                             </td>
 
-                                            <td className="px-3 py-2.5 lg:px-4 lg:py-3">
+                                            <td className="px-2 py-1.5 lg:px-3 lg:py-2.5">
                                                 <div className="flex flex-wrap gap-1.5">
                                                     {patient.phones && patient.phones.length > 0 ? (
                                                         patient.phones.map((phone) => (
@@ -307,7 +307,7 @@ export const PatientsList: React.FC = () => {
                                                 </div>
                                             </td>
 
-                                            <td className="px-3 py-2.5 lg:px-4 lg:py-3 text-right">
+                                            <td className="px-2 py-1.5 lg:px-3 lg:py-2.5 text-right">
                                                 <div className="flex justify-end gap-2">
                                                     <button
                                                         onClick={() => navigate(`/patients/${patient.id}`)}

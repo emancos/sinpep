@@ -67,12 +67,12 @@ export const Layout = () => {
         </button>
 
         {/* Brand/Logo */}
-        <div className={`h-14 lg:h-16 flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-6'} border-b border-white/10 dark:border-[#001122]/50 transition-all duration-300`}>
+        <div className={`h-12 lg:h-14 flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-4 lg:px-6'} border-b border-white/10 dark:border-[#001122]/50 transition-all duration-300`}>
           {!isCollapsed && <span className="font-bold text-lg text-white tracking-wide">{import.meta.env.VITE_APP_NAME || "Base Project"}</span>}
         </div>
 
         {/* Navigation Links */}
-        <nav className="flex-1 px-3 py-4 lg:px-4 lg:py-6 space-y-1">
+        <nav className="flex-1 px-2 py-3 lg:px-3 lg:py-5 space-y-0.5 lg:space-y-1">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path || (item.subItems && item.subItems.some((sub: any) => location.pathname === sub.path));
             const isExpanded = expandedMenus[item.path] || isActive;
@@ -84,7 +84,7 @@ export const Layout = () => {
                   <button
                     onClick={() => !isCollapsed && toggleMenu(item.path)}
                     title={isCollapsed ? item.name : undefined}
-                    className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-4'} py-2.5 lg:py-3 rounded-xl text-sm font-medium transition-all duration-300 group ${isActive
+                    className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3 lg:px-4'} py-2 lg:py-2.5 rounded-xl text-sm font-medium transition-all duration-300 group ${isActive
                       ? 'bg-white/15 border-l-2 border-white text-white shadow-md'
                       : 'text-blue-200 hover:text-white hover:bg-white/10 border-l-2 border-transparent'
                       }`}
@@ -123,7 +123,7 @@ export const Layout = () => {
                 key={item.path}
                 to={item.path}
                 title={isCollapsed ? item.name : undefined}
-                className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-4'} py-2.5 lg:py-3 rounded-xl text-sm font-medium transition-all duration-300 group ${isActive
+                className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-3 lg:px-4'} py-2 lg:py-2.5 rounded-xl text-sm font-medium transition-all duration-300 group ${isActive
                   ? 'bg-white/15 border-l-2 border-white text-white shadow-md'
                   : 'text-blue-200 hover:text-white hover:bg-white/10 border-l-2 border-transparent'
                   }`}
@@ -151,7 +151,7 @@ export const Layout = () => {
 
       {/* Sidebar - Mobile Drawer */}
       <aside className={`fixed inset-y-0 left-0 w-64 bg-[#003B77] border-r border-white/10 dark:border-[#002244] z-40 transform transition-transform duration-300 md:hidden ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-14 lg:h-16 flex items-center justify-between px-6 border-b border-white/10 dark:border-[#002244]/50">
+        <div className="h-12 lg:h-14 flex items-center justify-between px-4 lg:px-6 border-b border-white/10 dark:border-[#002244]/50">
           <div className="flex items-center gap-3">
             <span className="font-bold text-lg text-white">{import.meta.env.VITE_APP_NAME || "Base Project"}</span>
           </div>
@@ -159,7 +159,7 @@ export const Layout = () => {
             <X className="w-6 h-6" />
           </button>
         </div>
-        <nav className="px-3 py-4 lg:px-4 lg:py-6 space-y-1">
+        <nav className="px-2 py-3 lg:px-4 lg:py-6 space-y-0.5 lg:space-y-1">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
@@ -168,7 +168,7 @@ export const Layout = () => {
                 key={item.path}
                 to={item.path}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 lg:px-4 lg:py-3 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
+                className={`flex items-center gap-2 lg:gap-3 px-3 py-2 lg:px-4 lg:py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
                   ? 'bg-white/15 border-l-2 border-white text-white'
                   : 'text-blue-200 hover:text-white hover:bg-white/10'
                   }`}
@@ -182,9 +182,9 @@ export const Layout = () => {
       </aside>
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0 h-screen">
         {/* Sticky Header */}
-        <header className="sticky top-0 z-30 h-14 lg:h-16 bg-[#0051A2]/95 dark:bg-[#003B77]/95 backdrop-blur-md border-b border-[#003B77] dark:border-[#002244] flex items-center justify-between px-4 lg:px-6">
+        <header className="z-30 shrink-0 h-12 lg:h-14 bg-[#0051A2]/95 dark:bg-[#003B77]/95 backdrop-blur-md border-b border-[#003B77] dark:border-[#002244] flex items-center justify-between px-4 lg:px-6">
           <button
             onClick={() => setMobileMenuOpen(true)}
             className="md:hidden text-blue-200 hover:text-white transition-colors cursor-pointer"
@@ -229,7 +229,7 @@ export const Layout = () => {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 p-4 lg:p-6 relative">
+        <main className="flex-1 overflow-y-auto p-3 lg:p-6 relative">
           <Outlet />
         </main>
       </div>
