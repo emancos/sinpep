@@ -128,16 +128,16 @@ export const NotificationBell = () => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={handleToggle}
-        className={`relative p-2.5 rounded-xl border transition-all duration-300 cursor-pointer ${
+        className={`relative p-1.5 rounded-lg border transition-all duration-300 cursor-pointer ${
           isOpen
             ? 'bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white shadow-lg shadow-black/20'
             : 'bg-slate-50 dark:bg-slate-900 border-slate-300 dark:border-slate-800 hover:bg-slate-200 dark:bg-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200'
         }`}
         aria-label="Notificações"
       >
-        <Bell className="w-5 h-5" />
+        <Bell className="w-4 h-4" />
         {totalUnread > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-slate-900 dark:text-white ring-2 ring-slate-950 animate-pulse">
+          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-slate-900 dark:text-white ring-2 ring-slate-950 animate-pulse">
             {totalUnread}
           </span>
         )}

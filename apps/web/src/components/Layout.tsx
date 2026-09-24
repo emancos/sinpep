@@ -189,7 +189,7 @@ export const Layout = () => {
             onClick={() => setMobileMenuOpen(true)}
             className="md:hidden text-blue-200 hover:text-white transition-colors cursor-pointer"
           >
-            <Menu className="w-6 h-6" />
+            <Menu className="w-5 h-5" />
           </button>
 
           {/* Spacer on Desktop, Brand on mobile */}
@@ -207,8 +207,8 @@ export const Layout = () => {
             <NotificationBell />
 
             <div className="flex items-stretch shadow-md rounded-xl overflow-hidden border border-slate-300 dark:border-slate-800">
-              <Link to="/profile" className="flex items-center gap-2.5 px-3.5 py-1.5 bg-slate-100 dark:bg-slate-900/80 text-sm hover:bg-slate-200 dark:bg-slate-800 transition-all duration-300 cursor-pointer">
-                <div className="w-6 h-6 rounded-full bg-blue-500/20 border border-slate-200 dark:border-slate-800/80 flex items-center justify-center overflow-hidden shrink-0">
+              <Link to="/profile" className="flex items-center gap-2 px-2.5 py-1 bg-slate-100 dark:bg-slate-900/80 text-[13px] hover:bg-slate-200 dark:bg-slate-800 transition-all duration-300 cursor-pointer">
+                <div className="w-5 h-5 rounded-full bg-blue-500/20 border border-slate-200 dark:border-slate-800/80 flex items-center justify-center overflow-hidden shrink-0">
                   <CachedAvatar src={user?.avatar} alt={user?.name} />
                 </div>
                 <span className="text-slate-600 dark:text-slate-300 font-medium max-w-[120px] truncate">{user?.name}</span>
@@ -218,10 +218,10 @@ export const Layout = () => {
 
               <button
                 onClick={logout}
-                className="flex items-center gap-2 px-3.5 py-1.5 bg-red-50 dark:bg-red-900 hover:bg-red-100 dark:hover:bg-red-800 text-red-600 dark:text-red-300 text-sm transition-all duration-300 cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 dark:bg-red-900 hover:bg-red-100 dark:hover:bg-red-800 text-red-600 dark:text-red-300 text-[13px] transition-all duration-300 cursor-pointer"
                 title={t('Logout')}
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline font-medium">{t('Logout')}</span>
               </button>
             </div>
