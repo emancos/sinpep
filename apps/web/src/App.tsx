@@ -11,6 +11,9 @@ import { Toaster } from 'sonner';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { Dashboard } from './pages/Dashboard';
+import { HealthCentersList } from './pages/HealthCenters';
+import { CreateOrEditHealthCenter } from './pages/HealthCenters/Create';
+import { HealthCenterDetails } from './pages/HealthCenters/Details';
 import { SocketProvider } from './contexts/SocketContext';
 import './App.css';
 
@@ -36,6 +39,15 @@ function App() {
                     <Route path="/users" element={<UsersList />} />
                     <Route path="/users/create" element={<CreateOrEditUser />} />
                     <Route path="/users/:id/edit" element={<CreateOrEditUser />} />
+                  </Route>
+
+                  <Route element={<ProtectedRoute requiredPermission="health-centers:read" />}>
+                    <Route path="/health-centers" element={<HealthCentersList />} />
+                    <Route path="/health-centers/:id" element={<HealthCenterDetails />} />
+                  </Route>
+                  <Route element={<ProtectedRoute requiredPermission="health-centers:write" />}>
+                    <Route path="/health-centers/create" element={<CreateOrEditHealthCenter />} />
+                    <Route path="/health-centers/:id/edit" element={<CreateOrEditHealthCenter />} />
                   </Route>
                 </Route>
               </Route>

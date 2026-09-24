@@ -17,7 +17,7 @@ export interface HealthAgent {
  microArea?: string;
  healthCenterId: string;
  healthCenter: HealthCenter;
- active: boolean;
+ isActive: boolean;
  createdAt: string;
  updatedAt: string;
 }

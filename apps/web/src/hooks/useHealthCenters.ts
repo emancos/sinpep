@@ -12,7 +12,7 @@ export interface HealthCenter {
  address?: string;
  nurseName?: string;
  healthAgents?: any[];
- active: boolean;
+ isActive: boolean;
  createdAt: string;
  updatedAt: string;
 }

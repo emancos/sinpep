@@ -10,7 +10,8 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Building
 } from 'lucide-react';
 import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
@@ -41,6 +42,9 @@ export const Layout = () => {
 
   const menuItems: MenuItem[] = [
     { name: t('Dashboard'), path: '/', icon: Home },
+    ...(permissions.includes('health-centers:read') || isAdmin ? [
+      { name: 'Unidades de Saúde', path: '/health-centers', icon: Building },
+    ] : []),
     ...(isAdmin ? [
       { name: 'Gestão de Utilizadores', path: '/users', icon: UsersIcon },
     ] : []),
