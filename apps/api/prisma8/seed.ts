@@ -24,6 +24,9 @@ async function main() {
       { name: 'health-centers:write', description: 'Gerenciar unidades e agentes de saúde' },
       { name: 'health-agents:read', description: 'Visualizar Agentes de Saúde' },
       { name: 'health-agents:write', description: 'Gerir Agentes de Saúde' },
+      { name: 'patients:read', description: 'Visualizar Pacientes' },
+      { name: 'patients:write', description: 'Gerenciar Pacientes' },
+      { name: 'patients:write_attention', description: 'Gerenciar Nível de Atenção do Paciente' },
     ];
 
     const permissions = [];
