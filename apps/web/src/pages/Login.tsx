@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Lock, Mail, AlertCircle, Loader } from 'lucide-react';
+import { Lock, Mail, AlertCircle, Loader, Sun, Moon } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import { useTheme } from '../contexts/ThemeContext';
 
 export const Login: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -12,6 +13,7 @@ export const Login: React.FC = () => {
 
     const login = useAuthStore((state) => state.login);
     const navigate = useNavigate();
+    const { theme, setTheme } = useTheme();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -43,6 +45,18 @@ export const Login: React.FC = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 relative overflow-hidden font-sans">
+            {/* Theme Toggle */}
+            <div className="absolute top-6 right-6 z-20">
+                <button
+                    type="button"
+                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                    className="p-2 rounded-full bg-slate-100/50 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-all backdrop-blur-md cursor-pointer flex items-center justify-center"
+                    title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
+                >
+                    {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                </button>
+            </div>
+
             {/* Background blobs for premium gradient aesthetic */}
             <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-blue-100 dark:bg-blue-500/10 blur-[120px]" />
             <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-teal-100 dark:bg-teal-500/10 blur-[120px]" />
