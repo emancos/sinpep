@@ -1,17 +1,20 @@
 // use prisma-8
 // Contract inferred from the live database schema. Edit as needed, then run `prisma contract emit`.
 
-model Permissions {
-  id                    Uuid                    @id(map: "permissions_pkey")
-  name                  String
-  description           String?
-  createdAt             Timestamp(3)            @default(now()) @map("created_at")
-  updatedAt             Timestamp(3)            @map("updated_at")
-  profilePermissions    ProfilePermissions[]
-  userCustomPermissions UserCustomPermissions[]
+model HealthCenters {
+  id           Uuid           @id(map: "health_centers_pkey")
+  name         String
+  cnes         String?
+  address      String?
+  createdAt    Timestamp(3)   @default(now()) @map("created_at")
+  updatedAt    Timestamp(3)   @map("updated_at")
+  nurseName    String?        @map("nurse_name")
+  isActive     Boolean        @default(true) @map("is_active")
+  healthAgents HealthAgents[]
+  patients     Patients[]
 
-  @@index([name], map: "permissions_name_key", unique: true)
-  @@map("permissions")
+  @@index([cnes], map: "health_centers_cnes_key", unique: true)
+  @@map("health_centers")
 }
 
 model Profiles {
@@ -27,17 +30,6 @@ model Profiles {
   @@map("profiles")
 }
 
-model ProfilePermissions {
-  profileId    Uuid         @map("profile_id")
-  permissionId Uuid         @map("permission_id")
-  createdAt    Timestamp(3) @default(now()) @map("created_at")
-  permission   Permissions  @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "profile_permissions_permission_id_fkey", index: false)
-  profile      Profiles     @relation(fields: [profileId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "profile_permissions_profile_id_fkey", index: false)
-
-  @@id([profileId, permissionId], map: "profile_permissions_pkey")
-  @@map("profile_permissions")
-}
-
 model Users {
   id                    Uuid                    @id(map: "users_pkey")
   email                 String
@@ -49,11 +41,90 @@ model Users {
   createdAt             Timestamp(3)            @default(now()) @map("created_at")
   updatedAt             Timestamp(3)            @map("updated_at")
   profileId             Uuid                    @map("profile_id")
+  healthAgents          HealthAgents?
   userCustomPermissions UserCustomPermissions[]
   profile               Profiles                @relation(fields: [profileId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "users_profile_id_fkey", index: false)
 
   @@index([email], map: "users_email_key", unique: true)
   @@map("users")
+}
+
+model HealthAgents {
+  id             Uuid          @id(map: "health_agents_pkey")
+  name           String
+  phone          String?
+  microArea      String?       @map("micro_area")
+  createdAt      Timestamp(3)  @default(now()) @map("created_at")
+  updatedAt      Timestamp(3)  @map("updated_at")
+  userId         Uuid?         @map("user_id")
+  healthCenterId Uuid          @map("health_center_id")
+  isActive       Boolean       @default(true) @map("is_active")
+  patients       Patients[]
+  healthCenter   HealthCenters @relation(fields: [healthCenterId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "health_agents_health_center_id_fkey", index: false)
+  user           Users?        @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade, map: "health_agents_user_id_fkey")
+
+  @@index([userId], map: "health_agents_user_id_key", unique: true)
+  @@map("health_agents")
+}
+
+model Patients {
+  id             Uuid            @id(map: "patients_pkey")
+  name           String
+  cpf            String
+  cns            String?
+  birthDate      Timestamp(3)    @map("birth_date")
+  gender         String
+  createdAt      Timestamp(3)    @default(now()) @map("created_at")
+  updatedAt      Timestamp(3)    @map("updated_at")
+  healthCenterId Uuid            @map("health_center_id")
+  healthAgentId  Uuid?           @map("health_agent_id")
+  attentionLevel Int             @default(1) @map("attention_level")
+  attentionNotes String?         @map("attention_notes")
+  address        String?
+  isActive       Boolean         @default(true) @map("is_active")
+  patientPhones  PatientPhones[]
+  healthAgent    HealthAgents?   @relation(fields: [healthAgentId], references: [id], onDelete: SetNull, onUpdate: Cascade, map: "patients_health_agent_id_fkey", index: false)
+  healthCenter   HealthCenters   @relation(fields: [healthCenterId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "patients_health_center_id_fkey", index: false)
+
+  @@index([cns], map: "patients_cns_key", unique: true)
+  @@index([cpf], map: "patients_cpf_key", unique: true)
+  @@map("patients")
+}
+
+model PatientPhones {
+  id          Uuid         @id(map: "patient_phones_pkey")
+  patientId   Uuid         @map("patient_id")
+  phoneNumber String       @map("phone_number")
+  isWhatsapp  Boolean      @default(false) @map("is_whatsapp")
+  createdAt   Timestamp(3) @default(now()) @map("created_at")
+  updatedAt   Timestamp(3) @map("updated_at")
+  patient     Patients     @relation(fields: [patientId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "patient_phones_patient_id_fkey", index: false)
+
+  @@map("patient_phones")
+}
+
+model Permissions {
+  id                    Uuid                    @id(map: "permissions_pkey")
+  name                  String
+  description           String?
+  createdAt             Timestamp(3)            @default(now()) @map("created_at")
+  updatedAt             Timestamp(3)            @map("updated_at")
+  profilePermissions    ProfilePermissions[]
+  userCustomPermissions UserCustomPermissions[]
+
+  @@index([name], map: "permissions_name_key", unique: true)
+  @@map("permissions")
+}
+
+model ProfilePermissions {
+  profileId    Uuid         @map("profile_id")
+  permissionId Uuid         @map("permission_id")
+  createdAt    Timestamp(3) @default(now()) @map("created_at")
+  permission   Permissions  @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "profile_permissions_permission_id_fkey", index: false)
+  profile      Profiles     @relation(fields: [profileId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "profile_permissions_profile_id_fkey", index: false)
+
+  @@id([profileId, permissionId], map: "profile_permissions_pkey")
+  @@map("profile_permissions")
 }
 
 model UserCustomPermissions {
