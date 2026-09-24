@@ -170,18 +170,18 @@ export const UsersList = () => {
  <tr key={user.id} className="hover:bg-slate-200 dark:bg-slate-800/20 transition-colors duration-150 group">
  <td className="px-6 py-4">
  <div className="flex items-center gap-3">
- <div className={`w-8 h-8 rounded-full ${user.active ? 'bg-blue-500/20' : 'bg-slate-200 dark:bg-slate-800/50'} border border-slate-300 dark:border-slate-800 flex items-center justify-center overflow-hidden`}>
+ <div className={`w-8 h-8 rounded-full ${user.isActive ? 'bg-blue-500/20' : 'bg-slate-200 dark:bg-slate-800/50'} border border-slate-300 dark:border-slate-800 flex items-center justify-center overflow-hidden`}>
  {user.avatar ? (
- <img src={getAvatarUrl(user.avatar) || ''} alt={user.name} className={`w-full h-full object-cover ${!user.active && 'grayscale opacity-50'}`} />
+ <img src={getAvatarUrl(user.avatar) || ''} alt={user.name} className={`w-full h-full object-cover ${!user.isActive && 'grayscale opacity-50'}`} />
  ) : (
- <UserIcon className={`w-4 h-4 ${user.active ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500'}`} />
+ <UserIcon className={`w-4 h-4 ${user.isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500'}`} />
  )}
  </div>
  <div>
- <div className={`font-medium transition-colors duration-200 ${user.active ? 'text-slate-900 dark:text-white group-hover:text-blue-400' : 'text-slate-500 line-through'}`}>
+ <div className={`font-medium transition-colors duration-200 ${user.isActive ? 'text-slate-900 dark:text-white group-hover:text-blue-400' : 'text-slate-500 line-through'}`}>
  {user.name}
  </div>
- {!user.active && <span className="text-[10px] text-rose-600 dark:text-rose-400/80 font-semibold uppercase">Desabilitado</span>}
+ {!user.isActive && <span className="text-[10px] text-rose-600 dark:text-rose-400/80 font-semibold uppercase">Desabilitado</span>}
  </div>
  </div>
  </td>
@@ -214,13 +214,13 @@ export const UsersList = () => {
  
  {(userPermissions.includes('users:write') || userPermissions.includes('admin:access')) && (
  <button
- onClick={() => handleToggleActive(user.id, user.active)}
+ onClick={() => handleToggleActive(user.id, user.isActive)}
  className={`p-1.5 border rounded-lg transition-all cursor-pointer ${
- user.active 
+ user.isActive 
  ? 'text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 bg-amber-100 dark:bg-amber-500/10 hover:bg-amber-200 dark:hover:bg-amber-500/20 border-amber-200 dark:border-amber-500/20' 
  : 'text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 bg-teal-100 dark:bg-teal-500/10 hover:bg-teal-200 dark:hover:bg-teal-500/20 border-teal-200 dark:border-teal-500/20'
  }`}
- title={user.active ? "Desabilitar" : "Habilitar"}
+ title={user.isActive ? "Desabilitar" : "Habilitar"}
  >
  <Power className="w-4 h-4" />
  </button>

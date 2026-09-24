@@ -53,7 +53,7 @@ export interface UserList {
  name: string;
  phone?: string;
  avatar?: string;
- active: boolean;
+ isActive: boolean;
  createdAt: string;
  profile: {
  id: string;
