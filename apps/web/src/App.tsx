@@ -14,6 +14,10 @@ import { Dashboard } from './pages/Dashboard';
 import { HealthCentersList } from './pages/HealthCenters';
 import { CreateOrEditHealthCenter } from './pages/HealthCenters/Create';
 import { HealthCenterDetails } from './pages/HealthCenters/Details';
+import { PatientsList } from './pages/Patients';
+import { CreatePatient } from './pages/Patients/Create';
+import { EditPatient } from './pages/Patients/Edit';
+import { PatientDetails } from './pages/Patients/Details';
 import { SocketProvider } from './contexts/SocketContext';
 import './App.css';
 
@@ -48,6 +52,15 @@ function App() {
                   <Route element={<ProtectedRoute requiredPermission="health-centers:write" />}>
                     <Route path="/health-centers/create" element={<CreateOrEditHealthCenter />} />
                     <Route path="/health-centers/:id/edit" element={<CreateOrEditHealthCenter />} />
+                  </Route>
+
+                  <Route element={<ProtectedRoute requiredPermission="patients:read" />}>
+                    <Route path="/patients" element={<PatientsList />} />
+                    <Route path="/patients/:id" element={<PatientDetails />} />
+                  </Route>
+                  <Route element={<ProtectedRoute requiredPermission="patients:write" />}>
+                    <Route path="/patients/create" element={<CreatePatient />} />
+                    <Route path="/patients/:id/edit" element={<EditPatient />} />
                   </Route>
                 </Route>
               </Route>

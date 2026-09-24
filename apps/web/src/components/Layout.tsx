@@ -11,7 +11,8 @@ import {
   ChevronUp,
   ChevronLeft,
   ChevronRight,
-  Building
+  Building,
+  Users
 } from 'lucide-react';
 import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
@@ -44,6 +45,9 @@ export const Layout = () => {
     { name: t('Dashboard'), path: '/', icon: Home },
     ...(permissions.includes('health-centers:read') || isAdmin ? [
       { name: 'Unidades de Saúde', path: '/health-centers', icon: Building },
+    ] : []),
+    ...(permissions.includes('patients:read') || isAdmin ? [
+      { name: 'Pacientes', path: '/patients', icon: Users },
     ] : []),
     ...(isAdmin ? [
       { name: 'Gestão de Utilizadores', path: '/users', icon: UsersIcon },
@@ -83,7 +87,7 @@ export const Layout = () => {
                     className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-4'} py-3 rounded-xl text-sm font-medium transition-all duration-300 group ${isActive
                       ? 'bg-white/15 border-l-2 border-white text-white shadow-md'
                       : 'text-blue-200 hover:text-white hover:bg-white/10 border-l-2 border-transparent'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <Icon className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${isActive ? 'text-white' : 'text-blue-300 group-hover:text-white'} shrink-0`} />
@@ -102,7 +106,7 @@ export const Layout = () => {
                             className={`px-3 py-2 rounded-lg text-sm transition-colors ${isSubActive
                               ? 'text-white bg-blue-500/10 font-medium'
                               : 'text-blue-200 hover:text-white hover:bg-white/10'
-                            }`}
+                              }`}
                           >
                             {sub.name}
                           </Link>
@@ -122,7 +126,7 @@ export const Layout = () => {
                 className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-4'} py-3 rounded-xl text-sm font-medium transition-all duration-300 group ${isActive
                   ? 'bg-white/15 border-l-2 border-white text-white shadow-md'
                   : 'text-blue-200 hover:text-white hover:bg-white/10 border-l-2 border-transparent'
-                }`}
+                  }`}
               >
                 <Icon className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${isActive ? 'text-white' : 'text-blue-300 group-hover:text-white'} shrink-0`} />
                 {!isCollapsed && <span>{item.name}</span>}
@@ -167,7 +171,7 @@ export const Layout = () => {
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
                   ? 'bg-white/15 border-l-2 border-white text-white'
                   : 'text-blue-200 hover:text-white hover:bg-white/10'
-                }`}
+                  }`}
               >
                 <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-blue-200'}`} />
                 <span>{item.name}</span>

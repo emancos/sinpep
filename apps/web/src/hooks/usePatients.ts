@@ -36,7 +36,7 @@ export interface Patient {
  attentionLevel: number;
  attentionNotes?: string | null;
  address?: string;
- active: boolean;
+ isActive: boolean;
  createdAt: string;
  updatedAt: string;
  healthCenterId: string;
