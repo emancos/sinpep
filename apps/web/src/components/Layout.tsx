@@ -66,9 +66,9 @@ export const Layout = () => {
           {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
 
-        {/* Brand/Logo */}
         <div className={`h-12 lg:h-14 flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-4 lg:px-6'} border-b border-white/10 dark:border-[#001122]/50 transition-all duration-300`}>
-          {!isCollapsed && <span className="font-bold text-lg text-white tracking-wide">{import.meta.env.VITE_APP_NAME}</span>}
+          <img src="/logo.svg" alt="Logo" className="w-8 h-8 shrink-0 drop-shadow-md" />
+          {!isCollapsed && <span className="font-bold text-lg text-white tracking-wide truncate">{import.meta.env.VITE_APP_NAME}</span>}
         </div>
 
         {/* Navigation Links */}
@@ -153,7 +153,8 @@ export const Layout = () => {
       <aside className={`fixed inset-y-0 left-0 w-64 bg-[#003B77] border-r border-white/10 dark:border-[#002244] z-40 transform transition-transform duration-300 md:hidden ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-12 lg:h-14 flex items-center justify-between px-4 lg:px-6 border-b border-white/10 dark:border-[#002244]/50">
           <div className="flex items-center gap-3">
-            <span className="font-bold text-lg text-white">{import.meta.env.VITE_APP_NAME}</span>
+            <img src="/logo.svg" alt="Logo" className="w-8 h-8 shrink-0 drop-shadow-md" />
+            <span className="font-bold text-lg text-white truncate">{import.meta.env.VITE_APP_NAME}</span>
           </div>
           <button onClick={() => setMobileMenuOpen(false)} className="text-blue-200 hover:text-white">
             <X className="w-6 h-6" />
@@ -194,7 +195,8 @@ export const Layout = () => {
 
           {/* Spacer on Desktop, Brand on mobile */}
           <div className="md:hidden flex items-center gap-2 text-white font-bold">
-            {import.meta.env.VITE_APP_NAME || "Base"}
+            <img src="/logo.svg" alt="Logo" className="w-7 h-7 shrink-0 drop-shadow-md" />
+            <span className="truncate">{import.meta.env.VITE_APP_NAME || "Base"}</span>
           </div>
 
           <div className="hidden md:block">
