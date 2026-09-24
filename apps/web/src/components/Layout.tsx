@@ -67,7 +67,7 @@ export const Layout = () => {
         </button>
 
         <div className={`h-12 lg:h-14 flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-4 lg:px-6'} border-b border-white/10 dark:border-[#001122]/50 transition-all duration-300`}>
-          <img src="/logo.svg" alt="Logo" className="w-8 h-8 shrink-0 drop-shadow-md" />
+          <img src="/logo.svg" alt="Logo" className="w-10 h-10 shrink-0 drop-shadow-md" />
           {!isCollapsed && <span className="font-bold text-lg text-white tracking-wide truncate">{import.meta.env.VITE_APP_NAME}</span>}
         </div>
 
