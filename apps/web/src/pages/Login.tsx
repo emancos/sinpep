@@ -123,8 +123,15 @@ export const Login: React.FC = () => {
                 </form>
 
                 {/* Footer */}
-                <div className="text-center mt-8 text-xs text-slate-500 border-t border-slate-300 dark:border-slate-800/60 pt-6">
-                    <p>Sistema Base</p>
+                <div className="text-center mt-8 text-2xs text-slate-500 border-t border-slate-300 dark:border-slate-800/60 pt-6">
+                    <div className="flex items-center justify-center gap-2">
+                        <img
+                            src="/logo.png"
+                            alt="Logo Integra Sistemas"
+                            className="w-8 h-8 object-contain"
+                        />
+                        <span>Desenvolvido por Integra Sistemas</span>
+                    </div>
                 </div>
             </div>
         </div>
