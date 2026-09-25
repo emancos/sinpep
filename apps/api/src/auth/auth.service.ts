@@ -11,8 +11,8 @@ export interface ValidatedUser {
   phone?: string | null;
   avatar?: string | null;
   profileId: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Date | string;
+  updatedAt: Date | string;
   permissions: string[];
 }
 
@@ -29,7 +29,7 @@ export class AuthService {
     email: string,
     pass: string,
   ): Promise<ValidatedUser | null> {
-    const user = await this.usersService.findByEmail(email);
+    const user: any = await this.usersService.findByEmail(email);
     if (!user) {
       return null;
     }
@@ -52,8 +52,8 @@ export class AuthService {
     }
 
     // 2. Apply custom permission overrides
-    if (user.customPermissions) {
-      for (const cp of user.customPermissions) {
+    if (user.userCustomPermissions) {
+      for (const cp of user.userCustomPermissions) {
         if (cp.permission && cp.permission.name) {
           permissionMap.set(cp.permission.name, cp.isAllowed);
         }

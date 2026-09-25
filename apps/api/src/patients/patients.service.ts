@@ -1,28 +1,37 @@
-// @ts-nocheck
-import { Temporal } from '@js-temporal/polyfill';
-globalThis.Temporal = Temporal;
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { DATABASE_CONNECTION } from '../database/database.module';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import * as schema from '../database/schema';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { UpdateAttentionDto } from './dto/update-attention.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { eq, ilike, or, and, asc, desc } from 'drizzle-orm';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class PatientsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: NodePgDatabase<typeof schema>,
+  ) {}
 
   async checkUnique(cpf?: string, cns?: string, excludeId?: string) {
     if (!cpf && !cns) {
       return { isUnique: true };
     }
 
-    let existingPatients = await this.prisma.db.orm.public.Patients.where(p => {
-      if (cpf && cns) return p.cpf.eq(cpf).or(p.cns.eq(cns));
-      if (cpf) return p.cpf.eq(cpf);
-      return p.cns.eq(cns);
-    }).all();
+    const conditions = [];
+    if (cpf && cns) {
+      conditions.push(or(eq(schema.patients.cpf, cpf), eq(schema.patients.cns, cns)));
+    } else if (cpf) {
+      conditions.push(eq(schema.patients.cpf, cpf));
+    } else if (cns) {
+      conditions.push(eq(schema.patients.cns, cns));
+    }
+
+    const whereClause = and(...conditions);
+    let existingPatients = await this.db.select().from(schema.patients).where(whereClause);
 
     if (excludeId) {
       existingPatients = existingPatients.filter((p) => p.id !== excludeId);
@@ -33,10 +42,8 @@ export class PatientsService {
     }
 
     const duplicates = [];
-    if (cpf && existingPatients.some((p) => p.cpf === cpf))
-      duplicates.push('CPF');
-    if (cns && existingPatients.some((p) => p.cns === cns))
-      duplicates.push('CNS');
+    if (cpf && existingPatients.some((p) => p.cpf === cpf)) duplicates.push('CPF');
+    if (cns && existingPatients.some((p) => p.cns === cns)) duplicates.push('CNS');
 
     return {
       isUnique: false,
@@ -47,37 +54,34 @@ export class PatientsService {
 
   async create(createPatientDto: CreatePatientDto) {
     const { phones, birthDate, ...rest } = createPatientDto;
-
-    // In prisma 8 we can't easily nest create for relations like in prisma 6 unless supported by contract.
-    // So we use a transaction or simply create sequentially.
     const patientId = crypto.randomUUID();
 
-    const patient = await this.prisma.db.orm.public.Patients.create({
+    await this.db.insert(schema.patients).values({
       id: patientId,
       name: rest.name,
       cpf: rest.cpf,
       cns: rest.cns ?? null,
-      birthDate: Temporal.PlainDateTime.from(new Date(birthDate).toISOString().split('T')[0] + 'T00:00:00'),
+      birthDate: new Date(birthDate).toISOString().split('T')[0] + 'T00:00:00.000Z',
       gender: rest.gender,
       healthCenterId: rest.healthCenterId,
       healthAgentId: rest.healthAgentId ?? null,
       address: rest.address ?? null,
-      attentionLevel: rest.attentionLevel ?? 1,
-      attentionNotes: rest.attentionNotes ?? null,
+      attentionLevel: (rest as any).attentionLevel ?? 1,
+      attentionNotes: (rest as any).attentionNotes ?? null,
       isActive: true,
-      createdAt: Temporal.Now.plainDateTimeISO(),
-      updatedAt: Temporal.Now.plainDateTimeISO(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     });
 
     if (phones && phones.length > 0) {
       for (const p of phones) {
-        await this.prisma.db.orm.public.PatientPhones.create({
+        await this.db.insert(schema.patientPhones).values({
           id: crypto.randomUUID(),
           patientId: patientId,
           phoneNumber: p.phoneNumber,
           isWhatsapp: p.isWhatsapp ?? false,
-          createdAt: Temporal.Now.plainDateTimeISO(),
-          updatedAt: Temporal.Now.plainDateTimeISO(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         });
       }
     }
@@ -89,33 +93,46 @@ export class PatientsService {
     const { page = 1, limit = 10, sortBy, sortOrder = 'asc', search } = query;
     const skip = (page - 1) * limit;
 
-    let q = this.prisma.db.orm.public.Patients
-      .include('healthCenter')
-      .include('healthAgent')
-      .include('patientPhones');
+    const conditions = [];
 
     if (query.includeInactive !== 'true') {
-      q = q.where({ isActive: true });
+      conditions.push(eq(schema.patients.isActive, true));
     }
 
     if (search) {
-      q = q.where(p => p.name.ilike(`%${search}%`).or(p.cpf.ilike(`%${search}%`)).or(p.cns.ilike(`%${search}%`)));
+      conditions.push(
+        or(
+          ilike(schema.patients.name, `%${search}%`),
+          ilike(schema.patients.cpf, `%${search}%`),
+          ilike(schema.patients.cns, `%${search}%`)
+        )
+      );
     }
 
-    const allData = await q.all();
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const allData = await this.db.query.patients.findMany({
+      where: whereClause,
+      with: {
+        healthCenter: true,
+        healthAgent: true,
+        patientPhones: true,
+      }
+    });
+
     let data = allData;
 
     if (sortBy) {
       data = data.sort((a, b) => {
-        let valA = a[sortBy];
-        let valB = b[sortBy];
+        let valA: any = (a as any)[sortBy];
+        let valB: any = (b as any)[sortBy];
 
         if (sortBy === 'healthCenter') {
-          valA = a.healthCenter?.name;
-          valB = b.healthCenter?.name;
+          valA = (a as any).healthCenter?.name;
+          valB = (b as any).healthCenter?.name;
         } else if (sortBy === 'healthAgent') {
-          valA = a.healthAgent?.name;
-          valB = b.healthAgent?.name;
+          valA = (a as any).healthAgent?.name;
+          valB = (b as any).healthAgent?.name;
         }
 
         if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
@@ -133,11 +150,14 @@ export class PatientsService {
   }
 
   async findOne(id: string) {
-    const patient = await this.prisma.db.orm.public.Patients.where({ id })
-      .include('patientPhones')
-      .include('healthCenter')
-      .include('healthAgent')
-      .first();
+    const patient = await this.db.query.patients.findFirst({
+      where: eq(schema.patients.id, id),
+      with: {
+        patientPhones: true,
+        healthCenter: true,
+        healthAgent: true,
+      }
+    });
 
     if (!patient) {
       throw new NotFoundException(`Patient with ID ${id} not found`);
@@ -149,27 +169,31 @@ export class PatientsService {
     await this.findOne(id);
     const { phones, birthDate, ...rest } = updatePatientDto;
 
-    const dataToUpdate = { ...rest, updatedAt: Temporal.Now.plainDateTimeISO() };
+    const dataToUpdate: any = { ...rest, updatedAt: new Date().toISOString() };
     if (birthDate) {
-      dataToUpdate.birthDate = Temporal.PlainDateTime.from(new Date(birthDate).toISOString().split('T')[0] + 'T00:00:00');
+      dataToUpdate.birthDate = new Date(birthDate).toISOString().split('T')[0] + 'T00:00:00.000Z';
     }
     if (dataToUpdate.active !== undefined) {
       dataToUpdate.isActive = dataToUpdate.active;
       delete dataToUpdate.active;
     }
 
-    await this.prisma.db.orm.public.Patients.where({ id }).update(dataToUpdate);
+    if (Object.keys(dataToUpdate).length > 0) {
+      await this.db.update(schema.patients)
+        .set(dataToUpdate)
+        .where(eq(schema.patients.id, id));
+    }
 
     if (phones) {
-      await this.prisma.db.orm.public.PatientPhones.where({ patientId: id }).delete();
+      await this.db.delete(schema.patientPhones).where(eq(schema.patientPhones.patientId, id));
       for (const p of phones) {
-        await this.prisma.db.orm.public.PatientPhones.create({
+        await this.db.insert(schema.patientPhones).values({
           id: crypto.randomUUID(),
           patientId: id,
           phoneNumber: p.phoneNumber,
           isWhatsapp: p.isWhatsapp ?? false,
-          createdAt: Temporal.Now.plainDateTimeISO(),
-          updatedAt: Temporal.Now.plainDateTimeISO(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         });
       }
     }
@@ -179,25 +203,34 @@ export class PatientsService {
 
   async toggleActive(id: string) {
     const patient = await this.findOne(id);
-    return this.prisma.db.orm.public.Patients.where({ id }).update({
-      isActive: !patient.isActive,
-      updatedAt: Temporal.Now.plainDateTimeISO(),
-    });
+    await this.db.update(schema.patients)
+      .set({
+        isActive: !patient.isActive,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(schema.patients.id, id));
+      
+    return this.findOne(id);
   }
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.db.orm.public.Patients.where({ id }).delete();
+    const [deleted] = await this.db.delete(schema.patients)
+      .where(eq(schema.patients.id, id))
+      .returning();
+    return deleted;
   }
 
   async updateAttention(id: string, updateAttentionDto: UpdateAttentionDto) {
     await this.findOne(id);
 
-    await this.prisma.db.orm.public.Patients.where({ id }).update({
-      attentionLevel: updateAttentionDto.attentionLevel,
-      attentionNotes: updateAttentionDto.attentionNotes,
-      updatedAt: Temporal.Now.plainDateTimeISO(),
-    });
+    await this.db.update(schema.patients)
+      .set({
+        attentionLevel: updateAttentionDto.attentionLevel,
+        attentionNotes: updateAttentionDto.attentionNotes,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(schema.patients.id, id));
 
     return this.findOne(id);
   }

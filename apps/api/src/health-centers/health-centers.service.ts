@@ -1,68 +1,88 @@
-// @ts-nocheck
-import { Temporal } from '@js-temporal/polyfill';
-globalThis.Temporal = Temporal;
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { DATABASE_CONNECTION } from '../database/database.module';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import * as schema from '../database/schema';
 import { CreateHealthCenterDto } from './dto/create-health-center.dto';
 import { UpdateHealthCenterDto } from './dto/update-health-center.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { eq, ilike, or, and, asc, desc } from 'drizzle-orm';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class HealthCentersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: NodePgDatabase<typeof schema>,
+  ) {}
 
   async create(createHealthCenterDto: CreateHealthCenterDto) {
-    return this.prisma.db.orm.public.HealthCenters.create({
+    const [healthCenter] = await this.db.insert(schema.healthCenters).values({
       id: crypto.randomUUID(),
       name: createHealthCenterDto.name,
       cnes: createHealthCenterDto.cnes ?? null,
       address: createHealthCenterDto.address ?? null,
       nurseName: createHealthCenterDto.nurseName ?? null,
       isActive: true,
-      createdAt: Temporal.Now.plainDateTimeISO(),
-      updatedAt: Temporal.Now.plainDateTimeISO(),
-    });
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }).returning();
+    return healthCenter;
   }
 
   async findAll(query: PaginationQueryDto) {
     const { page = 1, limit = 10, sortBy, sortOrder = 'asc', search } = query;
     const skip = (page - 1) * limit;
 
-    let q = this.prisma.db.orm.public.HealthCenters.include('healthAgents');
+    const conditions = [];
 
     if (query.includeInactive !== 'true') {
-      q = q.where({ isActive: true });
+      conditions.push(eq(schema.healthCenters.isActive, true));
     }
 
     if (search) {
-      q = q.where(hc => hc.name.ilike(`%${search}%`) || hc.cnes.ilike(`%${search}%`) || hc.address.ilike(`%${search}%`));
+      conditions.push(
+        or(
+          ilike(schema.healthCenters.name, `%${search}%`),
+          ilike(schema.healthCenters.cnes, `%${search}%`),
+          ilike(schema.healthCenters.address, `%${search}%`)
+        )
+      );
     }
 
-    // TODO: implement order by and pagination for Prisma 8
-    // For now we just return all matching or paginated manually
-    const allData = await q.all();
-    
-    let data = allData;
-    if (sortBy) {
-      data = data.sort((a, b) => {
-        if (a[sortBy] < b[sortBy]) return sortOrder === 'asc' ? -1 : 1;
-        if (a[sortBy] > b[sortBy]) return sortOrder === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const total = data.length;
-    data = data.slice(skip, skip + limit);
+    let orderByField: any = schema.healthCenters.name;
+    if (sortBy === 'name') orderByField = schema.healthCenters.name;
+    if (sortBy === 'cnes') orderByField = schema.healthCenters.cnes;
+
+    let sortFn = sortOrder === 'desc' ? desc : asc;
+
+    const allData = await this.db.query.healthCenters.findMany({
+      where: whereClause,
+    });
+    const total = allData.length;
+
+    const data = await this.db.query.healthCenters.findMany({
+      where: whereClause,
+      with: {
+        healthAgents: true,
+      },
+      orderBy: [sortFn(orderByField)],
+      limit: limit,
+      offset: skip
+    });
 
     return { data, total };
   }
 
   async findOne(id: string) {
-    const healthCenter = await this.prisma.db.orm.public.HealthCenters.where({ id })
-      .include('healthAgents')
-      .include('patients')
-      .first();
+    const healthCenter = await this.db.query.healthCenters.findFirst({
+      where: eq(schema.healthCenters.id, id),
+      with: {
+        healthAgents: true,
+        patients: true,
+      }
+    });
 
     if (!healthCenter) {
       throw new NotFoundException(`HealthCenter with ID ${id} not found`);
@@ -73,25 +93,38 @@ export class HealthCentersService {
   async update(id: string, updateHealthCenterDto: UpdateHealthCenterDto) {
     await this.findOne(id);
     
-    const dataToUpdate = { ...updateHealthCenterDto, updatedAt: Temporal.Now.plainDateTimeISO() };
+    const dataToUpdate: any = { ...updateHealthCenterDto, updatedAt: new Date().toISOString() };
     if (dataToUpdate.active !== undefined) {
       dataToUpdate.isActive = dataToUpdate.active;
       delete dataToUpdate.active;
     }
 
-    return this.prisma.db.orm.public.HealthCenters.where({ id }).update(dataToUpdate);
+    const [updated] = await this.db.update(schema.healthCenters)
+      .set(dataToUpdate)
+      .where(eq(schema.healthCenters.id, id))
+      .returning();
+      
+    return updated;
   }
 
   async toggleActive(id: string) {
     const healthCenter = await this.findOne(id);
-    return this.prisma.db.orm.public.HealthCenters.where({ id }).update({
-      isActive: !healthCenter.isActive,
-      updatedAt: Temporal.Now.plainDateTimeISO(),
-    });
+    const [updated] = await this.db.update(schema.healthCenters)
+      .set({
+        isActive: !healthCenter.isActive,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(schema.healthCenters.id, id))
+      .returning();
+      
+    return updated;
   }
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.db.orm.public.HealthCenters.where({ id }).delete();
+    const [deleted] = await this.db.delete(schema.healthCenters)
+      .where(eq(schema.healthCenters.id, id))
+      .returning();
+    return deleted;
   }
 }

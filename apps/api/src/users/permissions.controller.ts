@@ -1,20 +1,25 @@
-// @ts-nocheck
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Controller, Get, UseGuards, Inject } from '@nestjs/common';
+import { DATABASE_CONNECTION } from '../database/database.module';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import * as schema from '../database/schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { asc } from 'drizzle-orm';
 
 @Controller('permissions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PermissionsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: NodePgDatabase<typeof schema>,
+  ) {}
 
   @Get()
-  @Permissions('admin:access') // Or any appropriate permission if this is restricted
+  @Permissions('admin:access')
   async findAll() {
-    return this.prisma.db.orm.public.Permissions
-      .orderBy((p) => p.name.asc())
-      .all();
+    return this.db.query.permissions.findMany({
+      orderBy: [asc(schema.permissions.name)]
+    });
   }
 }

@@ -1,61 +1,75 @@
-// @ts-nocheck
-import { Temporal } from '@js-temporal/polyfill';
-globalThis.Temporal = Temporal;
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { DATABASE_CONNECTION } from '../database/database.module';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import * as schema from '../database/schema';
 import { CreateSpecialtyDto } from './dto/create-specialty.dto';
 import { UpdateSpecialtyDto } from './dto/update-specialty.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { eq, ilike, or, and, asc, desc } from 'drizzle-orm';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class SpecialtiesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: NodePgDatabase<typeof schema>,
+  ) {}
 
   async create(createSpecialtyDto: CreateSpecialtyDto) {
-    return this.prisma.db.orm.public.Specialties.create({
+    const [newSpecialty] = await this.db.insert(schema.specialties).values({
       id: crypto.randomUUID(),
       name: createSpecialtyDto.name,
       description: createSpecialtyDto.description ?? null,
+      cbo: createSpecialtyDto.cbo ?? null,
       isActive: true,
-      createdAt: Temporal.Now.plainDateTimeISO(),
-      updatedAt: Temporal.Now.plainDateTimeISO(),
-    });
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }).returning();
+    return newSpecialty;
   }
 
   async findAll(query: PaginationQueryDto) {
     const { page = 1, limit = 10, sortBy, sortOrder = 'asc', search } = query;
     const skip = (page - 1) * limit;
 
-    let q = this.prisma.db.orm.public.Specialties;
+    const conditions = [];
 
     if (query.includeInactive !== 'true') {
-      q = q.where({ isActive: true });
+      conditions.push(eq(schema.specialties.isActive, true));
     }
 
     if (search) {
-      q = q.where(s => s.name.ilike(`%${search}%`) || s.description.ilike(`%${search}%`));
+      conditions.push(
+        or(
+          ilike(schema.specialties.name, `%${search}%`),
+          ilike(schema.specialties.description, `%${search}%`),
+          ilike(schema.specialties.cbo, `%${search}%`),
+        )
+      );
     }
 
-    const allData = await q.all();
-    
-    let data = allData;
-    if (sortBy) {
-      data = data.sort((a, b) => {
-        if (a[sortBy] < b[sortBy]) return sortOrder === 'asc' ? -1 : 1;
-        if (a[sortBy] > b[sortBy]) return sortOrder === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
+    let orderByField: any = schema.specialties.name;
+    if (sortBy === 'name') orderByField = schema.specialties.name;
+    if (sortBy === 'cbo') orderByField = schema.specialties.cbo;
 
-    const total = data.length;
-    data = data.slice(skip, skip + limit);
+    let sortFn = sortOrder === 'desc' ? desc : asc;
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const allData = await this.db.select().from(schema.specialties).where(whereClause);
+    const total = allData.length; 
+
+    const data = await this.db.select().from(schema.specialties)
+      .where(whereClause)
+      .orderBy(sortFn(orderByField))
+      .limit(limit)
+      .offset(skip);
 
     return { data, total };
   }
 
   async findOne(id: string) {
-    const specialty = await this.prisma.db.orm.public.Specialties.where({ id }).first();
+    const [specialty] = await this.db.select().from(schema.specialties).where(eq(schema.specialties.id, id)).limit(1);
 
     if (!specialty) {
       throw new NotFoundException(`Specialty with ID ${id} not found`);
@@ -66,25 +80,38 @@ export class SpecialtiesService {
   async update(id: string, updateSpecialtyDto: UpdateSpecialtyDto) {
     await this.findOne(id);
     
-    const dataToUpdate = { ...updateSpecialtyDto, updatedAt: Temporal.Now.plainDateTimeISO() };
+    const dataToUpdate: any = { ...updateSpecialtyDto, updatedAt: new Date().toISOString() };
     if (dataToUpdate.active !== undefined) {
       dataToUpdate.isActive = dataToUpdate.active;
       delete dataToUpdate.active;
     }
 
-    return this.prisma.db.orm.public.Specialties.where({ id }).update(dataToUpdate);
+    const [updated] = await this.db.update(schema.specialties)
+      .set(dataToUpdate)
+      .where(eq(schema.specialties.id, id))
+      .returning();
+      
+    return updated;
   }
 
   async toggleActive(id: string) {
     const specialty = await this.findOne(id);
-    return this.prisma.db.orm.public.Specialties.where({ id }).update({
-      isActive: !specialty.isActive,
-      updatedAt: Temporal.Now.plainDateTimeISO(),
-    });
+    const [updated] = await this.db.update(schema.specialties)
+      .set({
+        isActive: !specialty.isActive,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(schema.specialties.id, id))
+      .returning();
+      
+    return updated;
   }
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.db.orm.public.Specialties.where({ id }).delete();
+    const [deleted] = await this.db.delete(schema.specialties)
+      .where(eq(schema.specialties.id, id))
+      .returning();
+    return deleted;
   }
 }

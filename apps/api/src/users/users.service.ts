@@ -1,29 +1,52 @@
-// @ts-nocheck
-import { Temporal } from '@js-temporal/polyfill';
-globalThis.Temporal = Temporal;
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Injectable, Inject } from '@nestjs/common';
+import { DATABASE_CONNECTION } from '../database/database.module';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import * as schema from '../database/schema';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { eq } from 'drizzle-orm';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: NodePgDatabase<typeof schema>,
+  ) {}
 
   async findByEmail(email: string) {
-    return this.prisma.db.orm.public.Users.where(u => u.email.eq(email))
-      // @ts-ignore
-      .include('profile', p => p.include('profilePermissions', pp => pp.include('permission')))
-      // @ts-ignore
-      .include('userCustomPermissions', cp => cp.include('permission'))
-      .first();
+    return this.db.query.users.findFirst({
+      where: eq(schema.users.email, email),
+      with: {
+        profile: {
+          with: {
+            profilePermissions: {
+              with: { permission: true }
+            }
+          }
+        },
+        userCustomPermissions: {
+          with: { permission: true }
+        }
+      }
+    });
   }
 
   async findById(id: string) {
-    return this.prisma.db.orm.public.Users.where(u => u.id.eq(id))
-      .include('profile', p => p.include('profilePermissions', pp => pp.include('permission')))
-      .include('userCustomPermissions', cp => cp.include('permission'))
-      .first();
+    return this.db.query.users.findFirst({
+      where: eq(schema.users.id, id),
+      with: {
+        profile: {
+          with: {
+            profilePermissions: {
+              with: { permission: true }
+            }
+          }
+        },
+        userCustomPermissions: {
+          with: { permission: true }
+        }
+      }
+    });
   }
 
   async create(data: {
@@ -38,7 +61,7 @@ export class UsersService {
       ? await bcrypt.hash(data.password, 10)
       : await bcrypt.hash('123456', 10);
 
-    const user = await this.prisma.db.orm.public.Users.create({
+    const [user] = await this.db.insert(schema.users).values({
       id: crypto.randomUUID(),
       email: data.email,
       name: data.name,
@@ -47,32 +70,30 @@ export class UsersService {
       profileId: data.profileId,
       isActive: true,
       avatar: null,
-      createdAt: Temporal.Now.plainDateTimeISO(),
-      updatedAt: Temporal.Now.plainDateTimeISO(),
-    });
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }).returning();
 
     if (data.customPermissions && data.customPermissions.length > 0) {
-      await this.prisma.db.orm.public.UserCustomPermissions.createAll(
-        data.customPermissions.map((cp) => ({
-          id: crypto.randomUUID(),
-          userId: user.id,
-          permissionId: cp.permissionId,
-          isAllowed: cp.isAllowed,
-          createdAt: Temporal.Now.plainDateTimeISO(),
-          updatedAt: Temporal.Now.plainDateTimeISO(),
-        }))
-      );
+      const customPermsData = data.customPermissions.map((cp) => ({
+        id: crypto.randomUUID(),
+        userId: user.id,
+        permissionId: cp.permissionId,
+        isAllowed: cp.isAllowed,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+      await this.db.insert(schema.userCustomPermissions).values(customPermsData);
     }
 
     return user;
   }
 
   async findAll(includeInactive: boolean = false) {
-    let query = this.prisma.db.orm.public.Users.include('profile');
-    if (!includeInactive) {
-      return query.where(u => u.isActive.eq(true)).all();
-    }
-    return query.all();
+    return this.db.query.users.findMany({
+      where: includeInactive ? undefined : eq(schema.users.isActive, true),
+      with: { profile: true }
+    });
   }
 
   async update(
@@ -86,7 +107,7 @@ export class UsersService {
       customPermissions?: { permissionId: string; isAllowed: boolean }[];
     },
   ) {
-    const user = await this.prisma.db.orm.public.Users.where(u => u.id.eq(id)).first();
+    const user = await this.db.query.users.findFirst({ where: eq(schema.users.id, id) });
     if (!user) throw new Error('User not found');
 
     const data: any = {};
@@ -97,43 +118,54 @@ export class UsersService {
     if (updateData.password) {
       data.passwordHash = await bcrypt.hash(updateData.password, 10);
     }
-    data.updatedAt = Temporal.Now.plainDateTimeISO();
-
-    const updatedUser = await this.prisma.db.orm.public.Users.where(u => u.id.eq(id)).update(data);
+    
+    if (Object.keys(data).length > 0) {
+      data.updatedAt = new Date().toISOString();
+      await this.db.update(schema.users)
+        .set(data)
+        .where(eq(schema.users.id, id));
+    }
 
     if (updateData.customPermissions !== undefined) {
-      await this.prisma.db.orm.public.UserCustomPermissions.where(cp => cp.userId.eq(id)).deleteAll();
+      await this.db.delete(schema.userCustomPermissions).where(eq(schema.userCustomPermissions.userId, id));
       if (updateData.customPermissions.length > 0) {
-        await this.prisma.db.orm.public.UserCustomPermissions.createAll(
-          updateData.customPermissions.map((cp) => ({
-            id: crypto.randomUUID(),
-            userId: id,
-            permissionId: cp.permissionId,
-            isAllowed: cp.isAllowed,
-            createdAt: Temporal.Now.plainDateTimeISO(),
-            updatedAt: Temporal.Now.plainDateTimeISO(),
-          }))
-        );
+        const customPermsData = updateData.customPermissions.map((cp) => ({
+          id: crypto.randomUUID(),
+          userId: id,
+          permissionId: cp.permissionId,
+          isAllowed: cp.isAllowed,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }));
+        await this.db.insert(schema.userCustomPermissions).values(customPermsData);
       }
     }
 
-    return updatedUser;
+    return this.findById(id);
   }
 
   async toggleActive(id: string) {
-    const user = await this.prisma.db.orm.public.Users.where(u => u.id.eq(id)).first();
+    const user = await this.db.query.users.findFirst({ where: eq(schema.users.id, id) });
     if (!user) throw new Error('User not found');
-    return this.prisma.db.orm.public.Users.where(u => u.id.eq(id)).update({ isActive: !user.isActive, updatedAt: Temporal.Now.plainDateTimeISO() });
+    await this.db.update(schema.users)
+      .set({ isActive: !user.isActive, updatedAt: new Date().toISOString() })
+      .where(eq(schema.users.id, id));
+      
+    return this.findById(id);
   }
 
   async delete(id: string) {
-    return this.prisma.db.orm.public.Users.where(u => u.id.eq(id)).delete();
+    const [deleted] = await this.db.delete(schema.users).where(eq(schema.users.id, id)).returning();
+    return deleted;
   }
 
   async getProfiles() {
-    return this.prisma.db.orm.public.Profiles
-      .include('profilePermissions', pp => pp.include('permission'))
-      .all();
+    return this.db.query.profiles.findMany({
+      with: {
+        profilePermissions: {
+          with: { permission: true }
+        }
+      }
+    });
   }
 }
-

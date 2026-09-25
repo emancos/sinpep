@@ -1,19 +1,22 @@
-// @ts-nocheck
-import { Temporal } from '@js-temporal/polyfill';
-globalThis.Temporal = Temporal;
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { DATABASE_CONNECTION } from '../database/database.module';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import * as schema from '../database/schema';
 import { CreateHealthAgentDto } from './dto/create-health-agent.dto';
 import { UpdateHealthAgentDto } from './dto/update-health-agent.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { eq, ilike, or, and, asc, desc } from 'drizzle-orm';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class HealthAgentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: NodePgDatabase<typeof schema>,
+  ) {}
 
   async create(createHealthAgentDto: CreateHealthAgentDto) {
-    const created = await this.prisma.db.orm.public.HealthAgents.create({
+    const [healthAgent] = await this.db.insert(schema.healthAgents).values({
       id: crypto.randomUUID(),
       name: createHealthAgentDto.name,
       phone: createHealthAgentDto.phone ?? null,
@@ -21,39 +24,50 @@ export class HealthAgentsService {
       healthCenterId: createHealthAgentDto.healthCenterId,
       userId: createHealthAgentDto.userId ?? null,
       isActive: true,
-      createdAt: Temporal.Now.plainDateTimeISO(),
-      updatedAt: Temporal.Now.plainDateTimeISO(),
-    });
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }).returning();
     
-    // In Prisma 8, to return relations immediately we can just query it again or rely on the query builder
-    return this.prisma.db.orm.public.HealthAgents.where({ id: created.id }).include('healthCenter').first();
+    return this.findOne(healthAgent.id);
   }
 
   async findAll(query: PaginationQueryDto) {
     const { page = 1, limit = 10, sortBy, sortOrder = 'asc', search } = query;
     const skip = (page - 1) * limit;
 
-    let q = this.prisma.db.orm.public.HealthAgents.include('healthCenter');
+    const conditions = [];
 
     if (query.includeInactive !== 'true') {
-      q = q.where({ isActive: true });
+      conditions.push(eq(schema.healthAgents.isActive, true));
     }
 
     if (search) {
-      q = q.where(ha => ha.name.ilike(`%${search}%`) || ha.phone.ilike(`%${search}%`) || ha.microArea.ilike(`%${search}%`));
+      conditions.push(
+        or(
+          ilike(schema.healthAgents.name, `%${search}%`),
+          ilike(schema.healthAgents.phone, `%${search}%`),
+          ilike(schema.healthAgents.microArea, `%${search}%`)
+        )
+      );
     }
 
-    const allData = await q.all();
-    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const allData = await this.db.query.healthAgents.findMany({
+      where: whereClause,
+      with: { healthCenter: true }
+    });
+
     let data = allData;
+
     if (sortBy) {
       data = data.sort((a, b) => {
-        let valA = a[sortBy];
-        let valB = b[sortBy];
+        let valA: any = (a as any)[sortBy];
+        let valB: any = (b as any)[sortBy];
         
         if (sortBy === 'healthCenter') {
-          valA = a.healthCenter?.name;
-          valB = b.healthCenter?.name;
+          valA = (a as any).healthCenter?.name;
+          valB = (b as any).healthCenter?.name;
         }
 
         if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
@@ -69,9 +83,12 @@ export class HealthAgentsService {
   }
 
   async findOne(id: string) {
-    const healthAgent = await this.prisma.db.orm.public.HealthAgents.where({ id })
-      .include('healthCenter')
-      .first();
+    const healthAgent = await this.db.query.healthAgents.findFirst({
+      where: eq(schema.healthAgents.id, id),
+      with: {
+        healthCenter: true
+      }
+    });
 
     if (!healthAgent) {
       throw new NotFoundException(`HealthAgent with ID ${id} not found`);
@@ -82,26 +99,38 @@ export class HealthAgentsService {
   async update(id: string, updateHealthAgentDto: UpdateHealthAgentDto) {
     await this.findOne(id);
     
-    const dataToUpdate = { ...updateHealthAgentDto, updatedAt: Temporal.Now.plainDateTimeISO() };
+    const dataToUpdate: any = { ...updateHealthAgentDto, updatedAt: new Date().toISOString() };
     if (dataToUpdate.active !== undefined) {
       dataToUpdate.isActive = dataToUpdate.active;
       delete dataToUpdate.active;
     }
 
-    await this.prisma.db.orm.public.HealthAgents.where({ id }).update(dataToUpdate);
-    return this.prisma.db.orm.public.HealthAgents.where({ id }).include('healthCenter').first();
+    if (Object.keys(dataToUpdate).length > 0) {
+      await this.db.update(schema.healthAgents)
+        .set(dataToUpdate)
+        .where(eq(schema.healthAgents.id, id));
+    }
+      
+    return this.findOne(id);
   }
 
   async toggleActive(id: string) {
     const healthAgent = await this.findOne(id);
-    return this.prisma.db.orm.public.HealthAgents.where({ id }).update({
-      isActive: !healthAgent.isActive,
-      updatedAt: Temporal.Now.plainDateTimeISO(),
-    });
+    await this.db.update(schema.healthAgents)
+      .set({
+        isActive: !healthAgent.isActive,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(schema.healthAgents.id, id));
+      
+    return this.findOne(id);
   }
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.db.orm.public.HealthAgents.where({ id }).delete();
+    const [deleted] = await this.db.delete(schema.healthAgents)
+      .where(eq(schema.healthAgents.id, id))
+      .returning();
+    return deleted;
   }
 }
