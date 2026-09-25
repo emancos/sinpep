@@ -21,7 +21,7 @@ export interface ProcedureVariant {
 export interface ProcedureGroup {
  id: string;
  name: string;
- active: boolean;
+ isActive: boolean;
 }
 
 export interface Procedure {
@@ -34,7 +34,7 @@ export interface Procedure {
  genderAllowed: 'AMBOS' | 'FEMININO' | 'MASCULINO';
  minAge: number;
  maxAge: number;
- active: boolean;
+ isActive: boolean;
  createdAt: string;
  updatedAt: string;
 }
