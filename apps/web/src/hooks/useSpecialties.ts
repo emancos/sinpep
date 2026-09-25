@@ -88,3 +88,19 @@ export function useToggleSpecialtyActive() {
     },
   });
 }
+
+export function useDeleteSpecialty() {
+  const queryClient = useQueryClient();
+  const token = useAuthStore((state) => state.token);
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await axios.delete(`${apiUrl}/specialties/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['specialties'] });
+    },
+  });
+}

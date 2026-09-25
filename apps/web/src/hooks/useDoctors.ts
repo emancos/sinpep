@@ -103,3 +103,19 @@ export function useToggleDoctorActive() {
     },
   });
 }
+
+export function useDeleteDoctor() {
+  const queryClient = useQueryClient();
+  const token = useAuthStore((state) => state.token);
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await axios.delete(`${apiUrl}/doctors/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['doctors'] });
+    },
+  });
+}
