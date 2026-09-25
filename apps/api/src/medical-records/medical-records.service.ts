@@ -29,6 +29,8 @@ export class MedicalRecordsService {
       cid10: data.cid10 || null,
       returnRequestedValue: data.returnRequestedValue ? Number(data.returnRequestedValue) : null,
       returnRequestedUnit: data.returnRequestedUnit || null,
+      medicationsJustification: data.medicationsJustification || null,
+      examsJustification: data.examsJustification || null,
       medications,
       requestedExams,
       createdAt: new Date().toISOString(),

@@ -309,7 +309,9 @@ export const medicalRecords = pgTable("medical_records", {
   returnRequestedUnit: text("return_requested_unit"),
   
   medications: jsonb().default([]),
+  medicationsJustification: text("medications_justification"),
   requestedExams: jsonb("requested_exams").default([]),
+  examsJustification: text("exams_justification"),
   
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
