@@ -47,7 +47,9 @@ const permissionFriendlyNames: Record<string, string> = {
   'procedure-groups:read': 'Visualizar Grupos de Proc.',
   'procedure-groups:write': 'Gerir Grupos de Proc.',
   'requests:read': 'Visualizar Solicitações',
-  'requests:write': 'Gerir Solicitações'
+  'requests:write': 'Gerir Solicitações',
+  'medical-records:read': 'Visualizar Prontuários',
+  'medical-records:write': 'Gerenciar Prontuários'
 };
 
 const featureFriendlyNames: Record<string, string> = {
@@ -62,6 +64,7 @@ const featureFriendlyNames: Record<string, string> = {
   'procedure-groups': 'Grupos de Procedimentos',
   requests: 'Solicitações',
   settings: 'Configurações',
+  'medical-records': 'Prontuários',
 };
 
 export const CreateOrEditUser: React.FC = () => {

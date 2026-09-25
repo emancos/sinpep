@@ -15,7 +15,8 @@ import {
   Users,
   Stethoscope,
   Layers,
-  Activity
+  Activity,
+  ClipboardList
 } from 'lucide-react';
 import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
@@ -61,6 +62,9 @@ export const Layout = () => {
     ] : []),
     ...(permissions.includes('patients:read') || isAdmin ? [
       { name: 'Pacientes', path: '/patients', icon: Users },
+    ] : []),
+    ...(permissions.includes('medical-records:read') || isAdmin ? [
+      { name: 'Prontuários', path: '/medical-records', icon: ClipboardList },
     ] : []),
     ...(isAdmin ? [
       { name: 'Gestão de Utilizadores', path: '/users', icon: UsersIcon },

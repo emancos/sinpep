@@ -1,4 +1,4 @@
-import { pgTable, uniqueIndex, uuid, text, timestamp, foreignKey, boolean, integer, primaryKey, pgEnum, serial } from "drizzle-orm/pg-core"
+import { pgTable, uniqueIndex, uuid, text, timestamp, foreignKey, boolean, integer, primaryKey, pgEnum, serial, jsonb } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 
@@ -291,5 +291,72 @@ export const procedureVariantsRelations = relations(procedureVariants, ({ one })
   procedure: one(procedures, {
     fields: [procedureVariants.procedureId],
     references: [procedures.id],
+  }),
+}));
+
+
+// --- Medical Records (Prontuário) ---
+export const medicalRecords = pgTable("medical_records", {
+  id: uuid().primaryKey().notNull(),
+  patientId: uuid("patient_id").notNull(),
+  doctorId: uuid("doctor_id").notNull(),
+  recordDate: timestamp("record_date", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  
+  observation: text().notNull(),
+  cid10: text(),
+  
+  returnRequestedValue: integer("return_requested_value"),
+  returnRequestedUnit: text("return_requested_unit"),
+  
+  medications: jsonb().default([]),
+  requestedExams: jsonb("requested_exams").default([]),
+  
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+  foreignKey({
+    columns: [table.patientId],
+    foreignColumns: [patients.id],
+    name: "medical_records_patient_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.doctorId],
+    foreignColumns: [users.id],
+    name: "medical_records_doctor_id_fkey"
+  }).onUpdate("cascade").onDelete("restrict")
+]);
+
+export const medicalRecordAttachments = pgTable("medical_record_attachments", {
+  id: uuid().primaryKey().notNull(),
+  medicalRecordId: uuid("medical_record_id").notNull(),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(),
+  fileUrl: text("file_url").notNull(),
+  fileSize: integer("file_size"),
+  uploadedAt: timestamp("uploaded_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  foreignKey({
+    columns: [table.medicalRecordId],
+    foreignColumns: [medicalRecords.id],
+    name: "medical_record_attachments_record_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade")
+]);
+
+export const medicalRecordsRelations = relations(medicalRecords, ({ one, many }) => ({
+  patient: one(patients, {
+    fields: [medicalRecords.patientId],
+    references: [patients.id],
+  }),
+  doctor: one(users, {
+    fields: [medicalRecords.doctorId],
+    references: [users.id],
+  }),
+  attachments: many(medicalRecordAttachments),
+}));
+
+export const medicalRecordAttachmentsRelations = relations(medicalRecordAttachments, ({ one }) => ({
+  medicalRecord: one(medicalRecords, {
+    fields: [medicalRecordAttachments.medicalRecordId],
+    references: [medicalRecords.id],
   }),
 }));
