@@ -1,16 +1,39 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCreateMedicalRecord } from '../../hooks/useMedicalRecords';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+import { useAuthStore } from '../../store/useAuthStore';
 import { X, Loader2, Upload, Plus, Trash2, ArrowLeft, Activity } from 'lucide-react';
 import { toast } from 'sonner';
+import { Cid10Select } from './Cid10Select';
 
 export const CreateRecord: React.FC = () => {
   const { id: patientId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const createMutation = useCreateMedicalRecord();
+  const { token } = useAuthStore();
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
   
   const [observation, setObservation] = useState('');
   const [cid10, setCid10] = useState('');
+  const [cid10Secondary, setCid10Secondary] = useState('');
+  const [cid10AssociatedCauses, setCid10AssociatedCauses] = useState('');
+  const [procSearchTerm, setProcSearchTerm] = useState('');
+  const [isProcDropdownOpen, setIsProcDropdownOpen] = useState(false);
+
+  const { data: procResults, isLoading: isSearchingProc } = useQuery({
+    queryKey: ['proc-search', procSearchTerm],
+    queryFn: async () => {
+      const res = await axios.get(`${apiUrl}/procedures?search=${procSearchTerm}&limit=20`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return res.data.data;
+    },
+    enabled: isProcDropdownOpen,
+  });
+
+  const [hasReturn, setHasReturn] = useState(false);
   const [returnValue, setReturnValue] = useState('');
   const [returnUnit, setReturnUnit] = useState('DIAS');
   
@@ -28,13 +51,12 @@ export const CreateRecord: React.FC = () => {
     setMedications(newMeds);
   };
 
-  const addExam = () => setRequestedExams([...requestedExams, '']);
-  const removeExam = (index: number) => setRequestedExams(requestedExams.filter((_, i) => i !== index));
-  const updateExam = (index: number, val: string) => {
-    const newExams = [...requestedExams];
-    newExams[index] = val;
-    setRequestedExams(newExams);
+  const addExam = (examName: string) => {
+    if (!requestedExams.includes(examName)) {
+      setRequestedExams([...requestedExams, examName]);
+    }
   };
+  const removeExam = (index: number) => setRequestedExams(requestedExams.filter((_, i) => i !== index));
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -65,10 +87,17 @@ export const CreateRecord: React.FC = () => {
       return;
     }
 
+    if (hasReturn && !returnValue) {
+      toast.error('O tempo de retorno é obrigatório quando solicitado.');
+      return;
+    }
+
     const formData = new FormData();
     formData.append('observation', observation);
     if (cid10) formData.append('cid10', cid10);
-    if (returnValue) {
+    if (cid10Secondary) formData.append('cid10Secondary', cid10Secondary);
+    if (cid10AssociatedCauses) formData.append('cid10AssociatedCauses', cid10AssociatedCauses);
+    if (hasReturn && returnValue) {
       formData.append('returnRequestedValue', returnValue);
       formData.append('returnRequestedUnit', returnUnit);
     }
@@ -100,7 +129,7 @@ export const CreateRecord: React.FC = () => {
         <ArrowLeft className="w-4 h-4" /> Voltar para o Histórico
       </button>
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-700 flex items-center gap-3 bg-slate-50/50 dark:bg-slate-800/50">
           <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
             <Activity className="w-5 h-5" />
@@ -128,49 +157,15 @@ export const CreateRecord: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* CID10 */}
-              <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  CID-10 Principal
-                </label>
-                <input
-                  type="text"
-                  value={cid10}
-                  onChange={e => setCid10(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                  placeholder="Ex: J01.9"
-                />
-              </div>
-
-              {/* Retorno */}
-              <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Retorno Solicitado
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    value={returnValue}
-                    onChange={e => setReturnValue(e.target.value)}
-                    className="w-1/2 px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                    placeholder="Valor"
-                  />
-                  <select
-                    value={returnUnit}
-                    onChange={e => setReturnUnit(e.target.value)}
-                    className="w-1/2 px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                  >
-                    <option value="DIAS">Dias</option>
-                    <option value="MESES">Meses</option>
-                    <option value="ANOS">Anos</option>
-                  </select>
-                </div>
-              </div>
+            {/* CIDs */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Cid10Select label="CID-10 Principal" value={cid10} onChange={setCid10} />
+              <Cid10Select label="CID-10 Secundário (Opcional)" value={cid10Secondary} onChange={setCid10Secondary} />
+              <Cid10Select label="CID-10 Causas Associadas (Opcional)" value={cid10AssociatedCauses} onChange={setCid10AssociatedCauses} />
             </div>
 
             {/* Medications */}
-            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="bg-slate-100 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-md">
               <div className="flex items-center justify-between mb-4">
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
                   Medicações (Opcional)
@@ -227,34 +222,66 @@ export const CreateRecord: React.FC = () => {
               )}
 
             {/* Requested Exams */}
-            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="bg-slate-100 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-md">
               <div className="flex items-center justify-between mb-4">
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
                   Exames e Procedimentos Solicitados (Opcional)
                 </label>
-                <button type="button" onClick={addExam} className="text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 shadow-sm">
-                  <Plus className="w-4 h-4" /> Adicionar Exame
-                </button>
               </div>
               
+              <div className="relative mb-4">
+                <input
+                  type="text"
+                  value={procSearchTerm}
+                  onChange={e => {
+                    setProcSearchTerm(e.target.value);
+                    if (!isProcDropdownOpen) setIsProcDropdownOpen(true);
+                  }}
+                  onFocus={() => setIsProcDropdownOpen(true)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  placeholder="Buscar Procedimento ou Exame..."
+                />
+                {isProcDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setIsProcDropdownOpen(false)} />
+                    <div className="absolute z-20 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {isSearchingProc ? (
+                        <div className="p-3 text-sm text-slate-500 text-center">Buscando...</div>
+                      ) : procResults?.length > 0 ? (
+                        procResults.map((item: any) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              addExam(`${item.code} - ${item.name}`);
+                              setProcSearchTerm('');
+                              setIsProcDropdownOpen(false);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
+                          >
+                            <strong>{item.code}</strong> - {item.name}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="p-3 text-sm text-slate-500 text-center">Nenhum resultado encontrado.</div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
               {requestedExams.length === 0 && (
-                <div className="text-sm text-slate-500 italic text-center py-4">
+                <div className="text-sm text-slate-500 italic text-center py-4 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg">
                   Nenhum exame solicitado.
                 </div>
               )}
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {requestedExams.map((exam, idx) => (
-                  <div key={idx} className="flex gap-3">
-                    <input
-                      type="text"
-                      value={exam}
-                      onChange={e => updateExam(idx, e.target.value)}
-                      placeholder="Nome do Exame/Procedimento"
-                      className="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                    />
-                    <button type="button" onClick={() => removeExam(idx)} className="p-2 text-red-500 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg">
-                      <Trash2 className="w-5 h-5" />
+                  <div key={idx} className="flex gap-3 items-center bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <span className="flex-1 px-2 text-sm text-slate-900 dark:text-white font-medium">{exam}</span>
+                    <button type="button" onClick={() => removeExam(idx)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors">
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
@@ -275,6 +302,46 @@ export const CreateRecord: React.FC = () => {
                   />
                 </div>
               )}
+
+            {/* Retorno */}
+            <div className="bg-slate-100 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-md">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  Retorno <span className="text-red-500">*</span>
+                </label>
+                <div className="flex items-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
+                    <input type="radio" name="hasReturn" checked={!hasReturn} onChange={() => { setHasReturn(false); setReturnValue(''); }} className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800" />
+                    Não
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
+                    <input type="radio" name="hasReturn" checked={hasReturn} onChange={() => setHasReturn(true)} className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800" />
+                    Sim
+                  </label>
+                </div>
+              </div>
+              
+              {hasReturn && (
+                <div className="flex gap-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <input
+                    type="number"
+                    value={returnValue}
+                    onChange={e => setReturnValue(e.target.value)}
+                    className="w-1/2 px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    placeholder="Valor (Ex: 15)"
+                  />
+                  <select
+                    value={returnUnit}
+                    onChange={e => setReturnUnit(e.target.value)}
+                    className="w-1/2 px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="DIAS">Dias</option>
+                    <option value="MESES">Meses</option>
+                    <option value="ANOS">Anos</option>
+                  </select>
+                </div>
+              )}
+            </div>
 
             {/* Uploads */}
             <div>
