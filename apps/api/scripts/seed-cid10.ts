@@ -12,7 +12,7 @@ const prisma = db.orm.public;
 async function main() {
   console.log('Iniciando importação do CID-10...');
   
-  const filePath = path.join(__dirname, '../../../CID10.SQL');
+  const filePath = path.join(__dirname, './CID10.SQL');
   
   if (!fs.existsSync(filePath)) {
     console.error(`Arquivo não encontrado: ${filePath}`);

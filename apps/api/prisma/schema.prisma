@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model doctor_specialties {
+  doctor_id    String      @db.Uuid
+  specialty_id String      @db.Uuid
+  created_at   DateTime    @default(now())
+  doctors      doctors     @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
+  specialties  specialties @relation(fields: [specialty_id], references: [id], onDelete: Cascade)
+
+  @@id([doctor_id, specialty_id])
+}
+
+model doctors {
+  id                 String               @id @db.Uuid
+  name               String
+  crm                String               @unique
+  crm_state          String
+  created_at         DateTime             @default(now())
+  updated_at         DateTime
+  user_id            String?              @unique @db.Uuid
+  is_active          Boolean              @default(true)
+  cpf                String?              @unique
+  cns                String?
+  doctor_specialties doctor_specialties[]
+  users              users?               @relation(fields: [user_id], references: [id])
+}
+
+model health_agents {
+  id               String         @id @db.Uuid
+  name             String
+  phone            String?
+  micro_area       String?
+  created_at       DateTime       @default(now())
+  updated_at       DateTime
+  user_id          String?        @unique @db.Uuid
+  health_center_id String         @db.Uuid
+  is_active        Boolean        @default(true)
+  health_centers   health_centers @relation(fields: [health_center_id], references: [id])
+  users            users?         @relation(fields: [user_id], references: [id])
+  patients         patients[]
+}
+
+model health_centers {
+  id            String          @id @db.Uuid
+  name          String
+  cnes          String?         @unique
+  address       String?
+  created_at    DateTime        @default(now())
+  updated_at    DateTime
+  nurse_name    String?
+  is_active     Boolean         @default(true)
+  health_agents health_agents[]
+  patients      patients[]
+}
+
+model patient_phones {
+  id           String   @id @db.Uuid
+  patient_id   String   @db.Uuid
+  phone_number String
+  is_whatsapp  Boolean  @default(false)
+  created_at   DateTime @default(now())
+  updated_at   DateTime
+  patients     patients @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+}
+
+model patients {
+  id               String           @id @db.Uuid
+  name             String
+  cpf              String           @unique
+  cns              String?          @unique
+  birth_date       DateTime
+  gender           String
+  created_at       DateTime         @default(now())
+  updated_at       DateTime
+  health_center_id String           @db.Uuid
+  health_agent_id  String?          @db.Uuid
+  attention_level  Int              @default(1)
+  attention_notes  String?
+  address          String?
+  is_active        Boolean          @default(true)
+  patient_phones   patient_phones[]
+  health_agents    health_agents?   @relation(fields: [health_agent_id], references: [id])
+  health_centers   health_centers   @relation(fields: [health_center_id], references: [id])
+}
+
+model permissions {
+  id                      String                    @id @db.Uuid
+  name                    String                    @unique
+  description             String?
+  created_at              DateTime                  @default(now())
+  updated_at              DateTime
+  profile_permissions     profile_permissions[]
+  user_custom_permissions user_custom_permissions[]
+}
+
+model profile_permissions {
+  profile_id    String      @db.Uuid
+  permission_id String      @db.Uuid
+  created_at    DateTime    @default(now())
+  permissions   permissions @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  profiles      profiles    @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@id([profile_id, permission_id])
+}
+
+model profiles {
+  id                  String                @id @db.Uuid
+  name                String                @unique
+  description         String?
+  created_at          DateTime              @default(now())
+  updated_at          DateTime
+  profile_permissions profile_permissions[]
+  users               users[]
+}
+
+model specialties {
+  id                 String               @id @db.Uuid
+  name               String               @unique
+  description        String?
+  created_at         DateTime             @default(now())
+  updated_at         DateTime
+  is_active          Boolean              @default(true)
+  cbo                String?              @unique
+  doctor_specialties doctor_specialties[]
+}
+
+model user_custom_permissions {
+  id            String      @id @db.Uuid
+  user_id       String      @db.Uuid
+  permission_id String      @db.Uuid
+  is_allowed    Boolean
+  created_at    DateTime    @default(now())
+  updated_at    DateTime
+  permissions   permissions @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  users         users       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, permission_id])
+}
+
+model users {
+  id                      String                    @id @db.Uuid
+  email                   String                    @unique
+  password_hash           String
+  name                    String
+  phone                   String?
+  avatar                  String?
+  is_active               Boolean                   @default(true)
+  created_at              DateTime                  @default(now())
+  updated_at              DateTime
+  profile_id              String                    @db.Uuid
+  doctors                 doctors?
+  health_agents           health_agents?
+  user_custom_permissions user_custom_permissions[]
+  profiles                profiles                  @relation(fields: [profile_id], references: [id])
+}
