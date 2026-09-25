@@ -1,0 +1,218 @@
+import { pgTable, uniqueIndex, uuid, text, timestamp, foreignKey, boolean, integer, primaryKey } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
+
+
+
+export const profiles = pgTable("profiles", {
+	id: uuid().primaryKey().notNull(),
+	name: text().notNull(),
+	description: text(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+	uniqueIndex("profiles_name_key").using("btree", table.name.asc().nullsLast().op("text_ops")),
+]);
+
+export const users = pgTable("users", {
+	id: uuid().primaryKey().notNull(),
+	email: text().notNull(),
+	passwordHash: text("password_hash").notNull(),
+	name: text().notNull(),
+	phone: text(),
+	avatar: text(),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+	profileId: uuid("profile_id").notNull(),
+}, (table) => [
+	uniqueIndex("users_email_key").using("btree", table.email.asc().nullsLast().op("text_ops")),
+	foreignKey({
+			columns: [table.profileId],
+			foreignColumns: [profiles.id],
+			name: "users_profile_id_fkey"
+		}).onUpdate("cascade").onDelete("restrict"),
+]);
+
+export const permissions = pgTable("permissions", {
+	id: uuid().primaryKey().notNull(),
+	name: text().notNull(),
+	description: text(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+	uniqueIndex("permissions_name_key").using("btree", table.name.asc().nullsLast().op("text_ops")),
+]);
+
+export const userCustomPermissions = pgTable("user_custom_permissions", {
+	id: uuid().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	permissionId: uuid("permission_id").notNull(),
+	isAllowed: boolean("is_allowed").notNull(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+	uniqueIndex("user_custom_permissions_user_id_permission_id_key").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.permissionId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "user_custom_permissions_user_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+			columns: [table.permissionId],
+			foreignColumns: [permissions.id],
+			name: "user_custom_permissions_permission_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+]);
+
+export const healthAgents = pgTable("health_agents", {
+	id: uuid().primaryKey().notNull(),
+	name: text().notNull(),
+	phone: text(),
+	microArea: text("micro_area"),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+	userId: uuid("user_id"),
+	healthCenterId: uuid("health_center_id").notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+}, (table) => [
+	uniqueIndex("health_agents_user_id_key").using("btree", table.userId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.healthCenterId],
+			foreignColumns: [healthCenters.id],
+			name: "health_agents_health_center_id_fkey"
+		}).onUpdate("cascade").onDelete("restrict"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "health_agents_user_id_fkey"
+		}).onUpdate("cascade").onDelete("set null"),
+]);
+
+export const patients = pgTable("patients", {
+	id: uuid().primaryKey().notNull(),
+	name: text().notNull(),
+	cpf: text().notNull(),
+	cns: text(),
+	birthDate: timestamp("birth_date", { precision: 3, mode: 'string' }).notNull(),
+	gender: text().notNull(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+	healthCenterId: uuid("health_center_id").notNull(),
+	healthAgentId: uuid("health_agent_id"),
+	attentionLevel: integer("attention_level").default(1).notNull(),
+	attentionNotes: text("attention_notes"),
+	address: text(),
+	isActive: boolean("is_active").default(true).notNull(),
+}, (table) => [
+	uniqueIndex("patients_cns_key").using("btree", table.cns.asc().nullsLast().op("text_ops")),
+	uniqueIndex("patients_cpf_key").using("btree", table.cpf.asc().nullsLast().op("text_ops")),
+	foreignKey({
+			columns: [table.healthAgentId],
+			foreignColumns: [healthAgents.id],
+			name: "patients_health_agent_id_fkey"
+		}).onUpdate("cascade").onDelete("set null"),
+	foreignKey({
+			columns: [table.healthCenterId],
+			foreignColumns: [healthCenters.id],
+			name: "patients_health_center_id_fkey"
+		}).onUpdate("cascade").onDelete("restrict"),
+]);
+
+export const healthCenters = pgTable("health_centers", {
+	id: uuid().primaryKey().notNull(),
+	name: text().notNull(),
+	cnes: text(),
+	address: text(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+	nurseName: text("nurse_name"),
+	isActive: boolean("is_active").default(true).notNull(),
+}, (table) => [
+	uniqueIndex("health_centers_cnes_key").using("btree", table.cnes.asc().nullsLast().op("text_ops")),
+]);
+
+export const patientPhones = pgTable("patient_phones", {
+	id: uuid().primaryKey().notNull(),
+	patientId: uuid("patient_id").notNull(),
+	phoneNumber: text("phone_number").notNull(),
+	isWhatsapp: boolean("is_whatsapp").default(false).notNull(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.patientId],
+			foreignColumns: [patients.id],
+			name: "patient_phones_patient_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+]);
+
+export const doctors = pgTable("doctors", {
+	id: uuid().primaryKey().notNull(),
+	name: text().notNull(),
+	crm: text().notNull(),
+	crmState: text("crm_state").notNull(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+	userId: uuid("user_id"),
+	isActive: boolean("is_active").default(true).notNull(),
+	cpf: text(),
+	cns: text(),
+}, (table) => [
+	uniqueIndex("doctors_cpf_key").using("btree", table.cpf.asc().nullsLast().op("text_ops")),
+	uniqueIndex("doctors_crm_key").using("btree", table.crm.asc().nullsLast().op("text_ops")),
+	uniqueIndex("doctors_user_id_key").using("btree", table.userId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "doctors_user_id_fkey"
+		}).onUpdate("cascade").onDelete("set null"),
+]);
+
+export const specialties = pgTable("specialties", {
+	id: uuid().primaryKey().notNull(),
+	name: text().notNull(),
+	description: text(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+	cbo: text(),
+}, (table) => [
+	uniqueIndex("specialties_cbo_key").using("btree", table.cbo.asc().nullsLast().op("text_ops")),
+	uniqueIndex("specialties_name_key").using("btree", table.name.asc().nullsLast().op("text_ops")),
+]);
+
+export const profilePermissions = pgTable("profile_permissions", {
+	profileId: uuid("profile_id").notNull(),
+	permissionId: uuid("permission_id").notNull(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.profileId],
+			foreignColumns: [profiles.id],
+			name: "profile_permissions_profile_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+			columns: [table.permissionId],
+			foreignColumns: [permissions.id],
+			name: "profile_permissions_permission_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	primaryKey({ columns: [table.profileId, table.permissionId], name: "profile_permissions_pkey"}),
+]);
+
+export const doctorSpecialties = pgTable("doctor_specialties", {
+	doctorId: uuid("doctor_id").notNull(),
+	specialtyId: uuid("specialty_id").notNull(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.doctorId],
+			foreignColumns: [doctors.id],
+			name: "doctor_specialties_doctor_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+			columns: [table.specialtyId],
+			foreignColumns: [specialties.id],
+			name: "doctor_specialties_specialty_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	primaryKey({ columns: [table.doctorId, table.specialtyId], name: "doctor_specialties_pkey"}),
+]);
