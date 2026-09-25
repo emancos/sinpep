@@ -60,7 +60,7 @@ export const MedicalHistory: React.FC = () => {
         <ArrowLeft className="w-4 h-4" /> Voltar para Busca
       </button>
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-8 flex items-center justify-between">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-8 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-3xl">
             {patient?.name?.charAt(0).toUpperCase()}
@@ -115,7 +115,7 @@ export const MedicalHistory: React.FC = () => {
                 <div className="ml-10">
                   <div 
                     onClick={() => toggleRecord(record.id)}
-                    className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
+                    className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-5 cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
                   >
                     <div className="flex justify-between items-start mb-2">
                       <div>
