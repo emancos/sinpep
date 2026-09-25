@@ -42,7 +42,7 @@ export class SpecialtiesController {
     return this.specialtiesService.toggleActive(id);
   }
 
-  @Permissions('specialties:write')
+  @Permissions('admin:access')
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.specialtiesService.remove(id);

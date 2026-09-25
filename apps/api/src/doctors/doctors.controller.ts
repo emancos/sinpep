@@ -42,7 +42,7 @@ export class DoctorsController {
     return this.doctorsService.toggleActive(id);
   }
 
-  @Permissions('doctors:write')
+  @Permissions('admin:access')
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.doctorsService.remove(id);
