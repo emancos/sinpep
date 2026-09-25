@@ -12,7 +12,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Building,
-  Users
+  Users,
+  Stethoscope,
+  FileText
 } from 'lucide-react';
 import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
@@ -45,6 +47,12 @@ export const Layout = () => {
     { name: t('Dashboard'), path: '/', icon: Home },
     ...(permissions.includes('health-centers:read') || isAdmin ? [
       { name: 'Unidades de Saúde', path: '/health-centers', icon: Building },
+    ] : []),
+    ...(permissions.includes('doctors:read') || isAdmin ? [
+      { name: 'Médicos', path: '/doctors', icon: Stethoscope },
+    ] : []),
+    ...(permissions.includes('specialties:read') || isAdmin ? [
+      { name: 'Especialidades', path: '/specialties', icon: FileText }, // Placeholder icon for specialties
     ] : []),
     ...(permissions.includes('patients:read') || isAdmin ? [
       { name: 'Pacientes', path: '/patients', icon: Users },

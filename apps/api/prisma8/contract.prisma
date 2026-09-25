@@ -42,6 +42,7 @@ model Users {
   updatedAt             Timestamp(3)            @map("updated_at")
   profileId             Uuid                    @map("profile_id")
   healthAgents          HealthAgents?
+  doctors               Doctors?
   userCustomPermissions UserCustomPermissions[]
   profile               Profiles                @relation(fields: [profileId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "users_profile_id_fkey", index: false)
 
@@ -139,4 +140,48 @@ model UserCustomPermissions {
 
   @@index([userId, permissionId], map: "user_custom_permissions_user_id_permission_id_key", unique: true)
   @@map("user_custom_permissions")
+}
+
+model Specialties {
+  id                Uuid                @id(map: "specialties_pkey") @default(uuid())
+  name              String
+  cbo               String?             @unique(map: "specialties_cbo_key")
+  description       String?
+  isActive          Boolean             @default(true) @map("is_active")
+  createdAt         Timestamp(3)        @default(now()) @map("created_at")
+  updatedAt         Timestamp(3)        @map("updated_at")
+  doctorSpecialties DoctorSpecialties[]
+
+  @@index([name], map: "specialties_name_key", unique: true)
+  @@map("specialties")
+}
+
+model Doctors {
+  id                Uuid                @id(map: "doctors_pkey") @default(uuid())
+  name              String
+  cpf               String?
+  cns               String?
+  crm               String
+  crmState          String              @map("crm_state")
+  isActive          Boolean             @default(true) @map("is_active")
+  createdAt         Timestamp(3)        @default(now()) @map("created_at")
+  updatedAt         Timestamp(3)        @map("updated_at")
+  userId            Uuid?               @unique @map("user_id")
+  user              Users?              @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade, map: "doctors_user_id_fkey")
+  doctorSpecialties DoctorSpecialties[]
+
+  @@index([crm], map: "doctors_crm_key", unique: true)
+  @@index([cpf], map: "doctors_cpf_key", unique: true)
+  @@map("doctors")
+}
+
+model DoctorSpecialties {
+  doctorId     Uuid         @map("doctor_id")
+  specialtyId  Uuid         @map("specialty_id")
+  createdAt    Timestamp(3) @default(now()) @map("created_at")
+  doctor       Doctors      @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "doctor_specialties_doctor_id_fkey", index: false)
+  specialty    Specialties  @relation(fields: [specialtyId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "doctor_specialties_specialty_id_fkey", index: false)
+
+  @@id([doctorId, specialtyId], map: "doctor_specialties_pkey")
+  @@map("doctor_specialties")
 }

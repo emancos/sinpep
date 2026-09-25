@@ -27,6 +27,10 @@ async function main() {
       { name: 'patients:read', description: 'Visualizar Pacientes' },
       { name: 'patients:write', description: 'Gerenciar Pacientes' },
       { name: 'patients:write_attention', description: 'Gerenciar Nível de Atenção do Paciente' },
+      { name: 'doctors:read', description: 'Visualizar Médicos' },
+      { name: 'doctors:write', description: 'Gerenciar Médicos' },
+      { name: 'specialties:read', description: 'Visualizar Especialidades' },
+      { name: 'specialties:write', description: 'Gerenciar Especialidades' },
     ];
 
     const permissions = [];

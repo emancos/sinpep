@@ -18,6 +18,10 @@ import { PatientsList } from './pages/Patients';
 import { CreatePatient } from './pages/Patients/Create';
 import { EditPatient } from './pages/Patients/Edit';
 import { PatientDetails } from './pages/Patients/Details';
+import { DoctorsList } from './pages/Doctors';
+import { CreateOrEditDoctor } from './pages/Doctors/Create';
+import { SpecialtiesList } from './pages/Specialties';
+import { CreateOrEditSpecialty } from './pages/Specialties/Create';
 import { SocketProvider } from './contexts/SocketContext';
 import './App.css';
 
@@ -52,6 +56,22 @@ function App() {
                   <Route element={<ProtectedRoute requiredPermission="health-centers:write" />}>
                     <Route path="/health-centers/create" element={<CreateOrEditHealthCenter />} />
                     <Route path="/health-centers/:id/edit" element={<CreateOrEditHealthCenter />} />
+                  </Route>
+
+                  <Route element={<ProtectedRoute requiredPermission="doctors:read" />}>
+                    <Route path="/doctors" element={<DoctorsList />} />
+                  </Route>
+                  <Route element={<ProtectedRoute requiredPermission="doctors:write" />}>
+                    <Route path="/doctors/new" element={<CreateOrEditDoctor />} />
+                    <Route path="/doctors/:id" element={<CreateOrEditDoctor />} />
+                  </Route>
+
+                  <Route element={<ProtectedRoute requiredPermission="specialties:read" />}>
+                    <Route path="/specialties" element={<SpecialtiesList />} />
+                  </Route>
+                  <Route element={<ProtectedRoute requiredPermission="specialties:write" />}>
+                    <Route path="/specialties/new" element={<CreateOrEditSpecialty />} />
+                    <Route path="/specialties/:id" element={<CreateOrEditSpecialty />} />
                   </Route>
 
                   <Route element={<ProtectedRoute requiredPermission="patients:read" />}>
