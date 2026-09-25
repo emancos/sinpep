@@ -5,7 +5,7 @@ import axios from 'axios';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useMedicalRecords } from '../../hooks/useMedicalRecords';
 import type { MedicalRecord } from '../../hooks/useMedicalRecords';
-import { Loader2, ArrowLeft, Plus, Calendar, FileText, Pill, Paperclip, Stethoscope, Clock } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, Calendar, FileText, Pill, Paperclip, Stethoscope, Clock, Activity } from 'lucide-react';
 import { AttachmentViewer } from './AttachmentViewer';
 import { ExportRecordModal } from './ExportRecordModal';
 import { FileDown } from 'lucide-react';
@@ -164,8 +164,31 @@ export const MedicalHistory: React.FC = () => {
                                 </div>
                               ))}
                             </div>
-                          </div>
-                        )}
+                              {record.medicationsJustification && (
+                                <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 italic">
+                                  <strong>Justificativa:</strong> {record.medicationsJustification}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                        {record.requestedExams && record.requestedExams.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2 mb-2">
+                              <Activity className="w-4 h-4 text-blue-500" /> Exames e Procedimentos Solicitados
+                            </h4>
+                            <ul className="list-disc list-inside space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                              {record.requestedExams.map((exam: string, i: number) => (
+                                <li key={i}>{exam}</li>
+                              ))}
+                            </ul>
+                              {record.examsJustification && (
+                                <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 italic">
+                                  <strong>Justificativa:</strong> {record.examsJustification}
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                         {record.attachments && record.attachments.length > 0 && (
                           <div>
@@ -188,8 +211,13 @@ export const MedicalHistory: React.FC = () => {
                                 </div>
                               ))}
                             </div>
-                          </div>
-                        )}
+                              {record.medicationsJustification && (
+                                <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 italic">
+                                  <strong>Justificativa:</strong> {record.medicationsJustification}
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                         {record.returnRequestedValue && (
                           <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-500/10 p-3 rounded-lg border border-orange-200 dark:border-orange-500/20">

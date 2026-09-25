@@ -55,6 +55,25 @@ export const MedicalRecordPDF: React.FC<Props> = ({ patient, records }) => (
                   <Text style={styles.medDosage}>{med.dosage}</Text>
                 </View>
               ))}
+              {record.medicationsJustification && (
+                <Text style={[styles.text, { marginTop: 4, fontStyle: 'italic', fontSize: 9 }]}>
+                  Justificativa da Prescrição: {record.medicationsJustification}
+                </Text>
+              )}
+            </View>
+          )}
+
+          {record.requestedExams && record.requestedExams.length > 0 && (
+            <View>
+              <Text style={styles.sectionTitle}>Exames Solicitados:</Text>
+              {record.requestedExams.map((exam: string, i: number) => (
+                <Text key={i} style={styles.text}>• {exam}</Text>
+              ))}
+              {record.examsJustification && (
+                <Text style={[styles.text, { marginTop: 4, fontStyle: 'italic', fontSize: 9 }]}>
+                  Justificativa do Procedimento: {record.examsJustification}
+                </Text>
+              )}
             </View>
           )}
 

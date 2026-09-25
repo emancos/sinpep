@@ -22,7 +22,9 @@ export interface MedicalRecord {
   returnRequestedValue?: number;
   returnRequestedUnit?: string;
   medications: any[];
+  medicationsJustification?: string;
   requestedExams: any[];
+  examsJustification?: string;
   attachments: MedicalRecordAttachment[];
   doctor: {
     id: string;
