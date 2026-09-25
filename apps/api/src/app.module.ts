@@ -1,4 +1,5 @@
 import { MedicalRecordsModule } from './medical-records/medical-records.module';
+import { Cid10Module } from './cid10/cid10.module';
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -26,6 +27,7 @@ import { ProceduresModule } from './procedures/procedures.module';
     ProcedureGroupsModule,
     ProceduresModule,
     MedicalRecordsModule,
+    Cid10Module,
   ],
   controllers: [AppController],
   providers: [AppService],
