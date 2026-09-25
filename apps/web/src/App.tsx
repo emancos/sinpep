@@ -22,6 +22,9 @@ import { DoctorsList } from './pages/Doctors';
 import { CreateOrEditDoctor } from './pages/Doctors/Create';
 import { AuxiliaryTables } from './pages/AuxiliaryTables';
 import { ProceduresList } from './pages/Procedures';
+import { MedicalRecords } from './pages/MedicalRecords';
+import { MedicalHistory } from './pages/MedicalRecords/History';
+import { CreateRecord } from './pages/MedicalRecords/CreateRecord';
 import { CreateOrEditProcedure } from './pages/Procedures/Create';
 import { ProcedureDetails } from './pages/Procedures/Details';
 import { SocketProvider } from './contexts/SocketContext';
@@ -91,12 +94,18 @@ function App() {
                     <Route path="/patients/create" element={<CreatePatient />} />
                     <Route path="/patients/:id/edit" element={<EditPatient />} />
                   </Route>
+
+                  <Route element={<ProtectedRoute requiredPermission="medical-records:read" />}>
+                    <Route path="/medical-records" element={<MedicalRecords />} />
+                    <Route path="/medical-records/:id" element={<MedicalHistory />} />
+                    <Route path="/medical-records/:id/new" element={<CreateRecord />} />
+                  </Route>
                 </Route>
               </Route>
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+        </Routes>
           </BrowserRouter>
         </SocketProvider>
         <Toaster position="top-right" richColors />
