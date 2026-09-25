@@ -9,6 +9,8 @@ import { HealthAgentsModule } from './health-agents/health-agents.module';
 import { PatientsModule } from './patients/patients.module';
 import { SpecialtiesModule } from './specialties/specialties.module';
 import { DoctorsModule } from './doctors/doctors.module';
+import { ProcedureGroupsModule } from './procedure-groups/procedure-groups.module';
+import { ProceduresModule } from './procedures/procedures.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { DoctorsModule } from './doctors/doctors.module';
     PatientsModule,
     SpecialtiesModule,
     DoctorsModule,
+    ProcedureGroupsModule,
+    ProceduresModule,
   ],
   controllers: [AppController],
   providers: [AppService],

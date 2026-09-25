@@ -1,4 +1,4 @@
-import { pgTable, uniqueIndex, uuid, text, timestamp, foreignKey, boolean, integer, primaryKey } from "drizzle-orm/pg-core"
+import { pgTable, uniqueIndex, uuid, text, timestamp, foreignKey, boolean, integer, primaryKey, pgEnum, serial } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 
@@ -227,3 +227,69 @@ export const cid10 = pgTable("cid10", {
 }, (table) => [
 	uniqueIndex("cid10_code_key").using("btree", table.code.asc().nullsLast().op("text_ops")),
 ]);
+
+export const procedureGroups = pgTable("procedure_groups", {
+  id: uuid().primaryKey().notNull(),
+  name: text().notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+export const procedures = pgTable("procedures", {
+  id: uuid().primaryKey().notNull(),
+  code: text(),
+  name: text().notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+  procedureGroupId: uuid("procedure_group_id").notNull(),
+  genderAllowed: text("gender_allowed").default('AMBOS').notNull(),
+  maxAge: integer("max_age").default(130).notNull(),
+  minAge: integer("min_age").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+}, (table) => [
+  foreignKey({
+    columns: [table.procedureGroupId],
+    foreignColumns: [procedureGroups.id],
+    name: "procedures_procedure_group_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade")
+]);
+
+export const procedureVariants = pgTable("procedure_variants", {
+  id: uuid().primaryKey().notNull(),
+  procedureId: uuid("procedure_id").notNull(),
+  sisregProcId: text("sisreg_proc_id").notNull(),
+  sisregGroupId: text("sisreg_group_id"),
+  side: text(),
+  contrast: boolean().default(false).notNull(),
+  sedation: boolean().default(false).notNull(),
+  ageGroup: text("age_group"),
+  maxItems: integer("max_items"),
+}, (table) => [
+  foreignKey({
+    columns: [table.procedureId],
+    foreignColumns: [procedures.id],
+    name: "procedure_variants_procedure_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade")
+]);
+
+import { relations } from 'drizzle-orm';
+
+export const proceduresRelations = relations(procedures, ({ one, many }) => ({
+  procedureGroup: one(procedureGroups, {
+    fields: [procedures.procedureGroupId],
+    references: [procedureGroups.id],
+  }),
+  variants: many(procedureVariants),
+}));
+
+export const procedureGroupsRelations = relations(procedureGroups, ({ many }) => ({
+  procedures: many(procedures),
+}));
+
+export const procedureVariantsRelations = relations(procedureVariants, ({ one }) => ({
+  procedure: one(procedures, {
+    fields: [procedureVariants.procedureId],
+    references: [procedures.id],
+  }),
+}));
