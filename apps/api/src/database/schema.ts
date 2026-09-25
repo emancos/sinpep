@@ -216,3 +216,14 @@ export const doctorSpecialties = pgTable("doctor_specialties", {
 		}).onUpdate("cascade").onDelete("cascade"),
 	primaryKey({ columns: [table.doctorId, table.specialtyId], name: "doctor_specialties_pkey"}),
 ]);
+
+export const cid10 = pgTable("cid10", {
+	id: uuid().primaryKey().notNull(),
+	code: text().notNull(),
+	description: text(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+}, (table) => [
+	uniqueIndex("cid10_code_key").using("btree", table.code.asc().nullsLast().op("text_ops")),
+]);
