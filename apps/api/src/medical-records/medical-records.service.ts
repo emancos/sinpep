@@ -27,6 +27,8 @@ export class MedicalRecordsService {
       doctorId,
       observation: data.observation,
       cid10: data.cid10 || null,
+      cid10Secondary: data.cid10Secondary || null,
+      cid10AssociatedCauses: data.cid10AssociatedCauses || null,
       returnRequestedValue: data.returnRequestedValue ? Number(data.returnRequestedValue) : null,
       returnRequestedUnit: data.returnRequestedUnit || null,
       medicationsJustification: data.medicationsJustification || null,

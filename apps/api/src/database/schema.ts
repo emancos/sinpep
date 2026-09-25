@@ -304,6 +304,8 @@ export const medicalRecords = pgTable("medical_records", {
   
   observation: text().notNull(),
   cid10: text(),
+  cid10Secondary: text("cid10_secondary"),
+  cid10AssociatedCauses: text("cid10_associated_causes"),
   
   returnRequestedValue: integer("return_requested_value"),
   returnRequestedUnit: text("return_requested_unit"),
