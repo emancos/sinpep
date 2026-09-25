@@ -16,7 +16,6 @@ import {
   Power,
   ShieldAlert,
   CheckCircle2,
-  FileText,
   Trash2
 } from 'lucide-react';
 import { TablePagination } from '../../components/TablePagination';

@@ -14,7 +14,8 @@ import {
   Building,
   Users,
   Stethoscope,
-  FileText
+  Layers,
+  Activity
 } from 'lucide-react';
 import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
@@ -51,8 +52,12 @@ export const Layout = () => {
     ...(permissions.includes('doctors:read') || isAdmin ? [
       { name: 'Médicos', path: '/doctors', icon: Stethoscope },
     ] : []),
-    ...(permissions.includes('specialties:read') || isAdmin ? [
-      { name: 'Especialidades', path: '/specialties', icon: FileText }, // Placeholder icon for specialties
+
+    ...(permissions.includes('procedure-groups:read') || isAdmin ? [
+      { name: 'Tabelas Auxiliares', path: '/auxiliary-tables', icon: Layers },
+    ] : []),
+    ...(permissions.includes('procedures:read') || isAdmin ? [
+      { name: 'Procedimentos', path: '/procedures', icon: Activity },
     ] : []),
     ...(permissions.includes('patients:read') || isAdmin ? [
       { name: 'Pacientes', path: '/patients', icon: Users },

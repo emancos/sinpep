@@ -20,8 +20,10 @@ import { EditPatient } from './pages/Patients/Edit';
 import { PatientDetails } from './pages/Patients/Details';
 import { DoctorsList } from './pages/Doctors';
 import { CreateOrEditDoctor } from './pages/Doctors/Create';
-import { SpecialtiesList } from './pages/Specialties';
-import { CreateOrEditSpecialty } from './pages/Specialties/Create';
+import { AuxiliaryTables } from './pages/AuxiliaryTables';
+import { ProceduresList } from './pages/Procedures';
+import { CreateOrEditProcedure } from './pages/Procedures/Create';
+import { ProcedureDetails } from './pages/Procedures/Details';
 import { SocketProvider } from './contexts/SocketContext';
 import './App.css';
 
@@ -66,12 +68,19 @@ function App() {
                     <Route path="/doctors/:id" element={<CreateOrEditDoctor />} />
                   </Route>
 
-                  <Route element={<ProtectedRoute requiredPermission="specialties:read" />}>
-                    <Route path="/specialties" element={<SpecialtiesList />} />
+                  
+
+                  <Route element={<ProtectedRoute requiredPermission="procedure-groups:read" />}>
+                    <Route path="/auxiliary-tables" element={<AuxiliaryTables />} />
                   </Route>
-                  <Route element={<ProtectedRoute requiredPermission="specialties:write" />}>
-                    <Route path="/specialties/new" element={<CreateOrEditSpecialty />} />
-                    <Route path="/specialties/:id" element={<CreateOrEditSpecialty />} />
+
+                  <Route element={<ProtectedRoute requiredPermission="procedures:read" />}>
+                    <Route path="/procedures" element={<ProceduresList />} />
+                    <Route path="/procedures/:id" element={<ProcedureDetails />} />
+                  </Route>
+                  <Route element={<ProtectedRoute requiredPermission="procedures:write" />}>
+                    <Route path="/procedures/create" element={<CreateOrEditProcedure />} />
+                    <Route path="/procedures/:id/edit" element={<CreateOrEditProcedure />} />
                   </Route>
 
                   <Route element={<ProtectedRoute requiredPermission="patients:read" />}>
