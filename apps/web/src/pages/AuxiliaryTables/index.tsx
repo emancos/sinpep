@@ -29,6 +29,7 @@ import {
     Power
 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
+import { TablePagination } from '../../components/TablePagination';
 
 export const AuxiliaryTables: React.FC = () => {
     const confirm = useConfirm();
@@ -41,6 +42,12 @@ export const AuxiliaryTables: React.FC = () => {
     const [showInactiveGroups, setShowInactiveGroups] = useState(false);
 
     const userPermissions = useAuthStore(state => state.permissions);
+
+    // Pagination States
+    const [specialtyPage, setSpecialtyPage] = useState(1);
+    const [specialtyLimit, setSpecialtyLimit] = useState(10);
+    const [groupPage, setGroupPage] = useState(1);
+    const [groupLimit, setGroupLimit] = useState(10);
 
     // Modal / Form States
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -231,10 +238,12 @@ export const AuxiliaryTables: React.FC = () => {
         spec.name.toLowerCase().includes(specialtySearch.toLowerCase()) ||
         (spec.description && spec.description.toLowerCase().includes(specialtySearch.toLowerCase()))
     ) || [];
+    const paginatedSpecialties = filteredSpecialties.slice((specialtyPage - 1) * specialtyLimit, specialtyPage * specialtyLimit);
 
     const filteredGroups = groups?.filter((grp: any) =>
         grp.name.toLowerCase().includes(groupSearch.toLowerCase())
     ) || [];
+    const paginatedGroups = filteredGroups.slice((groupPage - 1) * groupLimit, groupPage * groupLimit);
 
     const isMutationPending =
         createSpecialty.isPending ||
@@ -292,7 +301,10 @@ export const AuxiliaryTables: React.FC = () => {
                                 type="text"
                                 placeholder="Buscar especialidades..."
                                 value={specialtySearch}
-                                onChange={(e) => setSpecialtySearch(e.target.value)}
+                                onChange={(e) => {
+                                    setSpecialtySearch(e.target.value);
+                                    setSpecialtyPage(1);
+                                }}
                                 className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
                             />
                         </div>
@@ -350,8 +362,8 @@ export const AuxiliaryTables: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 text-sm">
-                                        {filteredSpecialties.length > 0 ? (
-                                            filteredSpecialties.map((spec: any) => (
+                                        {paginatedSpecialties.length > 0 ? (
+                                            paginatedSpecialties.map((spec: any) => (
                                                 <tr key={spec.id} className="hover:bg-slate-200 dark:bg-slate-800/20 transition-colors duration-150 group">
                                                     <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
                                                         <div className="flex items-center gap-2">
@@ -412,6 +424,18 @@ export const AuxiliaryTables: React.FC = () => {
                                     </tbody>
                                 </table>
                             </div>
+                            {filteredSpecialties.length > 0 && (
+                                <TablePagination 
+                                    page={specialtyPage}
+                                    limit={specialtyLimit}
+                                    total={filteredSpecialties.length}
+                                    onPageChange={setSpecialtyPage}
+                                    onLimitChange={(limit) => {
+                                        setSpecialtyLimit(limit);
+                                        setSpecialtyPage(1);
+                                    }}
+                                />
+                            )}
                         </div>
                     )}
                 </div>
@@ -428,7 +452,10 @@ export const AuxiliaryTables: React.FC = () => {
                                 type="text"
                                 placeholder="Buscar grupos de procedimentos..."
                                 value={groupSearch}
-                                onChange={(e) => setGroupSearch(e.target.value)}
+                                onChange={(e) => {
+                                    setGroupSearch(e.target.value);
+                                    setGroupPage(1);
+                                }}
                                 className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
                             />
                         </div>
@@ -492,8 +519,8 @@ export const AuxiliaryTables: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 text-sm">
-                                        {filteredGroups.length > 0 ? (
-                                            filteredGroups.map((grp) => (
+                                        {paginatedGroups.length > 0 ? (
+                                            paginatedGroups.map((grp: any) => (
                                                 <tr key={grp.id} className="hover:bg-slate-200 dark:bg-slate-800/20 transition-colors duration-150 group">
                                                     <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
                                                         <div className="flex items-center gap-2">
@@ -554,6 +581,18 @@ export const AuxiliaryTables: React.FC = () => {
                                     </tbody>
                                 </table>
                             </div>
+                            {filteredGroups.length > 0 && (
+                                <TablePagination 
+                                    page={groupPage}
+                                    limit={groupLimit}
+                                    total={filteredGroups.length}
+                                    onPageChange={setGroupPage}
+                                    onLimitChange={(limit) => {
+                                        setGroupLimit(limit);
+                                        setGroupPage(1);
+                                    }}
+                                />
+                            )}
                         </div>
                     )}
                 </div>
