@@ -17,8 +17,12 @@ export function useSpecialties(params?: any) {
   return useQuery({
     queryKey: ['specialties', params],
     queryFn: async () => {
+      const queryParams = typeof params === 'boolean' 
+        ? { includeInactive: params, limit: 1000 } 
+        : { limit: 1000, ...params };
+
       const { data } = await axios.get<{ data: Specialty[]; total: number }>(`${apiUrl}/specialties`, {
-        params,
+        params: queryParams,
         headers: { Authorization: `Bearer ${token}` }
       });
       return data;
