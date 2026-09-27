@@ -40,11 +40,21 @@ export class DoctorsService {
         }
       }
 
-      if (createDoctorDto.procedures && createDoctorDto.procedures.length > 0 && ['EXAME', 'AMBOS'].includes(createDoctorDto.attendanceType.toUpperCase())) {
+      if (createDoctorDto.procedures && createDoctorDto.procedures.length > 0) {
         for (const procId of createDoctorDto.procedures) {
           await tx.insert(schema.doctorProcedures).values({
             doctorId: doctor.id,
             procedureId: procId,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      }
+
+      if (createDoctorDto.procedureGroups && createDoctorDto.procedureGroups.length > 0) {
+        for (const groupId of createDoctorDto.procedureGroups) {
+          await tx.insert(schema.doctorProcedureGroups).values({
+            doctorId: doctor.id,
+            procedureGroupId: groupId,
             createdAt: new Date().toISOString(),
           });
         }
@@ -104,6 +114,11 @@ export class DoctorsService {
           with: {
             procedure: true
           }
+        },
+        doctorProcedureGroups: {
+          with: {
+            procedureGroup: true
+          }
         }
       },
       orderBy: [sortFn(orderByField)],
@@ -134,6 +149,11 @@ export class DoctorsService {
         doctorProcedures: {
           with: {
             procedure: true
+          }
+        },
+        doctorProcedureGroups: {
+          with: {
+            procedureGroup: true
           }
         }
       }
@@ -166,6 +186,9 @@ export class DoctorsService {
       const procedures = dataToUpdate.procedures;
       delete dataToUpdate.procedures;
       
+      const procedureGroups = dataToUpdate.procedureGroups;
+      delete dataToUpdate.procedureGroups;
+      
       delete dataToUpdate.name; // ensure name is not in update payload if accidentally sent
 
       if (Object.keys(dataToUpdate).length > 0 && Object.keys(dataToUpdate).some(k => k !== 'updatedAt')) {
@@ -185,16 +208,23 @@ export class DoctorsService {
 
       if (procedures !== undefined) {
         await tx.delete(schema.doctorProcedures).where(eq(schema.doctorProcedures.doctorId, id));
-        
-        const attendanceType = dataToUpdate.attendanceType || existing.attendanceType;
-        if (attendanceType && ['EXAME', 'AMBOS'].includes(attendanceType.toUpperCase())) {
-          for (const procId of procedures) {
-            await tx.insert(schema.doctorProcedures).values({
-              doctorId: id,
-              procedureId: procId,
-              createdAt: new Date().toISOString(),
-            });
-          }
+        for (const procId of procedures) {
+          await tx.insert(schema.doctorProcedures).values({
+            doctorId: id,
+            procedureId: procId,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      }
+
+      if (procedureGroups !== undefined) {
+        await tx.delete(schema.doctorProcedureGroups).where(eq(schema.doctorProcedureGroups.doctorId, id));
+        for (const groupId of procedureGroups) {
+          await tx.insert(schema.doctorProcedureGroups).values({
+            doctorId: id,
+            procedureGroupId: groupId,
+            createdAt: new Date().toISOString(),
+          });
         }
       }
     });

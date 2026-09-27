@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsUUID, IsArray, Matches } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsUUID, IsArray, Matches, ArrayMinSize } from 'class-validator';
 
 export class CreateDoctorDto {
   @IsString()
@@ -29,11 +29,16 @@ export class CreateDoctorDto {
 
   @IsArray()
   @IsUUID('all', { each: true })
-  @IsOptional()
-  specialties?: string[];
+  @ArrayMinSize(1, { message: 'Selecione no mínimo 1 especialidade' })
+  specialties: string[];
 
   @IsArray()
   @IsUUID('all', { each: true })
   @IsOptional()
   procedures?: string[];
+
+  @IsArray()
+  @IsUUID('all', { each: true })
+  @IsOptional()
+  procedureGroups?: string[];
 }
