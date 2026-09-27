@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { DATABASE_CONNECTION } from '../database/database.module';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import * as schema from '../database/schema';
+import * as schema from '../database';
 import { CreateDoctorDto } from './dto/create-doctor.dto';
 import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { eq, ilike, or, and, asc, desc } from 'drizzle-orm';
+import { eq, ilike, or, and, asc, desc, inArray } from 'drizzle-orm';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -16,30 +16,43 @@ export class DoctorsService {
   ) {}
 
   async create(createDoctorDto: CreateDoctorDto) {
-    const [doctor] = await this.db.insert(schema.doctors).values({
-      id: crypto.randomUUID(),
-      name: createDoctorDto.name,
-      crm: createDoctorDto.crm,
-      crmState: createDoctorDto.crmState,
-      userId: createDoctorDto.userId ?? null,
-      isActive: true,
-      cpf: createDoctorDto.cpf ?? null,
-      cns: createDoctorDto.cns ?? null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }).returning();
+    const doctorId = await this.db.transaction(async (tx) => {
+      const [doctor] = await tx.insert(schema.doctors).values({
+        id: crypto.randomUUID(),
+        crm: createDoctorDto.crm,
+        crmState: createDoctorDto.crmState,
+        attendanceType: createDoctorDto.attendanceType || 'AMBOS',
+        userId: createDoctorDto.userId,
+        isActive: true,
+        cpf: createDoctorDto.cpf ?? null,
+        cns: createDoctorDto.cns ?? null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }).returning();
 
-    if (createDoctorDto.specialties && createDoctorDto.specialties.length > 0) {
-      for (const specId of createDoctorDto.specialties) {
-        await this.db.insert(schema.doctorSpecialties).values({
-          doctorId: doctor.id,
-          specialtyId: specId,
-          createdAt: new Date().toISOString(),
-        });
+      if (createDoctorDto.specialties && createDoctorDto.specialties.length > 0) {
+        for (const specId of createDoctorDto.specialties) {
+          await tx.insert(schema.doctorSpecialties).values({
+            doctorId: doctor.id,
+            specialtyId: specId,
+            createdAt: new Date().toISOString(),
+          });
+        }
       }
-    }
 
-    return this.findOne(doctor.id);
+      if (createDoctorDto.procedures && createDoctorDto.procedures.length > 0 && ['EXAME', 'AMBOS'].includes(createDoctorDto.attendanceType.toUpperCase())) {
+        for (const procId of createDoctorDto.procedures) {
+          await tx.insert(schema.doctorProcedures).values({
+            doctorId: doctor.id,
+            procedureId: procId,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      }
+
+      return doctor.id;
+    });
+    return this.findOne(doctorId);
   }
 
   async findAll(query: PaginationQueryDto) {
@@ -55,7 +68,10 @@ export class DoctorsService {
     if (search) {
       conditions.push(
         or(
-          ilike(schema.doctors.name, `%${search}%`),
+          inArray(
+            schema.doctors.userId,
+            this.db.select({ id: schema.users.id }).from(schema.users).where(ilike(schema.users.name, `%${search}%`))
+          ),
           ilike(schema.doctors.crm, `%${search}%`),
           ilike(schema.doctors.cpf, `%${search}%`)
         )
@@ -64,9 +80,9 @@ export class DoctorsService {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    let orderByField: any = schema.doctors.name;
-    if (sortBy === 'name') orderByField = schema.doctors.name;
+    let orderByField: any = schema.doctors.createdAt;
     if (sortBy === 'crm') orderByField = schema.doctors.crm;
+    // Sorting by name is complex without joins, defaulting to createdAt
 
     let sortFn = sortOrder === 'desc' ? desc : asc;
 
@@ -83,6 +99,11 @@ export class DoctorsService {
           with: {
             specialty: true
           }
+        },
+        doctorProcedures: {
+          with: {
+            procedure: true
+          }
         }
       },
       orderBy: [sortFn(orderByField)],
@@ -90,7 +111,14 @@ export class DoctorsService {
       offset: skip
     });
 
-    return { data, total };
+    // Remap response to include user's name at the root for easier frontend handling if needed,
+    // though the frontend can just read doctor.user.name
+    const mappedData = data.map(doc => ({
+      ...doc,
+      name: doc.user?.name || 'Desconhecido',
+    }));
+
+    return { data: mappedData, total };
   }
 
   async findOne(id: string) {
@@ -102,6 +130,11 @@ export class DoctorsService {
           with: {
             specialty: true
           }
+        },
+        doctorProcedures: {
+          with: {
+            procedure: true
+          }
         }
       }
     });
@@ -109,35 +142,62 @@ export class DoctorsService {
     if (!doctor) {
       throw new NotFoundException(`Doctor with ID ${id} not found`);
     }
-    return doctor;
+    
+    return {
+      ...doctor,
+      name: doctor.user?.name || 'Desconhecido',
+    };
   }
 
   async update(id: string, updateDoctorDto: UpdateDoctorDto) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
     
-    const dataToUpdate: any = { ...updateDoctorDto, updatedAt: new Date().toISOString() };
-    if (dataToUpdate.active !== undefined) {
-      dataToUpdate.isActive = dataToUpdate.active;
-      delete dataToUpdate.active;
-    }
-    
-    const specialties = dataToUpdate.specialties;
-    delete dataToUpdate.specialties;
-
-    if (Object.keys(dataToUpdate).length > 0) {
-      await this.db.update(schema.doctors).set(dataToUpdate).where(eq(schema.doctors.id, id));
-    }
-
-    if (specialties !== undefined) {
-      await this.db.delete(schema.doctorSpecialties).where(eq(schema.doctorSpecialties.doctorId, id));
-      for (const specId of specialties) {
-        await this.db.insert(schema.doctorSpecialties).values({
-          doctorId: id,
-          specialtyId: specId,
-          createdAt: new Date().toISOString(),
-        });
+    return await this.db.transaction(async (tx) => {
+      const dataToUpdate: any = { ...updateDoctorDto, updatedAt: new Date().toISOString() };
+      
+      if (dataToUpdate.active !== undefined) {
+        dataToUpdate.isActive = dataToUpdate.active;
+        delete dataToUpdate.active;
       }
-    }
+      
+      const specialties = dataToUpdate.specialties;
+      delete dataToUpdate.specialties;
+
+      const procedures = dataToUpdate.procedures;
+      delete dataToUpdate.procedures;
+      
+      delete dataToUpdate.name; // ensure name is not in update payload if accidentally sent
+
+      if (Object.keys(dataToUpdate).length > 0 && Object.keys(dataToUpdate).some(k => k !== 'updatedAt')) {
+        await tx.update(schema.doctors).set(dataToUpdate).where(eq(schema.doctors.id, id));
+      }
+
+      if (specialties !== undefined) {
+        await tx.delete(schema.doctorSpecialties).where(eq(schema.doctorSpecialties.doctorId, id));
+        for (const specId of specialties) {
+          await tx.insert(schema.doctorSpecialties).values({
+            doctorId: id,
+            specialtyId: specId,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      }
+
+      if (procedures !== undefined) {
+        await tx.delete(schema.doctorProcedures).where(eq(schema.doctorProcedures.doctorId, id));
+        
+        const attendanceType = dataToUpdate.attendanceType || existing.attendanceType;
+        if (attendanceType && ['EXAME', 'AMBOS'].includes(attendanceType.toUpperCase())) {
+          for (const procId of procedures) {
+            await tx.insert(schema.doctorProcedures).values({
+              doctorId: id,
+              procedureId: procId,
+              createdAt: new Date().toISOString(),
+            });
+          }
+        }
+      }
+    });
 
     return this.findOne(id);
   }

@@ -25,6 +25,14 @@ export interface Doctor {
       name: string;
     };
   }[];
+  attendanceType?: string;
+  doctorProcedures?: {
+    procedureId: string;
+    procedure: {
+      id: string;
+      name: string;
+    }
+  }[];
 }
 
 export function useDoctors(params?: any) {

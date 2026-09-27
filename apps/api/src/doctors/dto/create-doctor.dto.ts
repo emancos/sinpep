@@ -3,10 +3,6 @@ import { IsString, IsNotEmpty, IsOptional, IsUUID, IsArray, Matches } from 'clas
 export class CreateDoctorDto {
   @IsString()
   @IsNotEmpty()
-  name: string;
-
-  @IsString()
-  @IsNotEmpty()
   @Matches(/^\d{3}\.\d{3}\.\d{3}\-\d{2}$/, { message: 'CPF inválido' })
   cpf: string;
 
@@ -23,12 +19,21 @@ export class CreateDoctorDto {
   @IsNotEmpty()
   crmState: string;
 
+  @IsString()
+  @IsNotEmpty()
+  attendanceType: string;
+
   @IsUUID()
-  @IsOptional()
-  userId?: string;
+  @IsNotEmpty()
+  userId: string;
 
   @IsArray()
   @IsUUID('all', { each: true })
   @IsOptional()
   specialties?: string[];
+
+  @IsArray()
+  @IsUUID('all', { each: true })
+  @IsOptional()
+  procedures?: string[];
 }

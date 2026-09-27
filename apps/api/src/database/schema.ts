@@ -148,12 +148,12 @@ export const patientPhones = pgTable("patient_phones", {
 
 export const doctors = pgTable("doctors", {
 	id: uuid().primaryKey().notNull(),
-	name: text().notNull(),
 	crm: text().notNull(),
 	crmState: text("crm_state").notNull(),
+	attendanceType: text("attendance_type").default('AMBOS').notNull(),
 	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
-	userId: uuid("user_id"),
+	userId: uuid("user_id").notNull(),
 	isActive: boolean("is_active").default(true).notNull(),
 	cpf: text(),
 	cns: text(),
@@ -215,6 +215,24 @@ export const doctorSpecialties = pgTable("doctor_specialties", {
 			name: "doctor_specialties_specialty_id_fkey"
 		}).onUpdate("cascade").onDelete("cascade"),
 	primaryKey({ columns: [table.doctorId, table.specialtyId], name: "doctor_specialties_pkey"}),
+]);
+
+export const doctorProcedures = pgTable("doctor_procedures", {
+	doctorId: uuid("doctor_id").notNull(),
+	procedureId: uuid("procedure_id").notNull(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.doctorId],
+			foreignColumns: [doctors.id],
+			name: "doctor_procedures_doctor_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+			columns: [table.procedureId],
+			foreignColumns: [procedures.id],
+			name: "doctor_procedures_procedure_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	primaryKey({ columns: [table.doctorId, table.procedureId], name: "doctor_procedures_pkey"}),
 ]);
 
 export const cid10 = pgTable("cid10", {
