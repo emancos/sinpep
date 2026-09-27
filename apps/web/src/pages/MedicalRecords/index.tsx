@@ -7,7 +7,7 @@ import { TablePagination } from '../../components/TablePagination';
 export const MedicalRecords: React.FC = () => {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [limit, setLimit] = useState(100);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 

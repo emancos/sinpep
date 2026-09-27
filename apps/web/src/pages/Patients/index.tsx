@@ -49,7 +49,7 @@ export const PatientsList: React.FC = () => {
     const deletePatientMutation = useDeletePatient();
     const toggleActiveMutation = useTogglePatientActive();
     const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(10);
+    const [limit, setLimit] = useState(100);
     const [sortBy, setSortBy] = useState('name');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [searchTerm, setSearchTerm] = useState('');

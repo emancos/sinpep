@@ -45,9 +45,9 @@ export const AuxiliaryTables: React.FC = () => {
 
     // Pagination States
     const [specialtyPage, setSpecialtyPage] = useState(1);
-    const [specialtyLimit, setSpecialtyLimit] = useState(10);
+    const [specialtyLimit, setSpecialtyLimit] = useState(100);
     const [groupPage, setGroupPage] = useState(1);
-    const [groupLimit, setGroupLimit] = useState(10);
+    const [groupLimit, setGroupLimit] = useState(100);
 
     // Modal / Form States
     const [isModalOpen, setIsModalOpen] = useState(false);
