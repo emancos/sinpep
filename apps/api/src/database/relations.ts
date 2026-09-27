@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { profiles, users, userCustomPermissions, permissions, healthCenters, healthAgents, patients, patientPhones, doctors, profilePermissions, doctorSpecialties, specialties, doctorProcedures, procedures } from "./schema";
+import { profiles, users, userCustomPermissions, permissions, healthCenters, healthAgents, patients, patientPhones, doctors, profilePermissions, doctorSpecialties, specialties, doctorProcedures, procedures, doctorProcedureGroups, procedureGroups } from "./schema";
 
 export const usersRelations = relations(users, ({one, many}) => ({
 	profile: one(profiles, {
@@ -75,6 +75,7 @@ export const doctorsRelations = relations(doctors, ({one, many}) => ({
 	}),
 	doctorSpecialties: many(doctorSpecialties),
 	doctorProcedures: many(doctorProcedures),
+	doctorProcedureGroups: many(doctorProcedureGroups),
 }));
 
 export const profilePermissionsRelations = relations(profilePermissions, ({one}) => ({
@@ -112,4 +113,20 @@ export const doctorProceduresRelations = relations(doctorProcedures, ({one}) => 
 
 export const specialtiesRelations = relations(specialties, ({many}) => ({
 	doctorSpecialties: many(doctorSpecialties),
+}));
+
+export const doctorProcedureGroupsRelations = relations(doctorProcedureGroups, ({one}) => ({
+	doctor: one(doctors, {
+		fields: [doctorProcedureGroups.doctorId],
+		references: [doctors.id]
+	}),
+	procedureGroup: one(procedureGroups, {
+		fields: [doctorProcedureGroups.procedureGroupId],
+		references: [procedureGroups.id]
+	}),
+}));
+
+export const procedureGroupsRelations = relations(procedureGroups, ({many}) => ({
+	doctorProcedureGroups: many(doctorProcedureGroups),
+	procedures: many(procedures),
 }));

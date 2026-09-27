@@ -235,6 +235,24 @@ export const doctorProcedures = pgTable("doctor_procedures", {
 	primaryKey({ columns: [table.doctorId, table.procedureId], name: "doctor_procedures_pkey"}),
 ]);
 
+export const doctorProcedureGroups = pgTable("doctor_procedure_groups", {
+	doctorId: uuid("doctor_id").notNull(),
+	procedureGroupId: uuid("procedure_group_id").notNull(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.doctorId],
+			foreignColumns: [doctors.id],
+			name: "doctor_procedure_groups_doctor_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+			columns: [table.procedureGroupId],
+			foreignColumns: [procedureGroups.id],
+			name: "doctor_procedure_groups_procedure_group_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	primaryKey({ columns: [table.doctorId, table.procedureGroupId], name: "doctor_procedure_groups_pkey"}),
+]);
+
 export const cid10 = pgTable("cid10", {
 	id: uuid().primaryKey().notNull(),
 	code: text().notNull(),
