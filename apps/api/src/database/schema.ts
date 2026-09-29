@@ -21,6 +21,7 @@ export const users = pgTable("users", {
 	phone: text(),
 	avatar: text(),
 	isActive: boolean("is_active").default(true).notNull(),
+	forcePasswordChange: boolean("force_password_change").default(false).notNull(),
 	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
 	profileId: uuid("profile_id").notNull(),
@@ -317,10 +318,6 @@ export const proceduresRelations = relations(procedures, ({ one, many }) => ({
     references: [procedureGroups.id],
   }),
   variants: many(procedureVariants),
-}));
-
-export const procedureGroupsRelations = relations(procedureGroups, ({ many }) => ({
-  procedures: many(procedures),
 }));
 
 export const procedureVariantsRelations = relations(procedureVariants, ({ one }) => ({

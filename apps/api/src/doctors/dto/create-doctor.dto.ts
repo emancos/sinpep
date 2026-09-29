@@ -23,9 +23,9 @@ export class CreateDoctorDto {
   @IsNotEmpty()
   attendanceType: string;
 
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
-  userId: string;
+  name: string;
 
   @IsArray()
   @IsUUID('all', { each: true })

@@ -23,9 +23,9 @@ export class UpdateDoctorDto {
   @IsOptional()
   attendanceType?: string;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
-  userId?: string;
+  name?: string;
 
   @IsArray()
   @IsUUID('all', { each: true })

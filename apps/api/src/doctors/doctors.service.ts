@@ -7,6 +7,7 @@ import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { eq, ilike, or, and, asc, desc, inArray } from 'drizzle-orm';
 import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class DoctorsService {
@@ -17,14 +18,52 @@ export class DoctorsService {
 
   async create(createDoctorDto: CreateDoctorDto) {
     const doctorId = await this.db.transaction(async (tx) => {
+      // 1. Extrair os números do CPF para email e senha
+      const cpfNumbers = createDoctorDto.cpf.replace(/\D/g, '');
+      const email = `${cpfNumbers}@integrasistemas.tech.br`;
+      const passwordHash = await bcrypt.hash(cpfNumbers, 10);
+
+      // 2. Buscar um perfil para associar (pode ser qualquer um, sobrescreveremos com customPermissions)
+      const [profile] = await tx.select().from(schema.profiles).limit(1);
+
+      if (!profile) {
+        throw new NotFoundException('Nenhum perfil encontrado no sistema para vincular ao usuário.');
+      }
+
+      // 3. Criar o usuário
+      const [user] = await tx.insert(schema.users).values({
+        id: crypto.randomUUID(),
+        email,
+        passwordHash,
+        name: createDoctorDto.name,
+        profileId: profile.id,
+        forcePasswordChange: true, // Força a troca de senha no primeiro login
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }).returning();
+
+      // 4. Adicionar permissões customizadas de prontuário
+      const medicalRecordsPerms = await tx.select().from(schema.permissions).where(ilike(schema.permissions.name, 'medical-records%'));
+      for (const perm of medicalRecordsPerms) {
+        await tx.insert(schema.userCustomPermissions).values({
+          id: crypto.randomUUID(),
+          userId: user.id,
+          permissionId: perm.id,
+          isAllowed: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      // 5. Criar o médico vinculado ao novo usuário
       const [doctor] = await tx.insert(schema.doctors).values({
         id: crypto.randomUUID(),
         crm: createDoctorDto.crm,
         crmState: createDoctorDto.crmState,
         attendanceType: createDoctorDto.attendanceType || 'AMBOS',
-        userId: createDoctorDto.userId,
+        userId: user.id,
         isActive: true,
-        cpf: createDoctorDto.cpf ?? null,
+        cpf: createDoctorDto.cpf,
         cns: createDoctorDto.cns ?? null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -189,6 +228,9 @@ export class DoctorsService {
       const procedureGroups = dataToUpdate.procedureGroups;
       delete dataToUpdate.procedureGroups;
       
+      if (dataToUpdate.name) {
+        await tx.update(schema.users).set({ name: dataToUpdate.name, updatedAt: new Date().toISOString() }).where(eq(schema.users.id, existing.userId));
+      }
       delete dataToUpdate.name; // ensure name is not in update payload if accidentally sent
 
       if (Object.keys(dataToUpdate).length > 0 && Object.keys(dataToUpdate).some(k => k !== 'updatedAt')) {
