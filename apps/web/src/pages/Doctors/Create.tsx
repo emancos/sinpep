@@ -4,17 +4,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as zod from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Stethoscope, Check, Loader2, User, ChevronRight, ClipboardList, Plus } from 'lucide-react';
+import { ArrowLeft, Stethoscope, Check, Loader2, User, ChevronRight, ClipboardList } from 'lucide-react';
 import Select from 'react-select';
 import { useCreateDoctor, useUpdateDoctor, useDoctor } from '../../hooks/useDoctors';
-import { useUsersQuery } from '../../hooks/useUsers';
 import { useSpecialties } from '../../hooks/useSpecialties';
 import { useProcedures, useProcedureGroups } from '../../hooks/useProcedures';
-import { QuickCreateUserModal } from './QuickCreateUserModal';
 
 const doctorSchema = zod.object({
-  userId: zod.string().min(1, 'Selecione um usuário para vincular ao médico'),
-  cpf: zod.string().regex(/^\d{3}\.\d{3}\.\d{3}\-\d{2}$/, 'CPF inválido').optional().or(zod.literal('')),
+  name: zod.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),
+  cpf: zod.string().regex(/^\d{3}\.\d{3}\.\d{3}\-\d{2}$/, 'CPF inválido e obrigatório'),
   cns: zod.string().regex(/^\d{3}\s\d{4}\s\d{4}\s\d{4}$/, 'CNS inválido').optional().or(zod.literal('')),
   crm: zod.string().min(1, 'CRM é obrigatório'),
   crmState: zod.string().length(2, 'Informe a UF do CRM'),
@@ -22,19 +20,6 @@ const doctorSchema = zod.object({
   specialties: zod.array(zod.string()).min(1, 'Selecione no mínimo 1 especialidade'),
   procedures: zod.array(zod.string()).optional(),
   procedureGroups: zod.array(zod.string()).optional(),
-}).superRefine((data, ctx) => {
-  if (!data.cpf && !data.cns) {
-    ctx.addIssue({
-      code: zod.ZodIssueCode.custom,
-      message: 'CPF ou CNS deve ser informado',
-      path: ['cpf'],
-    });
-    ctx.addIssue({
-      code: zod.ZodIssueCode.custom,
-      message: 'CPF ou CNS deve ser informado',
-      path: ['cns'],
-    });
-  }
 });
 
 export const formatCPF = (value: string) => {
@@ -78,10 +63,8 @@ export const CreateOrEditDoctor: React.FC = () => {
 
   const [step, setStep] = useState(1);
   const [isByGroup, setIsByGroup] = useState(false);
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
 
   const { data: doctor, isLoading: loadingDoctor } = useDoctor(id);
-  const { data: usersData, isLoading: loadingUsers } = useUsersQuery();
   const { data: specialtiesData, isLoading: loadingSpecialties } = useSpecialties({ page: 1, limit: 1000 });
   const { data: proceduresData, isLoading: loadingProcedures } = useProcedures({ page: 1, limit: 1000 });
   const { data: procedureGroupsData, isLoading: loadingProcedureGroups } = useProcedureGroups(false);
@@ -99,7 +82,7 @@ export const CreateOrEditDoctor: React.FC = () => {
   } = useForm<FormData>({
     resolver: zodResolver(doctorSchema),
     defaultValues: {
-      userId: '',
+      name: '',
       cpf: '',
       cns: '',
       crm: '',
@@ -117,7 +100,7 @@ export const CreateOrEditDoctor: React.FC = () => {
   useEffect(() => {
     if (isEditMode && doctor) {
       reset({
-        userId: doctor.userId || '',
+        name: doctor.user?.name || '',
         cpf: doctor.cpf || '',
         cns: doctor.cns || '',
         crm: doctor.crm,
@@ -138,12 +121,11 @@ export const CreateOrEditDoctor: React.FC = () => {
   const consultationOptions = consultationProcedures.map(p => ({ value: p.id, label: p.name }));
   const examOptions = examProcedures.map(p => ({ value: p.id, label: p.name }));
   const procedureGroupOptions = procedureGroupsData?.map(pg => ({ value: pg.id, label: pg.name })) || [];
-  const userOptions = usersData?.map(u => ({ value: u.id, label: `${u.name} (${u.email})` })) || [];
   const specialtyOptions = specialtiesData?.data?.filter(s => s.name.toUpperCase().includes('MEDICO') || s.name.toUpperCase().includes('MÉDICO')).map(s => ({ value: s.id, label: s.name })) || [];
 
 
   const handleNextStep1 = async () => {
-    const isStep1Valid = await trigger(['userId', 'cpf', 'cns', 'crm', 'crmState']);
+    const isStep1Valid = await trigger(['name', 'cpf', 'cns', 'crm', 'crmState']);
     if (isStep1Valid) {
       setStep(2);
     }
@@ -223,7 +205,6 @@ export const CreateOrEditDoctor: React.FC = () => {
   }
 
   // Resumo Helpers
-  const selectedUserName = userOptions.find(u => u.value === currentValues.userId)?.label;
   const selectedSpecialties = specialtyOptions.filter(s => currentValues.specialties?.includes(s.value)).map(s => s.label);
   const selectedConsultations = consultationOptions.filter(c => currentValues.procedures?.includes(c.value)).map(c => c.label);
   const selectedExams = examOptions.filter(e => currentValues.procedures?.includes(e.value)).map(e => e.label);
@@ -267,42 +248,28 @@ export const CreateOrEditDoctor: React.FC = () => {
             </div>
             <div>
               <h2 className="text-xl font-bold">Identificação e Documentos</h2>
-              <p className="text-sm text-slate-500 font-medium">Vincule um usuário e informe os documentos (CPF ou CNS obrigatório)</p>
+              <p className="text-sm text-slate-500 font-medium">Os dados de acesso (e-mail e senha) serão gerados com base no CPF.</p>
             </div>
           </div>
 
           <div className="space-y-6">
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
-                  Usuário do Sistema <span className="text-rose-500">*</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setIsUserModalOpen(true)}
-                  className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Novo Usuário
-                </button>
-              </div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
+                Nome Completo do Médico <span className="text-rose-500">*</span>
+              </label>
               <Controller
-                name="userId"
+                name="name"
                 control={control}
                 render={({ field }) => (
-                  <Select
-                    unstyled
-                    options={userOptions}
-                    value={userOptions.find(opt => opt.value === field.value) || null}
-                    onChange={(val) => field.onChange(val?.value || '')}
-                    placeholder="Busque pelo nome ou email do usuário..."
-                    noOptionsMessage={() => "Nenhum usuário encontrado"}
-                    classNames={customSelectStyles}
-                    isLoading={loadingUsers}
+                  <input
+                    {...field}
+                    type="text"
+                    placeholder="Ex: João Silva"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                   />
                 )}
               />
-              {errors.userId && <p className="text-rose-500 text-xs font-semibold">{errors.userId.message}</p>}
+              {errors.name && <p className="text-rose-500 text-xs font-semibold">{errors.name.message}</p>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -344,7 +311,7 @@ export const CreateOrEditDoctor: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">CPF</label>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">CPF <span className="text-rose-500">*</span></label>
                 <Controller
                   name="cpf"
                   control={control}
@@ -597,8 +564,8 @@ export const CreateOrEditDoctor: React.FC = () => {
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="block text-slate-500 dark:text-slate-400">Usuário do Sistema</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedUserName || '-'}</span>
+                    <span className="block text-slate-500 dark:text-slate-400">Nome do Médico</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{currentValues.name || '-'}</span>
                   </div>
                   <div>
                     <span className="block text-slate-500 dark:text-slate-400">CRM / UF</span>
@@ -711,14 +678,6 @@ export const CreateOrEditDoctor: React.FC = () => {
         </div>
 
       </form>
-
-      <QuickCreateUserModal 
-        isOpen={isUserModalOpen} 
-        onClose={() => setIsUserModalOpen(false)}
-        onSuccess={(newUserId) => {
-          reset({ ...currentValues, userId: newUserId });
-        }}
-      />
     </div>
   );
 };
