@@ -12,7 +12,7 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
-  Edit2,
+  Edit,
   Power,
   ShieldAlert,
   CheckCircle2,
@@ -240,11 +240,11 @@ export const DoctorsList: React.FC = () => {
 
                       <td className="px-6 py-4 text-slate-600 dark:text-slate-300 text-xs space-y-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-semibold text-slate-400 dark:text-slate-500">CPF:</span> 
+                          <span className="font-semibold text-slate-400 dark:text-slate-500">CPF:</span>
                           <span className="font-mono">{doctor.cpf || '-'}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className="font-semibold text-slate-400 dark:text-slate-500">CNS:</span> 
+                          <span className="font-semibold text-slate-400 dark:text-slate-500">CNS:</span>
                           <span className="font-mono">{doctor.cns || '-'}</span>
                         </div>
                       </td>
@@ -296,18 +296,17 @@ export const DoctorsList: React.FC = () => {
                             <>
                               <button
                                 onClick={() => navigate(`/doctors/${doctor.id}/edit`)}
-                                className="px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-100 dark:bg-blue-500/10 hover:bg-blue-200 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/20 rounded-lg transition-all cursor-pointer shadow-md"
+                                className="p-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-100 dark:bg-blue-500/10 hover:bg-blue-200 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/20 rounded-lg transition-all cursor-pointer shadow-md"
                               >
-                                <Edit2 className="w-3.5 h-3.5 inline-block mr-1 -mt-0.5" />
+                                <Edit className="w-4 h-4" />
                               </button>
 
                               <button
                                 onClick={() => handleToggleActive(doctor.id, doctor.isActive)}
-                                className={`p-1 border rounded-lg transition-all cursor-pointer ${
-                                  doctor.isActive 
-                                    ? 'text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 bg-amber-100 dark:bg-amber-500/10 hover:bg-amber-200 dark:hover:bg-amber-500/20 border-amber-200 dark:border-amber-500/20' 
-                                    : 'text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 bg-teal-100 dark:bg-teal-500/10 hover:bg-teal-200 dark:hover:bg-teal-500/20 border-teal-200 dark:border-teal-500/20'
-                                }`}
+                                className={`p-1 border rounded-lg transition-all cursor-pointer ${doctor.isActive
+                                  ? 'text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 bg-amber-100 dark:bg-amber-500/10 hover:bg-amber-200 dark:hover:bg-amber-500/20 border-amber-200 dark:border-amber-500/20'
+                                  : 'text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 bg-teal-100 dark:bg-teal-500/10 hover:bg-teal-200 dark:hover:bg-teal-500/20 border-teal-200 dark:border-teal-500/20'
+                                  }`}
                                 title={doctor.isActive ? "Desabilitar" : "Habilitar"}
                               >
                                 <Power className="w-4 h-4" />
