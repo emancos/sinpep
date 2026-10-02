@@ -3,7 +3,7 @@ import { IsBoolean, IsOptional, IsString, IsArray, IsUUID, Matches, ArrayMinSize
 export class UpdateDoctorDto {
   @IsString()
   @IsOptional()
-  @Matches(/^\d{3}\.\d{3}\.\d{3}\-\d{2}$/, { message: 'CPF inválido' })
+  @Matches(/^(\d{3}|XXX)\.\d{3}\.\d{3}[-\.](\d{2}|XX)$/i, { message: 'CPF inválido' })
   cpf?: string;
 
   @IsString()
@@ -45,4 +45,7 @@ export class UpdateDoctorDto {
   @IsBoolean()
   @IsOptional()
   active?: boolean;
+
+  @IsOptional()
+  healthCenter?: any;
 }

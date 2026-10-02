@@ -3,7 +3,7 @@ import { IsString, IsNotEmpty, IsOptional, IsUUID, IsArray, Matches, ArrayMinSiz
 export class CreateDoctorDto {
   @IsString()
   @IsNotEmpty()
-  @Matches(/^\d{3}\.\d{3}\.\d{3}\-\d{2}$/, { message: 'CPF inválido' })
+  @Matches(/^(\d{3}|XXX)\.\d{3}\.\d{3}[-\.](\d{2}|XX)$/i, { message: 'CPF inválido' })
   cpf: string;
 
   @IsString()
@@ -41,4 +41,7 @@ export class CreateDoctorDto {
   @IsUUID('all', { each: true })
   @IsOptional()
   procedureGroups?: string[];
+
+  @IsOptional()
+  healthCenter?: any;
 }

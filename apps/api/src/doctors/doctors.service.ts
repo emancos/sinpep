@@ -29,6 +29,45 @@ export class DoctorsService {
       if (!profile) {
         throw new NotFoundException('Nenhum perfil encontrado no sistema para vincular ao usuário.');
       }
+      
+      let healthCenterId = null;
+      if (createDoctorDto.healthCenter) {
+        const hcData = createDoctorDto.healthCenter;
+        const [existingHc] = await tx.select().from(schema.healthCenters).where(eq(schema.healthCenters.cnes, hcData.coCnes || hcData.cnes)).limit(1);
+        if (existingHc) {
+          healthCenterId = existingHc.id;
+        } else {
+          const [newHc] = await tx.insert(schema.healthCenters).values({
+            id: crypto.randomUUID(),
+            cnes: hcData.coCnes,
+            name: hcData.noFantasia || hcData.noRazaoSocial,
+            coUf: hcData.coUf,
+            sgUf: hcData.sgUf,
+            coCep: hcData.coCep,
+            nuCnpj: hcData.nuCnpj,
+            dsEmail: hcData.dsEmail,
+            noBairro: hcData.noBairro,
+            tpGestao: hcData.tpGestao,
+            noFantasia: hcData.noFantasia,
+            nuEndereco: hcData.nuEndereco,
+            nuTelefone: hcData.nuTelefone,
+            noMunicipio: hcData.noMunicipio,
+            noLogradouro: hcData.noLogradouro,
+            stCotaTabela: hcData.stCotaTabela,
+            stExecutante: hcData.stExecutante,
+            noComplemento: hcData.noComplemento,
+            noRazaoSocial: hcData.noRazaoSocial,
+            stSolicitante: hcData.stSolicitante,
+            stSolicitaFora: hcData.stSolicitaFora,
+            coMunicipioIbge: hcData.coMunicipioIbge,
+            coNaturezaJuridica: hcData.coNaturezaJuridica,
+            coNaturezaOrganizacao: hcData.coNaturezaOrganizacao,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }).returning();
+          healthCenterId = newHc.id;
+        }
+      }
 
       // 3. Criar o usuário
       const [user] = await tx.insert(schema.users).values({
@@ -37,6 +76,7 @@ export class DoctorsService {
         passwordHash,
         name: createDoctorDto.name,
         profileId: profile.id,
+        healthCenterId,
         forcePasswordChange: true, // Força a troca de senha no primeiro login
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -143,7 +183,11 @@ export class DoctorsService {
     const data = await this.db.query.doctors.findMany({
       where: whereClause,
       with: {
-        user: true,
+        user: {
+          with: {
+            healthCenter: true
+          }
+        },
         doctorSpecialties: {
           with: {
             specialty: true
@@ -179,7 +223,11 @@ export class DoctorsService {
     const doctor = await this.db.query.doctors.findFirst({
       where: eq(schema.doctors.id, id),
       with: {
-        user: true,
+        user: {
+          with: {
+            healthCenter: true
+          }
+        },
         doctorSpecialties: {
           with: {
             specialty: true
@@ -228,10 +276,59 @@ export class DoctorsService {
       const procedureGroups = dataToUpdate.procedureGroups;
       delete dataToUpdate.procedureGroups;
       
-      if (dataToUpdate.name) {
-        await tx.update(schema.users).set({ name: dataToUpdate.name, updatedAt: new Date().toISOString() }).where(eq(schema.users.id, existing.userId));
+      let healthCenterId = existing.user?.healthCenterId || null;
+      if (dataToUpdate.healthCenter) {
+        const hcData = dataToUpdate.healthCenter;
+        const [existingHc] = await tx.select().from(schema.healthCenters).where(eq(schema.healthCenters.cnes, hcData.coCnes || hcData.cnes)).limit(1);
+        if (existingHc) {
+          healthCenterId = existingHc.id;
+        } else {
+          const [newHc] = await tx.insert(schema.healthCenters).values({
+            id: crypto.randomUUID(),
+            cnes: hcData.coCnes,
+            name: hcData.noFantasia || hcData.noRazaoSocial,
+            coUf: hcData.coUf,
+            sgUf: hcData.sgUf,
+            coCep: hcData.coCep,
+            nuCnpj: hcData.nuCnpj,
+            dsEmail: hcData.dsEmail,
+            noBairro: hcData.noBairro,
+            tpGestao: hcData.tpGestao,
+            noFantasia: hcData.noFantasia,
+            nuEndereco: hcData.nuEndereco,
+            nuTelefone: hcData.nuTelefone,
+            noMunicipio: hcData.noMunicipio,
+            noLogradouro: hcData.noLogradouro,
+            stCotaTabela: hcData.stCotaTabela,
+            stExecutante: hcData.stExecutante,
+            noComplemento: hcData.noComplemento,
+            noRazaoSocial: hcData.noRazaoSocial,
+            stSolicitante: hcData.stSolicitante,
+            stSolicitaFora: hcData.stSolicitaFora,
+            coMunicipioIbge: hcData.coMunicipioIbge,
+            coNaturezaJuridica: hcData.coNaturezaJuridica,
+            coNaturezaOrganizacao: hcData.coNaturezaOrganizacao,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }).returning();
+          healthCenterId = newHc.id;
+        }
       }
-      delete dataToUpdate.name; // ensure name is not in update payload if accidentally sent
+      delete dataToUpdate.healthCenter;
+      
+      const userUpdatePayload: any = {};
+      if (dataToUpdate.name) {
+        userUpdatePayload.name = dataToUpdate.name;
+      }
+      if (healthCenterId !== existing.user?.healthCenterId) {
+        userUpdatePayload.healthCenterId = healthCenterId;
+      }
+      
+      if (Object.keys(userUpdatePayload).length > 0) {
+        userUpdatePayload.updatedAt = new Date().toISOString();
+        await tx.update(schema.users).set(userUpdatePayload).where(eq(schema.users.id, existing.userId));
+      }
+      delete dataToUpdate.name;
 
       if (Object.keys(dataToUpdate).length > 0 && Object.keys(dataToUpdate).some(k => k !== 'updatedAt')) {
         await tx.update(schema.doctors).set(dataToUpdate).where(eq(schema.doctors.id, id));
