@@ -25,6 +25,7 @@ export const users = pgTable("users", {
 	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
 	profileId: uuid("profile_id").notNull(),
+	healthCenterId: uuid("health_center_id"),
 }, (table) => [
 	uniqueIndex("users_email_key").using("btree", table.email.asc().nullsLast().op("text_ops")),
 	foreignKey({
@@ -32,6 +33,11 @@ export const users = pgTable("users", {
 			foreignColumns: [profiles.id],
 			name: "users_profile_id_fkey"
 		}).onUpdate("cascade").onDelete("restrict"),
+	foreignKey({
+			columns: [table.healthCenterId],
+			foreignColumns: [healthCenters.id],
+			name: "users_health_center_id_fkey"
+		}).onUpdate("cascade").onDelete("set null"),
 ]);
 
 export const permissions = pgTable("permissions", {
@@ -122,7 +128,30 @@ export const patients = pgTable("patients", {
 export const healthCenters = pgTable("health_centers", {
 	id: uuid().primaryKey().notNull(),
 	name: text().notNull(),
-	cnes: text(),
+	cnes: text().notNull(),
+	
+	coUf: text("co_uf"),
+	sgUf: text("sg_uf"),
+	coCep: text("co_cep"),
+	nuCnpj: text("nu_cnpj"),
+	dsEmail: text("ds_email"),
+	noBairro: text("no_bairro"),
+	tpGestao: text("tp_gestao"),
+	noFantasia: text("no_fantasia"),
+	nuEndereco: text("nu_endereco"),
+	nuTelefone: text("nu_telefone"),
+	noMunicipio: text("no_municipio"),
+	noLogradouro: text("no_logradouro"),
+	stCotaTabela: boolean("st_cota_tabela"),
+	stExecutante: boolean("st_executante"),
+	noComplemento: text("no_complemento"),
+	noRazaoSocial: text("no_razao_social"),
+	stSolicitante: boolean("st_solicitante"),
+	stSolicitaFora: boolean("st_solicita_fora"),
+	coMunicipioIbge: text("co_municipio_ibge"),
+	coNaturezaJuridica: text("co_natureza_juridica"),
+	coNaturezaOrganizacao: text("co_natureza_organizacao"),
+	
 	address: text(),
 	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),

@@ -13,6 +13,8 @@ import { SpecialtiesModule } from './specialties/specialties.module';
 import { DoctorsModule } from './doctors/doctors.module';
 import { ProcedureGroupsModule } from './procedure-groups/procedure-groups.module';
 import { ProceduresModule } from './procedures/procedures.module';
+import { SisregModule } from './sisreg/sisreg.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { ProceduresModule } from './procedures/procedures.module';
     ProceduresModule,
     MedicalRecordsModule,
     Cid10Module,
+    SisregModule,
+    EventsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

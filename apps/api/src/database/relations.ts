@@ -6,6 +6,10 @@ export const usersRelations = relations(users, ({one, many}) => ({
 		fields: [users.profileId],
 		references: [profiles.id]
 	}),
+	healthCenter: one(healthCenters, {
+		fields: [users.healthCenterId],
+		references: [healthCenters.id]
+	}),
 	userCustomPermissions: many(userCustomPermissions),
 	healthAgents: many(healthAgents),
 	doctors: many(doctors),
@@ -47,6 +51,7 @@ export const healthAgentsRelations = relations(healthAgents, ({one, many}) => ({
 export const healthCentersRelations = relations(healthCenters, ({many}) => ({
 	healthAgents: many(healthAgents),
 	patients: many(patients),
+	users: many(users),
 }));
 
 export const patientsRelations = relations(patients, ({one, many}) => ({

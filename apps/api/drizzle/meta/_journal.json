@@ -8,6 +8,13 @@
       "when": 1790536181924,
       "tag": "0000_magenta_boomerang",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790897167292,
+      "tag": "0001_far_major_mapleleaf",
+      "breakpoints": true
     }
   ]
 }
