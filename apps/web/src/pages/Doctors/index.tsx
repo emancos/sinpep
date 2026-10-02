@@ -266,15 +266,15 @@ export const DoctorsList: React.FC = () => {
                             )}
                           </div>
                           <div>
-                            {doctor.user ? (
+                            {doctor.user?.healthCenter ? (
                               <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-500/20">
                                 <CheckCircle2 className="w-3 h-3" />
-                                Vinculado a {doctor.user.name}
+                                Vinculado a {doctor.user.healthCenter.name || doctor.user.healthCenter.noFantasia}
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
                                 <ShieldAlert className="w-3 h-3" />
-                                Não vinculado
+                                Sem vínculo de unidade
                               </span>
                             )}
                           </div>
