@@ -16,7 +16,8 @@ import {
   Power,
   ShieldAlert,
   CheckCircle2,
-  Trash2
+  Trash2,
+  Eye
 } from 'lucide-react';
 import { TablePagination } from '../../components/TablePagination';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -283,14 +284,21 @@ export const DoctorsList: React.FC = () => {
 
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => navigate(`/doctors/${doctor.id}`)}
+                            className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/10 hover:bg-indigo-200 dark:hover:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/20 rounded-lg transition-all cursor-pointer shadow-md"
+                            title="Visualizar"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+
                           {userPermissions.includes('doctors:write') && (
                             <>
                               <button
-                                onClick={() => navigate(`/doctors/${doctor.id}`)}
+                                onClick={() => navigate(`/doctors/${doctor.id}/edit`)}
                                 className="px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-100 dark:bg-blue-500/10 hover:bg-blue-200 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/20 rounded-lg transition-all cursor-pointer shadow-md"
                               >
                                 <Edit2 className="w-3.5 h-3.5 inline-block mr-1 -mt-0.5" />
-                                Editar
                               </button>
 
                               <button

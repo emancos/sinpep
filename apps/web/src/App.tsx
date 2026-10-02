@@ -13,6 +13,8 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { Dashboard } from './pages/Dashboard';
 import { HealthCentersList } from './pages/HealthCenters';
 import { CreateOrEditHealthCenter } from './pages/HealthCenters/Create';
+import { UserDetails } from './pages/Users/Details';
+import { DoctorDetails } from './pages/Doctors/Details';
 import { HealthCenterDetails } from './pages/HealthCenters/Details';
 import { PatientsList } from './pages/Patients';
 import { CreatePatient } from './pages/Patients/Create';
@@ -50,6 +52,7 @@ function App() {
                   {/* Admin Only Routes */}
                   <Route element={<ProtectedRoute requiredPermission="admin:access" />}>
                     <Route path="/users" element={<UsersList />} />
+                    <Route path="/users/:id" element={<UserDetails />} />
                     <Route path="/users/create" element={<CreateOrEditUser />} />
                     <Route path="/users/:id/edit" element={<CreateOrEditUser />} />
                   </Route>
@@ -65,10 +68,11 @@ function App() {
 
                   <Route element={<ProtectedRoute requiredPermission="doctors:read" />}>
                     <Route path="/doctors" element={<DoctorsList />} />
+                    <Route path="/doctors/:id" element={<DoctorDetails />} />
                   </Route>
                   <Route element={<ProtectedRoute requiredPermission="doctors:write" />}>
                     <Route path="/doctors/new" element={<CreateOrEditDoctor />} />
-                    <Route path="/doctors/:id" element={<CreateOrEditDoctor />} />
+                    <Route path="/doctors/:id/edit" element={<CreateOrEditDoctor />} />
                   </Route>
 
                   

@@ -17,6 +17,8 @@ export interface Doctor {
     id: string;
     name: string;
     email: string;
+    cpf?: string;
+    healthCenter?: any;
   };
   doctorSpecialties?: {
     specialtyId: string;
