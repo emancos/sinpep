@@ -35,6 +35,18 @@ export class HealthCentersController {
     return this.healthCentersService.findAll(query);
   }
 
+  @Get('cnes/search')
+  @Permissions('health-centers:read')
+  searchCnes(@Query() query: any) {
+    return this.healthCentersService.searchCnes(query);
+  }
+
+  @Get('cnes/professionals')
+  @Permissions('health-centers:read')
+  searchProfessionals(@Query() query: any) {
+    return this.healthCentersService.searchProfessionals(query);
+  }
+
   @Get(':id')
   @Permissions('health-centers:read')
   findOne(@Param('id') id: string) {

@@ -7,6 +7,7 @@ import { UpdateHealthCenterDto } from './dto/update-health-center.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { eq, ilike, or, and, asc, desc } from 'drizzle-orm';
 import * as crypto from 'crypto';
+import axios from 'axios';
 
 @Injectable()
 export class HealthCentersService {
@@ -19,7 +20,7 @@ export class HealthCentersService {
     const [healthCenter] = await this.db.insert(schema.healthCenters).values({
       id: crypto.randomUUID(),
       name: createHealthCenterDto.name,
-      cnes: createHealthCenterDto.cnes ?? null,
+      cnes: createHealthCenterDto.cnes || '0000000',
       address: createHealthCenterDto.address ?? null,
       nurseName: createHealthCenterDto.nurseName ?? null,
       isActive: true,
@@ -126,5 +127,67 @@ export class HealthCentersService {
       .where(eq(schema.healthCenters.id, id))
       .returning();
     return deleted;
+  }
+
+  async searchCnes(query: any) {
+    const clientId = process.env.SAUDE_API_CLIENT_ID;
+    const clientSecret = process.env.SAUDE_API_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      throw new NotFoundException('Credenciais da API de Saúde não configuradas no .env');
+    }
+
+    try {
+      // 1. Obter o token de acesso
+      const authResponse = await axios.post('http://localhost:4000/auth/token', {
+        client_id: clientId,
+        client_secret: clientSecret,
+      });
+      
+      const token = authResponse.data.access_token;
+
+      // 2. Fazer a requisição usando o token
+      const { data } = await axios.get('http://localhost:4000/cnes/estabelecimentos', {
+        params: query,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+      return data;
+    } catch (error) {
+      console.error('Erro na integração com CNES:', error);
+      throw new NotFoundException('Erro ao buscar estabelecimentos no CNES.');
+    }
+  }
+
+  async searchProfessionals(query: any) {
+    const clientId = process.env.SAUDE_API_CLIENT_ID;
+    const clientSecret = process.env.SAUDE_API_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      throw new NotFoundException('Credenciais da API de Saúde não configuradas no .env');
+    }
+
+    try {
+      // 1. Obter o token de acesso
+      const authResponse = await axios.post('http://localhost:4000/auth/token', {
+        client_id: clientId,
+        client_secret: clientSecret,
+      });
+      
+      const token = authResponse.data.access_token;
+
+      // 2. Fazer a requisição usando o token
+      const { data } = await axios.get('http://localhost:4000/cnes/profissionais', {
+        params: query,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+      return data;
+    } catch (error) {
+      console.error('Erro na integração com CNES Profissionais:', error);
+      throw new NotFoundException('Erro ao buscar profissionais no CNES.');
+    }
   }
 }
