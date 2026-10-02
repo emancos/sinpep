@@ -9,10 +9,11 @@ import Select from 'react-select';
 import { useCreateDoctor, useUpdateDoctor, useDoctor } from '../../hooks/useDoctors';
 import { useSpecialties } from '../../hooks/useSpecialties';
 import { useProcedures, useProcedureGroups } from '../../hooks/useProcedures';
+import { Building2, Search } from 'lucide-react';
 
 const doctorSchema = zod.object({
   name: zod.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),
-  cpf: zod.string().regex(/^\d{3}\.\d{3}\.\d{3}\-\d{2}$/, 'CPF inválido e obrigatório'),
+  cpf: zod.string().regex(/^(\d{3}|XXX)\.\d{3}\.\d{3}[-\.](\d{2}|XX)$/i, 'CPF inválido e obrigatório'),
   cns: zod.string().regex(/^\d{3}\s\d{4}\s\d{4}\s\d{4}$/, 'CNS inválido').optional().or(zod.literal('')),
   crm: zod.string().min(1, 'CRM é obrigatório'),
   crmState: zod.string().length(2, 'Informe a UF do CRM'),
@@ -20,9 +21,15 @@ const doctorSchema = zod.object({
   specialties: zod.array(zod.string()).min(1, 'Selecione no mínimo 1 especialidade'),
   procedures: zod.array(zod.string()).optional(),
   procedureGroups: zod.array(zod.string()).optional(),
+  healthCenter: zod.any().refine((val) => !!val, { message: 'Vincule um estabelecimento' }),
 });
 
 export const formatCPF = (value: string) => {
+  const upperValue = value.toUpperCase();
+  if (upperValue.includes('X')) {
+    // Permite que o usuário apague os X's e edite mantendo a máscara customizada até que não haja mais X
+    return upperValue.replace(/[^0-9X\.\-]/g, '').substring(0, 14);
+  }
   return value
     .replace(/\D/g, '')
     .replace(/(\d{3})(\d)/, '$1.$2')
@@ -61,8 +68,22 @@ export const CreateOrEditDoctor: React.FC = () => {
   const navigate = useNavigate();
   const isEditMode = !!id;
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(isEditMode ? 2 : 1);
   const [isByGroup, setIsByGroup] = useState(false);
+  
+  // CNES Search State
+  const [cnesSearchTerm, setCnesSearchTerm] = useState('');
+  const [cnesResults, setCnesResults] = useState<any[]>([]);
+  const [isSearchingCnes, setIsSearchingCnes] = useState(false);
+  const [hasSearchedAndFailed, setHasSearchedAndFailed] = useState(false);
+  const [manualCnesData, setManualCnesData] = useState({ coCnes: '', noFantasia: '', noMunicipio: '', sgUf: 'PB' });
+
+  // Professional Search State
+  const [proSearchTerm, setProSearchTerm] = useState('');
+  const [proResults, setProResults] = useState<any[]>([]);
+  const [isSearchingPro, setIsSearchingPro] = useState(false);
+  const [hasSearchedProAndFailed, setHasSearchedProAndFailed] = useState(false);
+  const [isCnsDisabled, setIsCnsDisabled] = useState(false);
 
   const { data: doctor, isLoading: loadingDoctor } = useDoctor(id);
   const { data: specialtiesData, isLoading: loadingSpecialties } = useSpecialties({ page: 1, limit: 1000 });
@@ -91,6 +112,7 @@ export const CreateOrEditDoctor: React.FC = () => {
       specialties: [],
       procedures: [],
       procedureGroups: [],
+      healthCenter: null,
     },
   });
 
@@ -109,6 +131,7 @@ export const CreateOrEditDoctor: React.FC = () => {
         specialties: doctor.doctorSpecialties?.map((ds: any) => ds.specialtyId) || [],
         procedures: doctor.doctorProcedures?.map((dp: any) => dp.procedureId) || [],
         procedureGroups: (doctor as any).doctorProcedureGroups?.map((dpg: any) => dpg.procedureGroupId) || [],
+        healthCenter: (doctor as any).user?.healthCenter || null,
       });
       setIsByGroup(((doctor as any).doctorProcedureGroups && (doctor as any).doctorProcedureGroups.length > 0) || false);
     }
@@ -124,16 +147,96 @@ export const CreateOrEditDoctor: React.FC = () => {
   const specialtyOptions = specialtiesData?.data?.filter(s => s.name.toUpperCase().includes('MEDICO') || s.name.toUpperCase().includes('MÉDICO')).map(s => ({ value: s.id, label: s.name })) || [];
 
 
-  const handleNextStep1 = async () => {
-    const isStep1Valid = await trigger(['name', 'cpf', 'cns', 'crm', 'crmState']);
-    if (isStep1Valid) {
-      setStep(2);
+  const handleSearchCnes = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cnesSearchTerm || cnesSearchTerm.length < 3) {
+      toast.error('Digite pelo menos 3 caracteres para buscar.');
+      return;
+    }
+
+    setIsSearchingCnes(true);
+    setHasSearchedAndFailed(false);
+    try {
+      const isCnes = /^\d+$/.test(cnesSearchTerm);
+      const { getEstabelecimentos } = await import('../../services/cnes');
+      const res = await getEstabelecimentos({
+        nome: !isCnes ? cnesSearchTerm : undefined,
+        cnes: isCnes ? cnesSearchTerm : undefined,
+      });
+      
+      if (res.data && res.data.length > 0) {
+        setCnesResults(res.data);
+      } else {
+        setCnesResults([]);
+        setHasSearchedAndFailed(true);
+        toast.error('Nenhum estabelecimento encontrado. Por favor, insira os dados manualmente.');
+      }
+    } catch (error) {
+      setCnesResults([]);
+      setHasSearchedAndFailed(true);
+      toast.error('Erro ao buscar. Por favor, insira os dados manualmente.');
+    } finally {
+      setIsSearchingCnes(false);
     }
   };
 
+  const handleSearchPro = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!proSearchTerm || proSearchTerm.length < 3) {
+      toast.error('Digite pelo menos 3 caracteres para buscar o médico.');
+      return;
+    }
+
+    const cnesCode = currentValues.healthCenter?.coCnes || currentValues.healthCenter?.cnes;
+    if (!cnesCode) {
+      toast.error('Unidade de vínculo não possui CNES válido para busca.');
+      return;
+    }
+
+    setIsSearchingPro(true);
+    setHasSearchedProAndFailed(false);
+    try {
+      const { getProfissionais } = await import('../../services/cnes');
+      const res = await getProfissionais({
+        nome: proSearchTerm,
+        cnes: cnesCode,
+        profissao: 'MEDICO'
+      });
+      
+      if (res.data && res.data.length > 0) {
+        setProResults(res.data);
+      } else {
+        setProResults([]);
+        setHasSearchedProAndFailed(true);
+        toast.error('Nenhum médico encontrado nesta unidade. Preencha os dados manualmente.');
+      }
+    } catch (error) {
+      setProResults([]);
+      setHasSearchedProAndFailed(true);
+      toast.error('Erro ao buscar médicos. Preencha os dados manualmente.');
+    } finally {
+      setIsSearchingPro(false);
+    }
+  };
+
+  const handleNextStep1 = () => {
+    if (!currentValues.healthCenter) {
+      toast.error('Selecione ou adicione um estabelecimento para continuar.');
+      return;
+    }
+    setStep(2);
+  };
+
   const handleNextStep2 = async () => {
-    const isStep2Valid = await trigger(['specialties', 'attendanceType']);
-    if (!isStep2Valid) return;
+    const isStep2Valid = await trigger(['name', 'cpf', 'cns', 'crm', 'crmState']);
+    if (isStep2Valid) {
+      setStep(3);
+    }
+  };
+
+  const handleNextStep3 = async () => {
+    const isStep3Valid = await trigger(['specialties', 'attendanceType']);
+    if (!isStep3Valid) return;
   
     let hasError = false;
   
@@ -161,7 +264,7 @@ export const CreateOrEditDoctor: React.FC = () => {
     }
   
     if (!hasError) {
-      setStep(3);
+      setStep(4);
     }
   };
 
@@ -225,7 +328,7 @@ export const CreateOrEditDoctor: React.FC = () => {
               {isEditMode ? 'Editar Médico' : 'Novo Médico'}
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              Etapa {step} de 3
+              Etapa {step} de 4
             </p>
           </div>
         </div>
@@ -235,13 +338,180 @@ export const CreateOrEditDoctor: React.FC = () => {
           <div className={`h-2 w-8 rounded-full transition-colors ${step >= 1 ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'}`} />
           <div className={`h-2 w-8 rounded-full transition-colors ${step >= 2 ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'}`} />
           <div className={`h-2 w-8 rounded-full transition-colors ${step >= 3 ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'}`} />
+          <div className={`h-2 w-8 rounded-full transition-colors ${step >= 4 ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'}`} />
         </div>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-xl shadow-slate-200/50 dark:shadow-none dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden">
         
-        {/* Step 1: Identificação */}
+        {/* Step 1: Unidade de Vínculo */}
         <div className={`p-6 md:p-8 space-y-8 ${step === 1 ? 'block' : 'hidden'}`}>
+          <div className="flex items-center gap-3 text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-xl">
+              <Building2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">Vínculo de Estabelecimento</h2>
+              <p className="text-sm text-slate-500 font-medium">Selecione a unidade na qual este médico irá atuar.</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {!currentValues.healthCenter && (
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-800">
+                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-4">Buscar no CNES</h3>
+                <div className="flex gap-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Ex: POLICLINICA ou 1234567..."
+                      value={cnesSearchTerm}
+                      onChange={(e) => setCnesSearchTerm(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSearchCnes(e);
+                      }}
+                      className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSearchCnes}
+                    disabled={isSearchingCnes}
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-all shadow-md shadow-blue-500/20 active:scale-95 flex items-center gap-2"
+                  >
+                    {isSearchingCnes ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+                    <span>Buscar</span>
+                  </button>
+                </div>
+
+                {cnesResults.length > 0 && (
+                  <div className="mt-6 space-y-3">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Resultados ({cnesResults.length})</h4>
+                    <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                      {cnesResults.map((est) => (
+                        <div
+                          key={est.coCnes}
+                          onClick={() => reset({ ...currentValues, healthCenter: est })}
+                          className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-500 hover:shadow-md cursor-pointer transition-all flex justify-between items-center group"
+                        >
+                          <div>
+                            <h4 className="font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                              {est.noFantasia || est.noRazaoSocial}
+                            </h4>
+                            <p className="text-sm text-slate-500 mt-1">
+                              CNES: <span className="font-semibold">{est.coCnes}</span> • {est.noMunicipio} - {est.sgUf}
+                            </p>
+                          </div>
+                          <div className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                            Vincular
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {hasSearchedAndFailed && cnesResults.length === 0 && (
+                  <div className="mt-6 p-5 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                    <h4 className="text-sm font-bold text-rose-800 dark:text-rose-400">Inserção Manual</h4>
+                    <p className="text-xs text-rose-600 dark:text-rose-300">Como a busca não retornou resultados, insira os dados do estabelecimento abaixo.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Nome Fantasia <span className="text-rose-500">*</span></label>
+                        <input
+                          type="text"
+                          value={manualCnesData.noFantasia}
+                          onChange={(e) => setManualCnesData({ ...manualCnesData, noFantasia: e.target.value })}
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm"
+                          placeholder="Ex: POSTO DE SAUDE CENTRAL"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Código CNES <span className="text-rose-500">*</span></label>
+                        <input
+                          type="text"
+                          value={manualCnesData.coCnes}
+                          onChange={(e) => setManualCnesData({ ...manualCnesData, coCnes: e.target.value })}
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm"
+                          placeholder="Ex: 1234567"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Município <span className="text-rose-500">*</span></label>
+                        <input
+                          type="text"
+                          value={manualCnesData.noMunicipio}
+                          onChange={(e) => setManualCnesData({ ...manualCnesData, noMunicipio: e.target.value })}
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm"
+                          placeholder="Ex: JOAO PESSOA"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">UF <span className="text-rose-500">*</span></label>
+                        <select
+                          value={manualCnesData.sgUf}
+                          onChange={(e) => setManualCnesData({ ...manualCnesData, sgUf: e.target.value })}
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm"
+                        >
+                          {UFS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!manualCnesData.noFantasia || !manualCnesData.coCnes || !manualCnesData.noMunicipio) {
+                          toast.error('Preencha os campos obrigatórios.');
+                          return;
+                        }
+                        reset({ ...currentValues, healthCenter: manualCnesData });
+                      }}
+                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-sm transition-all"
+                    >
+                      Salvar Manualmente
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {currentValues.healthCenter && (
+              <div className="p-6 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-emerald-800 dark:text-emerald-400 mb-1">Unidade Selecionada</h3>
+                  <p className="text-lg font-bold text-slate-900 dark:text-white">
+                    {currentValues.healthCenter.noFantasia || currentValues.healthCenter.name}
+                  </p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    CNES: {currentValues.healthCenter.coCnes || currentValues.healthCenter.cnes} • {currentValues.healthCenter.noMunicipio || 'Manual'} - {currentValues.healthCenter.sgUf || 'Manual'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => reset({ ...currentValues, healthCenter: null })}
+                  className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 font-bold rounded-xl text-sm transition-all"
+                >
+                  Trocar Unidade
+                </button>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800 mt-8">
+            <button
+              type="button"
+              onClick={handleNextStep1}
+              className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/30 active:scale-95"
+            >
+              <span>Próxima Etapa</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Step 2: Identificação */}
+        <div className={`p-6 md:p-8 space-y-8 ${step === 2 ? 'block' : 'hidden'}`}>
           <div className="flex items-center gap-3 text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-4">
             <div className="p-2 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-xl">
               <User className="w-5 h-5" />
@@ -253,6 +523,100 @@ export const CreateOrEditDoctor: React.FC = () => {
           </div>
 
           <div className="space-y-6">
+            {!isEditMode && (
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 mb-6">
+                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-4">Autopreencher via CNES (Opcional)</h3>
+                <p className="text-xs text-slate-500 mb-4">Busque pelo nome do médico para preencher os dados automaticamente baseados na unidade selecionada.</p>
+                <div className="flex gap-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Nome do Médico..."
+                      value={proSearchTerm}
+                      onChange={(e) => setProSearchTerm(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSearchPro(e);
+                      }}
+                      className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSearchPro}
+                    disabled={isSearchingPro}
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-all shadow-md shadow-blue-500/20 active:scale-95 flex items-center gap-2"
+                  >
+                    {isSearchingPro ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+                    <span className="hidden sm:inline">Buscar</span>
+                  </button>
+                </div>
+
+                {proResults.length > 0 && (
+                  <div className="mt-6 space-y-3">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Resultados ({proResults.length})</h4>
+                    <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                      {proResults.map((pro, index) => (
+                        <div
+                          key={pro.cns || index}
+                          onClick={() => {
+                            let matchedSpecialties: string[] = [];
+                            if (pro.unidades && pro.unidades.length > 0 && specialtiesData?.data) {
+                              const selectedCnes = currentValues.healthCenter?.coCnes || currentValues.healthCenter?.cnes;
+                              const unitCbos = pro.unidades
+                                .filter((u: any) => u.codigo === selectedCnes && u.cbo)
+                                .map((u: any) => u.cbo);
+
+                              matchedSpecialties = unitCbos.map((c: any) => {
+                                const match = specialtiesData.data.find(s => s.cbo === c.codigo || s.name.toUpperCase() === c.nome.toUpperCase());
+                                return match?.id;
+                              }).filter(Boolean) as string[];
+                            }
+
+                            reset({ 
+                              ...currentValues, 
+                              name: pro.nome,
+                              cns: formatCNS(pro.cns || ''),
+                              cpf: pro.cpf_mascarado || '',
+                              specialties: matchedSpecialties.length > 0 ? matchedSpecialties : currentValues.specialties,
+                            });
+                            setIsCnsDisabled(true);
+                            setProResults([]);
+                            toast.success('Dados preenchidos! Por favor, substitua os X pelo CPF real e complete o CRM.');
+                          }}
+                          className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-500 hover:shadow-md cursor-pointer transition-all flex justify-between items-center group"
+                        >
+                          <div>
+                            <h4 className="font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                              {pro.nome}
+                            </h4>
+                            <p className="text-sm text-slate-500 mt-1">
+                              CNS: <span className="font-semibold">{formatCNS(pro.cns || '')}</span>
+                            </p>
+                            {pro.cbos && pro.cbos.length > 0 && (
+                              <p className="text-xs text-slate-400 mt-1 truncate max-w-[250px] sm:max-w-md">
+                                {pro.cbos.map((c: any) => c.nome).join(', ')}
+                              </p>
+                            )}
+                          </div>
+                          <div className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            Preencher
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {hasSearchedProAndFailed && proResults.length === 0 && (
+                  <div className="mt-6 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-xl">
+                    <p className="text-sm font-bold text-rose-800 dark:text-rose-400">Nenhum médico encontrado.</p>
+                    <p className="text-xs text-rose-600 dark:text-rose-300 mt-1">Por favor, preencha os dados abaixo manualmente.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
                 Nome Completo do Médico <span className="text-rose-500">*</span>
@@ -337,9 +701,10 @@ export const CreateOrEditDoctor: React.FC = () => {
                     <input
                       {...field}
                       type="text"
+                      disabled={isCnsDisabled}
                       onChange={e => field.onChange(formatCNS(e.target.value))}
                       placeholder="000 0000 0000 0000"
-                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${isCnsDisabled ? 'opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-900' : ''}`}
                     />
                   )}
                 />
@@ -348,10 +713,18 @@ export const CreateOrEditDoctor: React.FC = () => {
             </div>
           </div>
           
-          <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800 mt-8">
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 mt-8">
             <button
               type="button"
-              onClick={handleNextStep1}
+              onClick={() => setStep(1)}
+              className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold rounded-xl text-sm transition-all active:scale-95"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Voltar</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleNextStep2}
               className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/30 active:scale-95"
             >
               <span>Próxima Etapa</span>
@@ -360,8 +733,8 @@ export const CreateOrEditDoctor: React.FC = () => {
           </div>
         </div>
 
-        {/* Step 2: Atuação */}
-        <div className={`p-6 md:p-8 space-y-8 ${step === 2 ? 'block' : 'hidden'}`}>
+        {/* Step 3: Atuação */}
+        <div className={`p-6 md:p-8 space-y-8 ${step === 3 ? 'block' : 'hidden'}`}>
           <div className="flex items-center gap-3 text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-4">
             <div className="p-2 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-xl">
               <Stethoscope className="w-5 h-5" />
@@ -522,11 +895,11 @@ export const CreateOrEditDoctor: React.FC = () => {
               </div>
             )}
           </div>
-          
+
           <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 mt-8">
             <button
               type="button"
-              onClick={() => setStep(1)}
+              onClick={() => setStep(2)}
               className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold rounded-xl text-sm transition-all active:scale-95"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -534,7 +907,7 @@ export const CreateOrEditDoctor: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={handleNextStep2}
+              onClick={handleNextStep3}
               className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/30 active:scale-95"
             >
               <span>Ver Resumo</span>
@@ -543,8 +916,8 @@ export const CreateOrEditDoctor: React.FC = () => {
           </div>
         </div>
 
-        {/* Step 3: Resumo */}
-        <div className={`p-6 md:p-8 space-y-8 ${step === 3 ? 'block' : 'hidden'}`}>
+        {/* Step 4: Resumo */}
+        <div className={`p-6 md:p-8 space-y-8 ${step === 4 ? 'block' : 'hidden'}`}>
           <div className="flex items-center gap-3 text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-4">
             <div className="p-2 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 rounded-xl">
               <ClipboardList className="w-5 h-5" />
@@ -651,7 +1024,7 @@ export const CreateOrEditDoctor: React.FC = () => {
           <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 mt-8">
             <button
               type="button"
-              onClick={() => setStep(2)}
+              onClick={() => setStep(3)}
               className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold rounded-xl text-sm transition-all active:scale-95"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -676,7 +1049,6 @@ export const CreateOrEditDoctor: React.FC = () => {
             </button>
           </div>
         </div>
-
       </form>
     </div>
   );
