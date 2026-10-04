@@ -122,7 +122,7 @@ export const PatientDetails: React.FC = () => {
                 </p>
                 <button
                     onClick={() => navigate('/patients')}
-                    className="mt-2 px-4 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:text-white rounded-xl text-sm cursor-pointer shadow-md"
+                    className="mt-2 px-4 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:text-white rounded-md text-sm cursor-pointer shadow-md"
                 >
                     Voltar para a Lista
                 </button>
@@ -174,11 +174,11 @@ export const PatientDetails: React.FC = () => {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white shadow-md dark:bg-slate-900/30 border border-slate-900 rounded-2xl p-6 backdrop-blur-md">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white shadow-md dark:bg-slate-900/30 border border-slate-900 rounded-md p-6 backdrop-blur-md">
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => navigate('/patients')}
-                        className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
+                        className="flex items-center justify-center w-10 h-10 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </button>
@@ -192,7 +192,7 @@ export const PatientDetails: React.FC = () => {
                                     type="button"
                                     disabled={!canEditAttention}
                                     onClick={openAttentionModal}
-                                    className={`p-1 rounded-lg transition-all duration-200 ${canEditAttention
+                                    className={`p-1 rounded-md transition-all duration-200 ${canEditAttention
                                             ? 'hover:bg-slate-200 dark:bg-slate-800 cursor-pointer'
                                             : 'cursor-default'
                                         } ${patient.attentionLevel === 3
@@ -208,7 +208,7 @@ export const PatientDetails: React.FC = () => {
                                 </button>
 
                                 {/* Tooltip */}
-                                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 hidden group-hover:block bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-xs rounded-xl p-3 shadow-xl w-64 z-50">
+                                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 hidden group-hover:block bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-xs rounded-md p-3 shadow-xl w-64 z-50">
                                     <div className="font-bold text-slate-900 dark:text-white mb-1 flex justify-between items-center">
                                         <span>Nível de Atenção: {patient.attentionLevel || 1}/5</span>
                                         {canEditAttention && (
@@ -227,7 +227,7 @@ export const PatientDetails: React.FC = () => {
 
                 <button
                     onClick={() => navigate(`/patients/${patient.id}/edit`)}
-                    className="px-4 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium rounded-xl text-sm transition-all cursor-pointer shadow-md active:scale-95"
+                    className="px-4 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium rounded-md text-sm transition-all cursor-pointer shadow-md active:scale-95"
                 >
                     Editar Paciente
                 </button>
@@ -238,7 +238,7 @@ export const PatientDetails: React.FC = () => {
                 <div className="space-y-6 lg:col-span-2">
 
                     {/* Cadastral & Demographic Card */}
-                    <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 backdrop-blur-md space-y-4">
+                    <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-4">
                         <h2 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-300 dark:border-slate-800/60 pb-3 flex items-center gap-2">
                             <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                             <span>Dados Cadastrais</span>
@@ -286,8 +286,75 @@ export const PatientDetails: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* Anamnese / Condições Clínicas Card */}
+                    <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-4">
+                        <h2 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-300 dark:border-slate-800/60 pb-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Activity className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                <span>Perfil Clínico (Anamnese)</span>
+                            </div>
+                        </h2>
+                        
+                        {!patient.patientAnamnesis ? (
+                            <div className="text-sm text-slate-500 italic py-2">
+                                Nenhum dado clínico registrado. Será atualizado no próximo atendimento.
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-md border border-slate-200 dark:border-slate-700">
+                                    <span className="text-xs text-slate-500 uppercase block tracking-wider mb-1">Hipertenso</span>
+                                    <span className={`text-sm font-semibold ${patient.patientAnamnesis.isHypertensive ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                        {patient.patientAnamnesis.isHypertensive ? 'Sim' : 'Não'}
+                                    </span>
+                                </div>
+                                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-md border border-slate-200 dark:border-slate-700">
+                                    <span className="text-xs text-slate-500 uppercase block tracking-wider mb-1">Diabético</span>
+                                    <span className={`text-sm font-semibold ${patient.patientAnamnesis.isDiabetic ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                        {patient.patientAnamnesis.isDiabetic ? 'Sim' : 'Não'}
+                                    </span>
+                                </div>
+                                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-md border border-slate-200 dark:border-slate-700">
+                                    <span className="text-xs text-slate-500 uppercase block tracking-wider mb-1">Paciente Oncológico</span>
+                                    <span className={`text-sm font-semibold ${patient.patientAnamnesis.isOncological ? 'text-purple-600 dark:text-purple-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                        {patient.patientAnamnesis.isOncological ? `Sim (${patient.patientAnamnesis.oncologicalStage})` : 'Não'}
+                                    </span>
+                                </div>
+                                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-md border border-slate-200 dark:border-slate-700">
+                                    <span className="text-xs text-slate-500 uppercase block tracking-wider mb-1">PcD</span>
+                                    <span className={`text-sm font-semibold ${patient.patientAnamnesis.isPcd ? 'text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                        {patient.patientAnamnesis.isPcd ? `Sim (${patient.patientAnamnesis.pcdDescription})` : 'Não'}
+                                    </span>
+                                </div>
+                                <div className="md:col-span-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-md border border-slate-200 dark:border-slate-700">
+                                    <span className="text-xs text-slate-500 uppercase block tracking-wider mb-1">Alergias</span>
+                                    <span className="text-sm font-semibold text-orange-600 dark:text-orange-400">
+                                        {patient.patientAnamnesis.allergies || 'Nenhuma informada'}
+                                    </span>
+                                </div>
+                                <div className="md:col-span-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-md border border-slate-200 dark:border-slate-700">
+                                    <span className="text-xs text-slate-500 uppercase block tracking-wider mb-1">Outras Doenças</span>
+                                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                        {patient.patientAnamnesis.otherDiseases || 'Nenhuma informada'}
+                                    </span>
+                                </div>
+                                <div className="md:col-span-2 lg:col-span-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-md border border-slate-200 dark:border-slate-700">
+                                    <span className="text-xs text-slate-500 uppercase block tracking-wider mb-1">Medicações de Uso Contínuo</span>
+                                    {patient.patientAnamnesis.continuousMedications?.length > 0 ? (
+                                        <ul className="list-disc pl-5 mt-1 space-y-0.5">
+                                            {patient.patientAnamnesis.continuousMedications.map((med: string, i: number) => (
+                                                <li key={i} className="text-sm text-slate-700 dark:text-slate-300 font-medium">{med}</li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <span className="text-sm text-slate-500 italic">Nenhuma informada</span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Requests History Card */}
-                    <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 backdrop-blur-md space-y-4">
+                    <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-4">
                         <h2 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-300 dark:border-slate-800/60 pb-3 flex items-center gap-2">
                             <Activity className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                             <span>Histórico de Regulação (Solicitações)</span>
@@ -338,7 +405,7 @@ export const PatientDetails: React.FC = () => {
                                                 <td className="px-4 py-3 text-right">
                                                     <button
                                                         onClick={() => navigate(`/requests/${req.id}`)}
-                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-500/5 hover:bg-blue-500/10 border border-blue-500/10 hover:border-blue-200 dark:border-blue-500/20 rounded-lg transition-all cursor-pointer shadow-md"
+                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-500/5 hover:bg-blue-500/10 border border-blue-500/10 hover:border-blue-200 dark:border-blue-500/20 rounded-md transition-all cursor-pointer shadow-md"
                                                     >
                                                         <ExternalLink className="w-3.5 h-3.5" />
                                                         <span>Abrir</span>
@@ -363,7 +430,7 @@ export const PatientDetails: React.FC = () => {
                 <div className="space-y-6">
 
                     {/* Contact info card */}
-                    <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 backdrop-blur-md space-y-4">
+                    <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-4">
                         <h2 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-300 dark:border-slate-800/60 pb-3 flex items-center gap-2">
                             <Phone className="w-4 h-4 text-emerald-450 animate-pulse" />
                             <span>Canais de Contato</span>
@@ -374,7 +441,7 @@ export const PatientDetails: React.FC = () => {
                                 patient.phones.map((phone) => (
                                     <div
                                         key={phone.id}
-                                        className="flex justify-between items-center bg-white dark:bg-slate-950/40 border border-slate-300 dark:border-slate-800/60 rounded-xl p-3.5"
+                                        className="flex justify-between items-center bg-white dark:bg-slate-950/40 border border-slate-300 dark:border-slate-800/60 rounded-md p-3.5"
                                     >
                                         <div className="flex items-center gap-2.5">
                                             {phone.isWhatsapp ? (
@@ -385,7 +452,7 @@ export const PatientDetails: React.FC = () => {
                                             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">{phone.phoneNumber}</span>
                                         </div>
                                         {phone.isWhatsapp && (
-                                            <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg">
+                                            <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-md">
                                                 WhatsApp
                                             </span>
                                         )}
@@ -398,14 +465,14 @@ export const PatientDetails: React.FC = () => {
                     </div>
 
                     {/* Health Center & ACS Link card */}
-                    <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 backdrop-blur-md space-y-5">
+                    <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-5">
                         <h2 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-300 dark:border-slate-800/60 pb-3 flex items-center gap-2">
                             <Building className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                             <span>Vínculo Territorial (UBS/ACS)</span>
                         </h2>
 
                         <div className="space-y-4">
-                            <div className="flex items-start gap-3 bg-white dark:bg-slate-950/20 border border-slate-200 dark:border-slate-850 p-4 rounded-xl">
+                            <div className="flex items-start gap-3 bg-white dark:bg-slate-950/20 border border-slate-200 dark:border-slate-850 p-4 rounded-md">
                                 <Building className="w-5 h-5 text-indigo-700 dark:text-indigo-500 mt-0.5 shrink-0" />
                                 <div className="space-y-1 flex-1 min-w-0">
                                     <span className="text-[10px] text-slate-500 uppercase block tracking-wider">Unidade de Saúde (UBS)</span>
@@ -426,7 +493,7 @@ export const PatientDetails: React.FC = () => {
                             </div>
 
                             {patient.healthAgent && (
-                                <div className="flex items-start gap-3 bg-white dark:bg-slate-950/20 border border-slate-200 dark:border-slate-850 p-4 rounded-xl">
+                                <div className="flex items-start gap-3 bg-white dark:bg-slate-950/20 border border-slate-200 dark:border-slate-850 p-4 rounded-md">
                                     <UserCheck className="w-5 h-5 text-indigo-700 dark:text-indigo-500 mt-0.5 shrink-0" />
                                     <div className="space-y-1.5 flex-1 min-w-0">
                                         <span className="text-[10px] text-slate-500 uppercase block tracking-wider">Agente Comunitário (ACS)</span>
@@ -459,7 +526,7 @@ export const PatientDetails: React.FC = () => {
             {/* Modal de Edição de Nível de Atenção */}
             {showAttentionModal && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
                         <div className="flex justify-between items-center pb-2 border-b border-slate-300 dark:border-slate-800">
                             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                                 <ShieldAlert className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -485,7 +552,7 @@ export const PatientDetails: React.FC = () => {
                                             key={lvl}
                                             type="button"
                                             onClick={() => setAttentionLevel(lvl)}
-                                            className={`flex-1 py-2 px-3 rounded-xl border text-sm font-semibold transition-all cursor-pointer ${attentionLevel === lvl
+                                            className={`flex-1 py-2 px-3 rounded-md border text-sm font-semibold transition-all cursor-pointer ${attentionLevel === lvl
                                                     ? lvl === 1 || lvl === 2
                                                         ? 'bg-slate-200 dark:bg-slate-800 border-slate-650 text-slate-900 dark:text-white'
                                                         : lvl === 3
@@ -518,7 +585,7 @@ export const PatientDetails: React.FC = () => {
                                     onChange={(e) => setAttentionNotes(e.target.value)}
                                     placeholder="Justifique o nível de atenção ou adicione observações para os reguladores..."
                                     rows={4}
-                                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 resize-none font-normal"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 resize-none font-normal"
                                 />
                             </div>
 
@@ -526,14 +593,14 @@ export const PatientDetails: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={() => setShowAttentionModal(false)}
-                                    className="px-4 py-2 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:text-white rounded-xl text-sm transition-all cursor-pointer"
+                                    className="px-4 py-2 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:text-white rounded-md text-sm transition-all cursor-pointer"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={updatePatientAttentionMutation.isPending}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium rounded-xl text-sm transition-all cursor-pointer shadow-md"
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium rounded-md text-sm transition-all cursor-pointer shadow-md"
                                 >
                                     {updatePatientAttentionMutation.isPending ? 'Salvando...' : 'Salvar Alterações'}
                                 </button>
