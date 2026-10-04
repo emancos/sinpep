@@ -16,7 +16,8 @@ import {
   Stethoscope,
   Layers,
   Activity,
-  ClipboardList
+  ClipboardList,
+  User
 } from 'lucide-react';
 import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
@@ -29,6 +30,7 @@ export const Layout = () => {
   const { t } = useTranslation();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -178,7 +180,7 @@ export const Layout = () => {
           </button>
         </div>
         <nav className="px-2 py-3 lg:px-4 lg:py-6 space-y-0.5 lg:space-y-1">
-          {menuItems.map((item) => {
+          {menuItems.filter(item => !['/', '/patients', '/medical-records'].includes(item.path)).map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
             return (
@@ -203,13 +205,6 @@ export const Layout = () => {
       <div className="flex-1 flex flex-col min-w-0 h-screen">
         {/* Sticky Header */}
         <header className="z-30 shrink-0 h-12 lg:h-14 bg-[#0051A2]/95 dark:bg-[#003B77]/95 backdrop-blur-md border-b border-[#003B77] dark:border-[#002244] flex items-center justify-between px-4 lg:px-6">
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="md:hidden text-blue-200 hover:text-white transition-colors cursor-pointer"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-
           {/* Spacer on Desktop, Brand on mobile */}
           <div className="md:hidden flex items-center gap-2 text-white font-bold">
             <img src="/logo.svg" alt="Logo" className="w-7 h-7 shrink-0 drop-shadow-md" />
@@ -221,11 +216,12 @@ export const Layout = () => {
           </div>
 
           {/* User profile dropdown and Logout */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <ThemeToggle />
             <NotificationBell />
 
-            <div className="flex items-stretch shadow-md rounded-md overflow-hidden border border-slate-300 dark:border-slate-800">
+            {/* Desktop View */}
+            <div className="hidden md:flex items-stretch shadow-md rounded-md overflow-hidden border border-slate-300 dark:border-slate-800">
               <Link to="/profile" className="flex items-center gap-2 px-2.5 py-1 bg-slate-100 dark:bg-slate-900/80 text-[13px] hover:bg-slate-200 dark:bg-slate-800 transition-all duration-300 cursor-pointer">
                 <div className="w-5 h-5 rounded-full bg-blue-500/20 border border-slate-200 dark:border-slate-800/80 flex items-center justify-center overflow-hidden shrink-0">
                   <CachedAvatar src={user?.avatar} alt={user?.name} />
@@ -244,13 +240,78 @@ export const Layout = () => {
                 <span className="hidden sm:inline font-medium">{t('Logout')}</span>
               </button>
             </div>
+
+            {/* Mobile View (Dropdown) */}
+            <div className="md:hidden relative">
+              <button 
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-blue-900"
+              >
+                <CachedAvatar src={user?.avatar} alt={user?.name} />
+              </button>
+
+              {userMenuOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setUserMenuOpen(false)} 
+                  />
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-900 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 z-50 overflow-hidden flex flex-col">
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{user?.name}</p>
+                    </div>
+                    <Link 
+                      to="/profile" 
+                      onClick={() => setUserMenuOpen(false)}
+                      className="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors"
+                    >
+                      <User className="w-4 h-4 text-slate-400" /> Perfil
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        logout();
+                      }}
+                      className="px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center gap-3 text-left transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" /> Sair
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-3 lg:p-6 relative">
+        <main className="flex-1 overflow-y-auto p-3 lg:p-6 pb-20 md:pb-6 relative">
           <Outlet />
         </main>
+
+        {/* Mobile Bottom Navigation */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-30 flex items-center justify-around px-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-safe">
+           <Link to="/" className={`flex flex-col items-center justify-center w-full h-full gap-1 ${location.pathname === '/' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+             <Home className="w-5 h-5" />
+             <span className="text-[10px] font-semibold">Início</span>
+           </Link>
+           {(permissions.includes('patients:read') || isAdmin) && (
+             <Link to="/patients" className={`flex flex-col items-center justify-center w-full h-full gap-1 ${location.pathname.startsWith('/patients') ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+               <Users className="w-5 h-5" />
+               <span className="text-[10px] font-semibold">Pacientes</span>
+             </Link>
+           )}
+           {(permissions.includes('medical-records:read') || isAdmin) && (
+             <Link to="/medical-records" className={`flex flex-col items-center justify-center w-full h-full gap-1 ${location.pathname.startsWith('/medical-records') ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+               <ClipboardList className="w-5 h-5" />
+               <span className="text-[10px] font-semibold">Prontuários</span>
+             </Link>
+           )}
+           
+           <button onClick={() => setMobileMenuOpen(true)} className="flex flex-col items-center justify-center w-full h-full gap-1 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+             <Menu className="w-5 h-5" />
+             <span className="text-[10px] font-semibold">Menu</span>
+           </button>
+        </div>
       </div>
     </div>
   );
