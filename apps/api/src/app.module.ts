@@ -1,5 +1,6 @@
 import { MedicalRecordsModule } from './medical-records/medical-records.module';
 import { Cid10Module } from './cid10/cid10.module';
+import { StorageModule } from './storage/storage.module';
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -32,6 +33,7 @@ import { EventsModule } from './events/events.module';
     Cid10Module,
     SisregModule,
     EventsModule,
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [AppService],
