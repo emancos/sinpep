@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Param, UseGuards, UseInterceptors, Uploade
 import { MedicalRecordsService } from './medical-records.service';
 import { AuthGuard } from '@nestjs/passport';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import * as crypto from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -20,13 +20,7 @@ export class MedicalRecordsController {
 
   @Post()
   @UseInterceptors(FilesInterceptor('attachments', 10, {
-    storage: diskStorage({
-      destination: uploadDir,
-      filename: (req, file, cb) => {
-        const uniqueSuffix = crypto.randomUUID() + path.extname(file.originalname);
-        cb(null, uniqueSuffix);
-      }
-    }),
+    storage: memoryStorage(),
     fileFilter: (req, file, cb) => {
       const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
       if (allowedMimes.includes(file.mimetype)) {
@@ -42,7 +36,10 @@ export class MedicalRecordsController {
     @UploadedFiles() files: Express.Multer.File[],
     @Req() req: any
   ) {
-    const doctorId = req.user.id; // User ID from JWT
+    let doctorId = req.user.id;
+    if (body.doctorId && req.user.permissions?.includes('admin:access')) {
+      doctorId = body.doctorId;
+    }
     return this.medicalRecordsService.create(patientId, doctorId, body, files);
   }
 

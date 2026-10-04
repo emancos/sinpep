@@ -18,13 +18,22 @@ export class Cid10Service {
       });
     }
 
+    const cleanQuery = query.trim();
+    let formattedQuery = cleanQuery;
+    
+    // If it's a CID code without dot (e.g., M511), format it to M51.1
+    if (/^[a-zA-Z]\d{2}\d+$/.test(cleanQuery)) {
+      formattedQuery = `${cleanQuery.slice(0, 3)}.${cleanQuery.slice(3)}`;
+    }
+
     return this.db.query.cid10.findMany({
       where: (table, { or, ilike, and, eq }) => 
         and(
           eq(table.isActive, true),
           or(
-            ilike(table.code, `%${query}%`),
-            ilike(table.description, `%${query}%`)
+            ilike(table.code, `%${cleanQuery}%`),
+            ilike(table.code, `%${formattedQuery}%`),
+            ilike(table.description, `%${cleanQuery}%`)
           )
         ),
       limit: 50,

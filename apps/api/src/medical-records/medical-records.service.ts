@@ -47,6 +47,10 @@ export class MedicalRecordsService {
             isPcd: anamnesis.isPcd ?? existingAnamnesis.isPcd,
             pcdDescription: anamnesis.pcdDescription ?? existingAnamnesis.pcdDescription,
             continuousMedications: anamnesis.continuousMedications ?? existingAnamnesis.continuousMedications,
+            bloodPressure: anamnesis.bloodPressure ?? existingAnamnesis.bloodPressure,
+            glycemia: anamnesis.glycemia ?? existingAnamnesis.glycemia,
+            weight: anamnesis.weight ?? existingAnamnesis.weight,
+            height: anamnesis.height ?? existingAnamnesis.height,
             updatedAt: new Date().toISOString(),
           })
           .where(eq(schema.patientAnamnesis.patientId, patientId));
@@ -63,6 +67,10 @@ export class MedicalRecordsService {
           isPcd: anamnesis.isPcd ?? false,
           pcdDescription: anamnesis.pcdDescription ?? null,
           continuousMedications: anamnesis.continuousMedications ?? [],
+          bloodPressure: anamnesis.bloodPressure ?? null,
+          glycemia: anamnesis.glycemia ?? null,
+          weight: anamnesis.weight ?? null,
+          height: anamnesis.height ?? null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
@@ -119,6 +127,16 @@ export class MedicalRecordsService {
             id: true,
             name: true,
             avatar: true,
+          },
+          with: {
+            doctors: {
+              columns: { crm: true, crmState: true, cns: true },
+              with: {
+                doctorSpecialties: {
+                  with: { specialty: { columns: { name: true } } }
+                }
+              }
+            }
           }
         },
         attachments: true,
@@ -134,7 +152,17 @@ export class MedicalRecordsService {
       where: eq(schema.medicalRecords.id, id),
       with: {
         doctor: {
-          columns: { id: true, name: true, avatar: true }
+          columns: { id: true, name: true, avatar: true },
+          with: {
+            doctors: {
+              columns: { crm: true, crmState: true, cns: true },
+              with: {
+                doctorSpecialties: {
+                  with: { specialty: { columns: { name: true } } }
+                }
+              }
+            }
+          }
         },
         attachments: true,
       }

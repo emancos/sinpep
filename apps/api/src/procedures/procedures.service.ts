@@ -1,7 +1,7 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database/schema';
-import { eq, ilike, or, and, asc } from 'drizzle-orm';
+import { eq, ilike, or, and, asc, sql } from 'drizzle-orm';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -19,10 +19,14 @@ export class ProceduresService {
       conditions.push(eq(schema.procedures.isActive, true));
     }
     if (search) {
+      const cleanSearch = search.trim();
+      const formattedSearch = cleanSearch.replace(/\./g, '');
+      
       conditions.push(
         or(
-          ilike(schema.procedures.name, `%${search}%`),
-          ilike(schema.procedures.code, `%${search}%`)
+          ilike(schema.procedures.name, `%${cleanSearch}%`),
+          ilike(schema.procedures.code, `%${cleanSearch}%`),
+          sql`REPLACE(${schema.procedures.code}, '.', '') ILIKE ${'%' + formattedSearch + '%'}`
         )
       );
     }
