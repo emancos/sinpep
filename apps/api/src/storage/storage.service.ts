@@ -14,21 +14,23 @@ export class StorageService {
 
   private initDrive() {
     try {
-      if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
-        this.logger.warn('Google Drive credentials not configured. Uploads will fail.');
+      if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REFRESH_TOKEN) {
+        this.logger.warn('Google Drive credentials not configured (OAuth). Uploads will fail.');
         return;
       }
 
-      const auth = new google.auth.GoogleAuth({
-        credentials: {
-          client_email: process.env.GOOGLE_CLIENT_EMAIL,
-          private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-        },
-        scopes: ['https://www.googleapis.com/auth/drive'],
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        'https://developers.google.com/oauthplayground'
+      );
+
+      oauth2Client.setCredentials({
+        refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
       });
 
-      this.drive = google.drive({ version: 'v3', auth });
-      this.logger.log('Google Drive initialized');
+      this.drive = google.drive({ version: 'v3', auth: oauth2Client });
+      this.logger.log('Google Drive initialized via OAuth2');
     } catch (error) {
       this.logger.error('Failed to initialize Google Drive', error);
     }
