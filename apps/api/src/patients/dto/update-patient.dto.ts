@@ -7,7 +7,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PatientPhoneDto } from './create-patient.dto';
+import { PatientPhoneDto, PatientAnamnesisDto } from './create-patient.dto';
 
 export class UpdatePatientDto {
   @IsString()
@@ -47,4 +47,9 @@ export class UpdatePatientDto {
   @ValidateNested({ each: true })
   @Type(() => PatientPhoneDto)
   phones?: PatientPhoneDto[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PatientAnamnesisDto)
+  anamnesis?: PatientAnamnesisDto;
 }

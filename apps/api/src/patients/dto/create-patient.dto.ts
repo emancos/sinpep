@@ -20,6 +20,44 @@ export class PatientPhoneDto {
   isWhatsapp?: boolean;
 }
 
+export class PatientAnamnesisDto {
+  @IsBoolean()
+  @IsOptional()
+  isHypertensive?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isDiabetic?: boolean;
+
+  @IsString()
+  @IsOptional()
+  otherDiseases?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isOncological?: boolean;
+
+  @IsString()
+  @IsOptional()
+  oncologicalStage?: string;
+
+  @IsString()
+  @IsOptional()
+  allergies?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isPcd?: boolean;
+
+  @IsString()
+  @IsOptional()
+  pcdDescription?: string;
+
+  @IsArray()
+  @IsOptional()
+  continuousMedications?: any[];
+}
+
 export class CreatePatientDto {
   @IsString()
   @IsNotEmpty()
@@ -58,4 +96,9 @@ export class CreatePatientDto {
   @ValidateNested({ each: true })
   @Type(() => PatientPhoneDto)
   phones?: PatientPhoneDto[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PatientAnamnesisDto)
+  anamnesis?: PatientAnamnesisDto;
 }

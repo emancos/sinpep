@@ -53,7 +53,7 @@ export class PatientsService {
   }
 
   async create(createPatientDto: CreatePatientDto) {
-    const { phones, birthDate, ...rest } = createPatientDto;
+    const { phones, birthDate, anamnesis, ...rest } = createPatientDto;
     const patientId = crypto.randomUUID();
 
     await this.db.insert(schema.patients).values({
@@ -84,6 +84,24 @@ export class PatientsService {
           updatedAt: new Date().toISOString(),
         });
       }
+    }
+
+    if (anamnesis) {
+      await this.db.insert(schema.patientAnamnesis).values({
+        id: crypto.randomUUID(),
+        patientId: patientId,
+        isHypertensive: anamnesis.isHypertensive ?? false,
+        isDiabetic: anamnesis.isDiabetic ?? false,
+        otherDiseases: anamnesis.otherDiseases ?? null,
+        isOncological: anamnesis.isOncological ?? false,
+        oncologicalStage: anamnesis.oncologicalStage ?? null,
+        allergies: anamnesis.allergies ?? null,
+        isPcd: anamnesis.isPcd ?? false,
+        pcdDescription: anamnesis.pcdDescription ?? null,
+        continuousMedications: anamnesis.continuousMedications ?? [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
     }
 
     return this.findOne(patientId);
@@ -117,6 +135,7 @@ export class PatientsService {
         healthCenter: true,
         healthAgent: true,
         patientPhones: true,
+        patientAnamnesis: true,
       }
     });
 
@@ -156,6 +175,7 @@ export class PatientsService {
         patientPhones: true,
         healthCenter: true,
         healthAgent: true,
+        patientAnamnesis: true,
       }
     });
 
@@ -167,7 +187,7 @@ export class PatientsService {
 
   async update(id: string, updatePatientDto: UpdatePatientDto) {
     await this.findOne(id);
-    const { phones, birthDate, ...rest } = updatePatientDto;
+    const { phones, birthDate, anamnesis, ...rest } = updatePatientDto;
 
     const dataToUpdate: any = { ...rest, updatedAt: new Date().toISOString() };
     if (birthDate) {
@@ -192,6 +212,45 @@ export class PatientsService {
           patientId: id,
           phoneNumber: p.phoneNumber,
           isWhatsapp: p.isWhatsapp ?? false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    if (anamnesis) {
+      const existingAnamnesis = await this.db.query.patientAnamnesis.findFirst({
+        where: eq(schema.patientAnamnesis.patientId, id),
+      });
+
+      if (existingAnamnesis) {
+        await this.db.update(schema.patientAnamnesis)
+          .set({
+            isHypertensive: anamnesis.isHypertensive ?? existingAnamnesis.isHypertensive,
+            isDiabetic: anamnesis.isDiabetic ?? existingAnamnesis.isDiabetic,
+            otherDiseases: anamnesis.otherDiseases ?? existingAnamnesis.otherDiseases,
+            isOncological: anamnesis.isOncological ?? existingAnamnesis.isOncological,
+            oncologicalStage: anamnesis.oncologicalStage ?? existingAnamnesis.oncologicalStage,
+            allergies: anamnesis.allergies ?? existingAnamnesis.allergies,
+            isPcd: anamnesis.isPcd ?? existingAnamnesis.isPcd,
+            pcdDescription: anamnesis.pcdDescription ?? existingAnamnesis.pcdDescription,
+            continuousMedications: anamnesis.continuousMedications ?? existingAnamnesis.continuousMedications,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(schema.patientAnamnesis.patientId, id));
+      } else {
+        await this.db.insert(schema.patientAnamnesis).values({
+          id: crypto.randomUUID(),
+          patientId: id,
+          isHypertensive: anamnesis.isHypertensive ?? false,
+          isDiabetic: anamnesis.isDiabetic ?? false,
+          otherDiseases: anamnesis.otherDiseases ?? null,
+          isOncological: anamnesis.isOncological ?? false,
+          oncologicalStage: anamnesis.oncologicalStage ?? null,
+          allergies: anamnesis.allergies ?? null,
+          isPcd: anamnesis.isPcd ?? false,
+          pcdDescription: anamnesis.pcdDescription ?? null,
+          continuousMedications: anamnesis.continuousMedications ?? [],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
