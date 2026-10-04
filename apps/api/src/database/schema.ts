@@ -188,6 +188,10 @@ export const patientAnamnesis = pgTable("patient_anamnesis", {
 	isPcd: boolean("is_pcd").default(false).notNull(),
 	pcdDescription: text("pcd_description"),
 	continuousMedications: jsonb("continuous_medications").default([]),
+	bloodPressure: text("blood_pressure"),
+	glycemia: text("glycemia"),
+	weight: text("weight"),
+	height: text("height"),
 	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
 }, (table) => [
