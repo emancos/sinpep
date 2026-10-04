@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database/schema';
 import { eq, desc } from 'drizzle-orm';
@@ -18,8 +18,54 @@ export class MedicalRecordsService {
 
     const recordId = crypto.randomUUID();
 
-    const medications = data.medications ? JSON.parse(data.medications) : [];
-    const requestedExams = data.requestedExams ? JSON.parse(data.requestedExams) : [];
+    const medications = data.medications ? (typeof data.medications === 'string' ? JSON.parse(data.medications) : data.medications) : [];
+    const requestedExams = data.requestedExams ? (typeof data.requestedExams === 'string' ? JSON.parse(data.requestedExams) : data.requestedExams) : [];
+
+    const clinicalDataReviewed = String(data.clinicalDataReviewed) === 'true';
+    if (!clinicalDataReviewed) {
+      throw new BadRequestException('A revisão dos dados clínicos do paciente é obrigatória para salvar o prontuário.');
+    }
+
+    if (data.anamnesis) {
+      const anamnesis = typeof data.anamnesis === 'string' ? JSON.parse(data.anamnesis) : data.anamnesis;
+      
+      const existingAnamnesis = await this.db.query.patientAnamnesis.findFirst({
+        where: eq(schema.patientAnamnesis.patientId, patientId),
+      });
+
+      if (existingAnamnesis) {
+        await this.db.update(schema.patientAnamnesis)
+          .set({
+            isHypertensive: anamnesis.isHypertensive ?? existingAnamnesis.isHypertensive,
+            isDiabetic: anamnesis.isDiabetic ?? existingAnamnesis.isDiabetic,
+            otherDiseases: anamnesis.otherDiseases ?? existingAnamnesis.otherDiseases,
+            isOncological: anamnesis.isOncological ?? existingAnamnesis.isOncological,
+            oncologicalStage: anamnesis.oncologicalStage ?? existingAnamnesis.oncologicalStage,
+            allergies: anamnesis.allergies ?? existingAnamnesis.allergies,
+            isPcd: anamnesis.isPcd ?? existingAnamnesis.isPcd,
+            pcdDescription: anamnesis.pcdDescription ?? existingAnamnesis.pcdDescription,
+            continuousMedications: anamnesis.continuousMedications ?? existingAnamnesis.continuousMedications,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(schema.patientAnamnesis.patientId, patientId));
+      } else {
+        await this.db.insert(schema.patientAnamnesis).values({
+          id: crypto.randomUUID(),
+          patientId: patientId,
+          isHypertensive: anamnesis.isHypertensive ?? false,
+          isDiabetic: anamnesis.isDiabetic ?? false,
+          otherDiseases: anamnesis.otherDiseases ?? null,
+          isOncological: anamnesis.isOncological ?? false,
+          oncologicalStage: anamnesis.oncologicalStage ?? null,
+          allergies: anamnesis.allergies ?? null,
+          isPcd: anamnesis.isPcd ?? false,
+          pcdDescription: anamnesis.pcdDescription ?? null,
+          continuousMedications: anamnesis.continuousMedications ?? [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
 
     await this.db.insert(schema.medicalRecords).values({
       id: recordId,
@@ -31,6 +77,7 @@ export class MedicalRecordsService {
       cid10AssociatedCauses: data.cid10AssociatedCauses || null,
       returnRequestedValue: data.returnRequestedValue ? Number(data.returnRequestedValue) : null,
       returnRequestedUnit: data.returnRequestedUnit || null,
+      isOci: String(data.isOci) === 'true',
       medicationsJustification: data.medicationsJustification || null,
       examsJustification: data.examsJustification || null,
       medications,
