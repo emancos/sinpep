@@ -42,7 +42,7 @@ export class MedicalRecordsController {
     @UploadedFiles() files: Express.Multer.File[],
     @Req() req: any
   ) {
-    const doctorId = req.user.sub; // User ID from JWT
+    const doctorId = req.user.id; // User ID from JWT
     return this.medicalRecordsService.create(patientId, doctorId, body, files);
   }
 
