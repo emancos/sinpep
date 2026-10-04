@@ -36,6 +36,10 @@ export interface PatientAnamnesis {
   isPcd: boolean;
   pcdDescription?: string | null;
   continuousMedications: string[];
+  bloodPressure?: string | null;
+  glycemia?: string | null;
+  weight?: string | null;
+  height?: string | null;
 }
 
 export interface Patient {

@@ -30,6 +30,16 @@ export interface MedicalRecord {
     id: string;
     name: string;
     avatar?: string;
+    doctors?: {
+      crm: string;
+      crmState: string;
+      cns?: string;
+      doctorSpecialties?: {
+        specialty: {
+          name: string;
+        }
+      }[];
+    }[];
   };
 }
 
