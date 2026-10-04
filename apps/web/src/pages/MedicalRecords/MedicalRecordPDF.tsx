@@ -41,7 +41,17 @@ export const MedicalRecordPDF: React.FC<Props> = ({ patient, records }) => (
             </Text>
             {record.cid10 && <Text style={styles.recordDoctor}>CID10: {record.cid10}</Text>}
           </View>
-          <Text style={styles.recordDoctor}>Dr(a). {record.doctor.name}</Text>
+          <View style={{ marginBottom: 10 }}>
+            <Text style={styles.recordDoctor}>Dr(a). {record.doctor.name}</Text>
+            {record.doctor.doctors?.[0] && (
+              <Text style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>
+                CRM: {record.doctor.doctors[0].crm}/{record.doctor.doctors[0].crmState}
+                {record.doctor.doctors[0].doctorSpecialties && record.doctor.doctors[0].doctorSpecialties.length > 0 && 
+                  `  |  Especialidade(s): ${record.doctor.doctors[0].doctorSpecialties.map(s => s.specialty.name).join(', ')}`
+                }
+              </Text>
+            )}
+          </View>
 
           <Text style={styles.sectionTitle}>Prescrição e Observações:</Text>
           <Text style={styles.text}>{record.observation}</Text>

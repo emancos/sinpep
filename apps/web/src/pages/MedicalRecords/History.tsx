@@ -5,9 +5,10 @@ import axios from 'axios';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useMedicalRecords } from '../../hooks/useMedicalRecords';
 import type { MedicalRecord } from '../../hooks/useMedicalRecords';
-import { Loader2, ArrowLeft, Plus, Calendar, FileText, Pill, Paperclip, Stethoscope, Clock, Activity } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, Calendar, FileText, Pill, Paperclip, Stethoscope, Clock, Activity, Search } from 'lucide-react';
 import { AttachmentViewer } from './AttachmentViewer';
 import { ExportRecordModal } from './ExportRecordModal';
+import { AuthThumbnail } from '../../components/AuthThumbnail';
 import { FileDown } from 'lucide-react';
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -22,6 +23,7 @@ export const MedicalHistory: React.FC = () => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [viewerFile, setViewerFile] = useState<{ url: string, type: string, name: string } | null>(null);
   const [expandedRecords, setExpandedRecords] = useState<Record<string, boolean>>({});
+  const [searchTerm, setSearchTerm] = useState('');
 
   const toggleRecord = (recordId: string) => {
     setExpandedRecords(prev => ({ ...prev, [recordId]: !prev[recordId] }));
@@ -60,35 +62,35 @@ export const MedicalHistory: React.FC = () => {
         <ArrowLeft className="w-4 h-4" /> Voltar para Busca
       </button>
 
-      <div className="bg-white dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <div className="w-20 h-20 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-3xl">
+      <div className="bg-white dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-4 md:gap-6 text-center sm:text-left">
+          <div className="w-20 h-20 shrink-0 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-3xl">
             {patient?.name?.charAt(0).toUpperCase()}
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{patient?.name}</h1>
-            <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-slate-600 dark:text-slate-400">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{patient?.name}</h1>
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-4 mt-2 text-sm text-slate-600 dark:text-slate-400">
               <span>CPF: {patient?.cpf}</span>
-              <span>•</span>
+              <span className="hidden sm:inline">•</span>
               <span>CNS: {patient?.cns || 'Não informado'}</span>
-              <span>•</span>
+              <span className="hidden sm:inline">•</span>
               <span className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-0.5 rounded-full text-xs font-semibold">
                 Nível de Atenção: {patient?.attentionLevel}
               </span>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 w-full md:w-auto">
           <button 
             onClick={() => setIsExportModalOpen(true)}
-            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-md font-medium shadow-sm transition-colors flex items-center gap-2 whitespace-nowrap text-sm"
+            className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-md font-medium shadow-sm transition-colors flex items-center justify-center gap-2 text-sm"
           >
             <FileDown className="w-4 h-4" /> Exportar PDF
           </button>
           {canWrite && (
           <button 
             onClick={() => navigate(`/medical-records/${id}/new`)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium shadow-sm transition-colors flex items-center gap-2 whitespace-nowrap text-sm"
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium shadow-sm transition-colors flex items-center justify-center gap-2 text-sm"
           >
             <Plus className="w-4 h-4" /> Novo Atendimento
           </button>
@@ -96,12 +98,44 @@ export const MedicalHistory: React.FC = () => {
         </div>
       </div>
 
+      {/* SEARCH BAR */}
+      <div className="mb-8">
+        <div className="relative max-w-lg">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="w-5 h-5 text-slate-400" />
+          </div>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar por médico, CRM, especialidade ou CID..."
+            className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-700 rounded-md leading-5 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm transition-colors"
+          />
+        </div>
+      </div>
+
       {/* TIMELINE */}
       <div className="relative border-l-2 border-slate-200 dark:border-slate-700 ml-4 sm:ml-10">
-        {records?.data.length === 0 ? (
-          <div className="pl-10 text-slate-500 italic py-8">Nenhum atendimento registrado no histórico.</div>
-        ) : (
-          records?.data.map((record: MedicalRecord) => {
+        {(() => {
+          const filteredRecords = records?.data.filter((record: MedicalRecord) => {
+            if (!searchTerm) return true;
+            const term = searchTerm.toLowerCase();
+            if (record.doctor.name.toLowerCase().includes(term)) return true;
+            const docProfile = record.doctor.doctors?.[0];
+            if (docProfile) {
+              if (docProfile.crm.toLowerCase().includes(term)) return true;
+              const hasSpecialty = docProfile.doctorSpecialties?.some(s => s.specialty.name.toLowerCase().includes(term));
+              if (hasSpecialty) return true;
+            }
+            if (record.cid10?.toLowerCase().includes(term)) return true;
+            return false;
+          }) || [];
+
+          if (filteredRecords.length === 0) {
+            return <div className="pl-10 text-slate-500 italic py-8">Nenhum atendimento encontrado.</div>;
+          }
+
+          return filteredRecords.map((record: MedicalRecord) => {
             const isExpanded = expandedRecords[record.id];
             
             return (
@@ -117,20 +151,32 @@ export const MedicalHistory: React.FC = () => {
                     onClick={() => toggleRecord(record.id)}
                     className="bg-white dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 p-5 cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
                   >
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3">
                       <div>
                         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-1">
-                          <Calendar className="w-4 h-4" />
-                          {new Date(record.recordDate).toLocaleDateString('pt-BR')} às {new Date(record.recordDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          <Calendar className="w-4 h-4 shrink-0" />
+                          <span>{new Date(record.recordDate).toLocaleDateString('pt-BR')} às {new Date(record.recordDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                          Atendimento por Dr(a). {record.doctor.name}
-                        </h3>
+                        <div>
+                          <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-start sm:items-center gap-2 leading-tight">
+                            Atendimento por Dr(a). {record.doctor.name}
+                          </h3>
+                          {record.doctor.doctors?.[0] && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                              CRM: {record.doctor.doctors[0].crm}/{record.doctor.doctors[0].crmState}
+                              {record.doctor.doctors[0].doctorSpecialties && record.doctor.doctors[0].doctorSpecialties.length > 0 && 
+                                ` • Especialidade(s): ${record.doctor.doctors[0].doctorSpecialties.map(s => s.specialty.name).join(', ')}`
+                              }
+                            </p>
+                          )}
+                        </div>
                       </div>
                       {record.cid10 && (
-                        <span className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1 rounded-full text-sm font-medium border border-slate-200 dark:border-slate-600">
-                          CID: {record.cid10}
-                        </span>
+                        <div className="self-start">
+                          <span className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1 rounded-full text-xs sm:text-sm font-medium border border-slate-200 dark:border-slate-600 whitespace-nowrap">
+                            CID: {record.cid10}
+                          </span>
+                        </div>
                       )}
                     </div>
                     
@@ -206,11 +252,7 @@ export const MedicalHistory: React.FC = () => {
                                       onClick={(e) => { e.stopPropagation(); setViewerFile({ url: `${apiUrl}${actualFileUrl}`, type: file.fileType, name: file.fileName }); }}
                                       className="w-24 h-24 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md flex flex-col items-center justify-center gap-2 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
                                     >
-                                      {file.fileType.includes('pdf') ? (
-                                        <FileText className="w-8 h-8 text-rose-500" />
-                                      ) : (
-                                        <div className="w-full h-16 bg-cover bg-center rounded-t-md" style={{ backgroundImage: `url(${apiUrl}${actualFileUrl})` }} />
-                                      )}
+                                      <AuthThumbnail url={`${apiUrl}${actualFileUrl}`} type={file.fileType} name={file.fileName} />
                                       <span className="text-xs text-slate-500 truncate w-full px-2 text-center">{file.fileName}</span>
                                     </div>
                                   );
@@ -238,8 +280,8 @@ export const MedicalHistory: React.FC = () => {
                 </div>
               </div>
             );
-          })
-        )}
+          });
+        })()}
       </div>
 
       {isExportModalOpen && (
