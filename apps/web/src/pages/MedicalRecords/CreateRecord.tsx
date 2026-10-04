@@ -8,6 +8,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { X, Loader2, Upload, Plus, Trash2, ArrowLeft, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { Cid10Select } from './Cid10Select';
+import imageCompression from 'browser-image-compression';
 
 export const CreateRecord: React.FC = () => {
   const { id: patientId } = useParams<{ id: string }>();
@@ -90,9 +91,36 @@ export const CreateRecord: React.FC = () => {
   };
   const removeExam = (index: number) => setRequestedExams(requestedExams.filter((_, i) => i !== index));
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setFiles([...files, ...Array.from(e.target.files)]);
+      const selectedFiles = Array.from(e.target.files);
+      const processedFiles: File[] = [];
+
+      for (const file of selectedFiles) {
+        if (file.type.startsWith('image/')) {
+          try {
+            const options = {
+              maxSizeMB: 1,
+              maxWidthOrHeight: 1920,
+              useWebWorker: true,
+              initialQuality: 0.8
+            };
+            const compressedBlob = await imageCompression(file, options);
+            const compressedFile = new File([compressedBlob], file.name, {
+              type: file.type,
+              lastModified: Date.now(),
+            });
+            processedFiles.push(compressedFile);
+          } catch (error) {
+            console.error('Error compressing image:', error);
+            processedFiles.push(file); // fallback
+          }
+        } else {
+          processedFiles.push(file);
+        }
+      }
+
+      setFiles(prev => [...prev, ...processedFiles]);
     }
   };
 
