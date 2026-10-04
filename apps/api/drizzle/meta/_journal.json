@@ -15,6 +15,13 @@
       "when": 1790897167292,
       "tag": "0001_far_major_mapleleaf",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791078705555,
+      "tag": "0002_stiff_bucky",
+      "breakpoints": true
     }
   ]
 }

@@ -176,6 +176,29 @@ export const patientPhones = pgTable("patient_phones", {
 		}).onUpdate("cascade").onDelete("cascade"),
 ]);
 
+export const patientAnamnesis = pgTable("patient_anamnesis", {
+	id: uuid().primaryKey().notNull(),
+	patientId: uuid("patient_id").notNull(),
+	isHypertensive: boolean("is_hypertensive").default(false).notNull(),
+	isDiabetic: boolean("is_diabetic").default(false).notNull(),
+	otherDiseases: text("other_diseases"),
+	isOncological: boolean("is_oncological").default(false).notNull(),
+	oncologicalStage: text("oncological_stage"),
+	allergies: text("allergies"),
+	isPcd: boolean("is_pcd").default(false).notNull(),
+	pcdDescription: text("pcd_description"),
+	continuousMedications: jsonb("continuous_medications").default([]),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+	uniqueIndex("patient_anamnesis_patient_id_key").using("btree", table.patientId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.patientId],
+			foreignColumns: [patients.id],
+			name: "patient_anamnesis_patient_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+]);
+
 export const doctors = pgTable("doctors", {
 	id: uuid().primaryKey().notNull(),
 	crm: text().notNull(),
@@ -371,6 +394,8 @@ export const medicalRecords = pgTable("medical_records", {
   
   returnRequestedValue: integer("return_requested_value"),
   returnRequestedUnit: text("return_requested_unit"),
+  
+  isOci: boolean("is_oci").default(false).notNull(),
   
   medications: jsonb().default([]),
   medicationsJustification: text("medications_justification"),
