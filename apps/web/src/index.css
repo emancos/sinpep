@@ -37,3 +37,62 @@ body {
 .dark input[type="month"] {
   color-scheme: dark;
 }
+
+/* 
+  Global Responsive Tables (Cards Strategy) 
+  Transforms standard HTML tables into vertical cards on mobile devices.
+*/
+@media (max-width: 767px) {
+  table {
+    display: block !important;
+    width: 100% !important;
+    border: none !important;
+    background: transparent !important;
+  }
+  
+  thead {
+    display: none !important; /* Hides table headers */
+  }
+  
+  tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.75rem !important; /* Space between cards */
+    width: 100% !important;
+    border: none !important;
+    background: transparent !important;
+  }
+  
+  tbody tr {
+    display: block !important;
+    width: 100% !important;
+    @apply border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden;
+  }
+  
+  tbody td {
+    display: block !important;
+    width: 100% !important;
+    @apply px-4 py-3 border-b border-slate-100 dark:border-slate-700/50;
+  }
+  
+  tbody td:last-child {
+    @apply border-b-0 bg-slate-50/50 dark:bg-slate-900/30; /* Highlight the actions row slightly */
+  }
+  
+  /* Make the main table wrapper transparent so cards float on the page background */
+  div:has(> div.overflow-x-auto > table) {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    @apply !bg-transparent;
+  }
+  
+  /* Make the pagination transparent on mobile to match the layout */
+  div:has(> div.overflow-x-auto > table) > div.flex.flex-col {
+    background: transparent !important;
+    border-top: none !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    @apply !bg-transparent;
+  }
+}
