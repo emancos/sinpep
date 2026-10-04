@@ -63,7 +63,7 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
                         <select
                             value={limit}
                             onChange={(e) => onLimitChange(Number(e.target.value))}
-                            className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-lg text-slate-700 dark:text-slate-200 text-xs px-2.5 py-1.5 focus:outline-none focus:border-blue-500/80 transition-colors cursor-pointer shadow-md"
+                            className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 text-xs px-2.5 py-1.5 focus:outline-none focus:border-blue-500/80 transition-colors cursor-pointer shadow-md"
                         >
                             <option value={10}>10</option>
                             <option value={20}>20</option>
@@ -77,7 +77,7 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
                 <button
                     onClick={() => onPageChange(page - 1)}
                     disabled={page === 1}
-                    className="p-1.5 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950/40 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-200 dark:bg-slate-800/60 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-500 dark:text-slate-400 transition-all cursor-pointer shadow-md"
+                    className="p-1.5 rounded-md border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950/40 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-200 dark:bg-slate-800/60 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-500 dark:text-slate-400 transition-all cursor-pointer shadow-md"
                 >
                     <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -89,7 +89,7 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
                         <button
                             key={p}
                             onClick={() => onPageChange(p as number)}
-                            className={`min-w-8 h-8 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${page === p
+                            className={`min-w-8 h-8 rounded-md text-xs font-semibold border transition-all cursor-pointer ${page === p
                                     ? 'bg-blue-600 border-blue-500 text-white shadow-md'
                                     : 'border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-950/20 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-200 dark:bg-slate-800/50'
                                 }`}
@@ -102,7 +102,7 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
                 <button
                     onClick={() => onPageChange(page + 1)}
                     disabled={page === totalPages}
-                    className="p-1.5 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950/40 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-200 dark:bg-slate-800/60 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-500 dark:text-slate-400 transition-all cursor-pointer shadow-md"
+                    className="p-1.5 rounded-md border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950/40 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-200 dark:bg-slate-800/60 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-500 dark:text-slate-400 transition-all cursor-pointer shadow-md"
                 >
                     <ChevronRight className="w-4 h-4" />
                 </button>

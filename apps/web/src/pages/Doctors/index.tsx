@@ -143,7 +143,7 @@ export const DoctorsList: React.FC = () => {
         {userPermissions.includes('doctors:write') && (
           <button
             onClick={() => navigate('/doctors/new')}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl text-sm transition-all duration-300 shadow-md active:scale-95 cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md text-sm transition-all duration-300 shadow-md active:scale-95 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Novo Médico</span>
@@ -152,7 +152,7 @@ export const DoctorsList: React.FC = () => {
       </div>
 
       {/* Search Bar */}
-      <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 backdrop-blur-md flex flex-col sm:flex-row items-center gap-4">
+      <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-4 backdrop-blur-md flex flex-col sm:flex-row items-center gap-4">
         <div className="relative w-full sm:max-w-md">
           <Search className="absolute left-3 top-3 w-5 h-5 text-slate-500" />
           <input
@@ -160,7 +160,7 @@ export const DoctorsList: React.FC = () => {
             placeholder="Buscar por nome, CRM ou CPF..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
+            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
           />
         </div>
 
@@ -197,7 +197,7 @@ export const DoctorsList: React.FC = () => {
 
       {/* Error State */}
       {isError && (
-        <div className="flex items-center gap-3 p-4 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 rounded-2xl max-w-xl mx-auto">
+        <div className="flex items-center gap-3 p-4 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 rounded-md max-w-xl mx-auto">
           <AlertCircle className="w-6 h-6 shrink-0" />
           <div>
             <h4 className="font-semibold">Erro ao carregar dados</h4>
@@ -208,7 +208,7 @@ export const DoctorsList: React.FC = () => {
 
       {/* Table Section */}
       {!isLoading && !isError && (
-        <div className="bg-white shadow-md dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl overflow-hidden backdrop-blur-md">
+        <div className="bg-white shadow-md dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-md overflow-hidden backdrop-blur-md">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left">
               <thead>
@@ -226,7 +226,7 @@ export const DoctorsList: React.FC = () => {
                     <tr key={doctor.id} className="hover:bg-slate-200 dark:bg-slate-800/20 transition-colors duration-150 group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-lg ${doctor.isActive ? 'bg-blue-100 dark:bg-blue-500/10' : 'bg-slate-200 dark:bg-slate-800/50'} flex items-center justify-center shrink-0`}>
+                          <div className={`w-8 h-8 rounded-md ${doctor.isActive ? 'bg-blue-100 dark:bg-blue-500/10' : 'bg-slate-200 dark:bg-slate-800/50'} flex items-center justify-center shrink-0`}>
                             <Stethoscope className={`w-4 h-4 ${doctor.isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500'}`} />
                           </div>
                           <div className="flex flex-col">
@@ -268,12 +268,12 @@ export const DoctorsList: React.FC = () => {
                           </div>
                           <div>
                             {doctor.user?.healthCenter ? (
-                              <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-500/20">
+                              <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-500/20">
                                 <CheckCircle2 className="w-3 h-3" />
                                 Vinculado a {doctor.user.healthCenter.name || doctor.user.healthCenter.noFantasia}
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                              <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
                                 <ShieldAlert className="w-3 h-3" />
                                 Sem vínculo de unidade
                               </span>
@@ -286,7 +286,7 @@ export const DoctorsList: React.FC = () => {
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={() => navigate(`/doctors/${doctor.id}`)}
-                            className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/10 hover:bg-indigo-200 dark:hover:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/20 rounded-lg transition-all cursor-pointer shadow-md"
+                            className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/10 hover:bg-indigo-200 dark:hover:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/20 rounded-md transition-all cursor-pointer shadow-md"
                             title="Visualizar"
                           >
                             <Eye className="w-4 h-4" />
@@ -296,14 +296,14 @@ export const DoctorsList: React.FC = () => {
                             <>
                               <button
                                 onClick={() => navigate(`/doctors/${doctor.id}/edit`)}
-                                className="p-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-100 dark:bg-blue-500/10 hover:bg-blue-200 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/20 rounded-lg transition-all cursor-pointer shadow-md"
+                                className="p-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-100 dark:bg-blue-500/10 hover:bg-blue-200 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/20 rounded-md transition-all cursor-pointer shadow-md"
                               >
                                 <Edit className="w-4 h-4" />
                               </button>
 
                               <button
                                 onClick={() => handleToggleActive(doctor.id, doctor.isActive)}
-                                className={`p-1 border rounded-lg transition-all cursor-pointer ${doctor.isActive
+                                className={`p-1 border rounded-md transition-all cursor-pointer ${doctor.isActive
                                   ? 'text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 bg-amber-100 dark:bg-amber-500/10 hover:bg-amber-200 dark:hover:bg-amber-500/20 border-amber-200 dark:border-amber-500/20'
                                   : 'text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 bg-teal-100 dark:bg-teal-500/10 hover:bg-teal-200 dark:hover:bg-teal-500/20 border-teal-200 dark:border-teal-500/20'
                                   }`}
@@ -317,7 +317,7 @@ export const DoctorsList: React.FC = () => {
                           {userPermissions.includes('admin:access') && (
                             <button
                               onClick={() => handleDeleteDoctor(doctor.id)}
-                              className="p-1 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 bg-rose-100 dark:bg-rose-500/10 hover:bg-rose-200 dark:hover:bg-rose-500/20 border border-rose-200 dark:border-rose-500/20 rounded-lg transition-all cursor-pointer shadow-md"
+                              className="p-1 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 bg-rose-100 dark:bg-rose-500/10 hover:bg-rose-200 dark:hover:bg-rose-500/20 border border-rose-200 dark:border-rose-500/20 rounded-md transition-all cursor-pointer shadow-md"
                               title="Excluir Definitivamente"
                             >
                               <Trash2 className="w-4 h-4" />

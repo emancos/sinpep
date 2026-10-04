@@ -183,7 +183,7 @@ export const CreateOrEditProcedure: React.FC = () => {
             <div className="flex items-center gap-4">
                 <button
                     onClick={() => (isEditMode ? navigate(`/procedures/${id}`) : navigate('/procedures'))}
-                    className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
+                    className="flex items-center justify-center w-10 h-10 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
                 >
                     <ArrowLeft className="w-5 h-5" />
                 </button>
@@ -200,9 +200,9 @@ export const CreateOrEditProcedure: React.FC = () => {
             </div>
 
             {/* Form Steps Indicator */}
-            <div className="bg-white shadow-md dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 flex items-center justify-between">
+            <div className="bg-white shadow-md dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-md p-4 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm transition-colors ${step === 1
+                    <span className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-sm transition-colors ${step === 1
                             ? 'bg-blue-500 text-slate-950'
                             : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                         }`}>
@@ -215,7 +215,7 @@ export const CreateOrEditProcedure: React.FC = () => {
                 </div>
                 <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1 mx-6 hidden sm:block" />
                 <div className="flex items-center gap-2.5">
-                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm transition-colors ${step === 2
+                    <span className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-sm transition-colors ${step === 2
                             ? 'bg-blue-500 text-slate-950'
                             : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                         }`}>
@@ -229,7 +229,7 @@ export const CreateOrEditProcedure: React.FC = () => {
             </div>
 
             {/* Main Form container */}
-            <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-6 backdrop-blur-md">
+            <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 space-y-6 backdrop-blur-md">
                 {/* STEP 1: IDENTIFICATION */}
                 {step === 1 && (
                     <div className="space-y-6 animate-fade-in-up">
@@ -246,7 +246,7 @@ export const CreateOrEditProcedure: React.FC = () => {
                                             {...field}
                                             type="text"
                                             placeholder="Ex: 0204030188"
-                                            className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-650 focus:outline-none focus:border-blue-500 transition-all text-sm font-mono font-medium"
+                                            className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 placeholder-slate-650 focus:outline-none focus:border-blue-500 transition-all text-sm font-mono font-medium"
                                         />
                                     )}
                                 />
@@ -265,7 +265,7 @@ export const CreateOrEditProcedure: React.FC = () => {
                                             {...field}
                                             type="text"
                                             placeholder="Ex: Ultrassonografia de Abdome Total"
-                                            className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-650 focus:outline-none focus:border-blue-500 transition-all text-sm font-medium"
+                                            className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 placeholder-slate-650 focus:outline-none focus:border-blue-500 transition-all text-sm font-medium"
                                         />
                                     )}
                                 />
@@ -278,7 +278,7 @@ export const CreateOrEditProcedure: React.FC = () => {
                                 type="button"
                                 key="btn-advance"
                                 onClick={handleNextStep}
-                                className="flex items-center gap-1.5 px-5 py-2.5 bg-blue-500 hover:bg-blue-450 text-slate-950 font-semibold rounded-xl text-sm transition-all duration-300 active:scale-95 cursor-pointer shadow-md"
+                                className="flex items-center gap-1.5 px-5 py-2.5 bg-blue-500 hover:bg-blue-450 text-slate-950 font-semibold rounded-md text-sm transition-all duration-300 active:scale-95 cursor-pointer shadow-md"
                             >
                                 <span>Avançar</span>
                                 <ChevronRight className="w-4 h-4" />
@@ -324,7 +324,7 @@ export const CreateOrEditProcedure: React.FC = () => {
 
                             {/* Inline Group Creator */}
                             {isNewGroupInputOpen && (
-                                <div className="space-y-3 p-3 bg-white dark:bg-slate-950/60 border border-slate-300 dark:border-slate-800 rounded-xl animate-fade-in">
+                                <div className="space-y-3 p-3 bg-white dark:bg-slate-950/60 border border-slate-300 dark:border-slate-800 rounded-md animate-fade-in">
                                     <div className="grid grid-cols-1 gap-3">
                                         <div className="space-y-1">
                                             <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-450 uppercase">Nome do Grupo</label>
@@ -333,7 +333,7 @@ export const CreateOrEditProcedure: React.FC = () => {
                                                 value={newGroupName}
                                                 onChange={(e) => setNewGroupName(e.target.value)}
                                                 placeholder="Ex: EXAMES DE IMAGEM"
-                                                className="w-full px-3 py-1.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-lg text-xs text-slate-900 dark:text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 font-medium"
+                                                className="w-full px-3 py-1.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-md text-xs text-slate-900 dark:text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 font-medium"
                                             />
                                         </div>
                                     </div>
@@ -342,7 +342,7 @@ export const CreateOrEditProcedure: React.FC = () => {
                                             type="button"
                                             disabled={createGroupMutation.isPending}
                                             onClick={handleCreateNewGroup}
-                                            className="px-3 py-1.5 bg-blue-500 hover:bg-blue-450 text-slate-950 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer shadow-md"
+                                            className="px-3 py-1.5 bg-blue-500 hover:bg-blue-450 text-slate-950 rounded-md text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer shadow-md"
                                         >
                                             {createGroupMutation.isPending ? (
                                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -367,7 +367,7 @@ export const CreateOrEditProcedure: React.FC = () => {
                                     render={({ field }) => (
                                         <select
                                             {...field}
-                                            className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:border-blue-500 transition-all text-sm font-medium cursor-pointer shadow-md"
+                                            className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 focus:outline-none focus:border-blue-500 transition-all text-sm font-medium cursor-pointer shadow-md"
                                         >
                                             <option value="">Selecione um grupo...</option>
                                             {groupsData?.map((group) => (
@@ -399,7 +399,7 @@ export const CreateOrEditProcedure: React.FC = () => {
                                         render={({ field }) => (
                                             <select
                                                 {...field}
-                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:border-blue-500 transition-all text-sm font-medium cursor-pointer shadow-md"
+                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 focus:outline-none focus:border-blue-500 transition-all text-sm font-medium cursor-pointer shadow-md"
                                             >
                                                 <option value="AMBOS">Ambos</option>
                                                 <option value="FEMININO">Feminino</option>
@@ -424,7 +424,7 @@ export const CreateOrEditProcedure: React.FC = () => {
                                                 min={0}
                                                 max={130}
                                                 onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
-                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-650 focus:outline-none focus:border-blue-500 transition-all text-sm font-mono font-medium"
+                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 placeholder-slate-650 focus:outline-none focus:border-blue-500 transition-all text-sm font-mono font-medium"
                                             />
                                         )}
                                     />
@@ -445,7 +445,7 @@ export const CreateOrEditProcedure: React.FC = () => {
                                                 min={0}
                                                 max={130}
                                                 onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
-                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-650 focus:outline-none focus:border-blue-500 transition-all text-sm font-mono font-medium"
+                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 placeholder-slate-650 focus:outline-none focus:border-blue-500 transition-all text-sm font-mono font-medium"
                                             />
                                         )}
                                     />
@@ -460,7 +460,7 @@ export const CreateOrEditProcedure: React.FC = () => {
                                 type="button"
                                 key="btn-back"
                                 onClick={handlePrevStep}
-                                className="flex items-center gap-1.5 px-5 py-2.5 bg-slate-200 dark:bg-slate-850 hover:bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium rounded-xl text-sm transition-all duration-300 active:scale-95 cursor-pointer shadow-md"
+                                className="flex items-center gap-1.5 px-5 py-2.5 bg-slate-200 dark:bg-slate-850 hover:bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium rounded-md text-sm transition-all duration-300 active:scale-95 cursor-pointer shadow-md"
                             >
                                 <ChevronLeft className="w-4 h-4" />
                                 <span>Voltar</span>
@@ -470,7 +470,7 @@ export const CreateOrEditProcedure: React.FC = () => {
                                 type="submit"
                                 key="btn-submit"
                                 disabled={isSubmitting}
-                                className="flex items-center gap-1.5 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all duration-300 active:scale-95 disabled:opacity-50 cursor-pointer shadow-md"
+                                className="flex items-center gap-1.5 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md text-sm transition-all duration-300 active:scale-95 disabled:opacity-50 cursor-pointer shadow-md"
                             >
                                 {isSubmitting ? (
                                     <>

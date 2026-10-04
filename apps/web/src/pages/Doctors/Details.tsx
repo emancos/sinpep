@@ -26,7 +26,7 @@ export const DoctorDetails = () => {
         <p className="text-slate-500 mb-6">O registro que você está tentando acessar não existe ou foi removido.</p>
         <button
           onClick={() => navigate('/doctors')}
-          className="px-6 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
+          className="px-6 py-2 bg-slate-900 text-white rounded-md hover:bg-slate-800 transition-colors"
         >
           Voltar para Lista
         </button>
@@ -43,18 +43,18 @@ export const DoctorDetails = () => {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-md border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/doctors')}
-            className="p-2.5 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+            className="p-2.5 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-all"
             title="Voltar"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center shadow-inner">
+            <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 text-blue-600 dark:text-blue-400 rounded-md flex items-center justify-center shadow-inner">
               <User className="w-7 h-7" />
             </div>
             <div>
@@ -75,7 +75,7 @@ export const DoctorDetails = () => {
         {userPermissions.includes('doctors:write') && (
           <button
             onClick={() => navigate(`/doctors/${doctor.id}/edit`)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-md shadow-blue-500/20 active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-all shadow-md shadow-blue-500/20 active:scale-95"
           >
             <Edit className="w-4 h-4" />
             <span>Editar Médico</span>
@@ -88,7 +88,7 @@ export const DoctorDetails = () => {
         <div className="lg:col-span-2 space-y-6">
           
           {/* Dados Pessoais */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
               <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-blue-500" />
@@ -116,7 +116,7 @@ export const DoctorDetails = () => {
           </div>
 
           {/* Atuação e Especialidades */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
               <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                 <Stethoscope className="w-4 h-4 text-indigo-500" />
@@ -140,7 +140,7 @@ export const DoctorDetails = () => {
                 {doctor.doctorSpecialties && doctor.doctorSpecialties.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {doctor.doctorSpecialties.map((ds: any) => (
-                      <span key={ds.specialtyId} className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 text-sm rounded-lg border border-indigo-100 dark:border-indigo-500/20 font-medium flex items-center gap-1.5">
+                      <span key={ds.specialtyId} className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 text-sm rounded-md border border-indigo-100 dark:border-indigo-500/20 font-medium flex items-center gap-1.5">
                         <HeartPulse className="w-3.5 h-3.5" />
                         {ds.specialty.name}
                       </span>
@@ -156,7 +156,7 @@ export const DoctorDetails = () => {
                   <p className="text-xs font-medium text-slate-500 mb-2">Procedimentos Autorizados</p>
                   <div className="flex flex-wrap gap-2">
                     {doctor.doctorProcedures.map((dp: any) => (
-                      <span key={dp.procedureId} className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs rounded border border-slate-200 dark:border-slate-700">
+                      <span key={dp.procedureId} className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs rounded-md border border-slate-200 dark:border-slate-700">
                         {dp.procedure.name}
                       </span>
                     ))}
@@ -170,7 +170,7 @@ export const DoctorDetails = () => {
 
         {/* Coluna Direita - Vínculos */}
         <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-emerald-50/50 dark:bg-emerald-900/10">
               <h2 className="text-sm font-bold text-emerald-800 dark:text-emerald-400 flex items-center gap-2">
                 <Building2 className="w-4 h-4" />
@@ -181,7 +181,7 @@ export const DoctorDetails = () => {
               {doctor.user?.healthCenter ? (
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <div className="p-2 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg">
+                    <div className="p-2 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-md">
                       <CheckCircle2 className="w-5 h-5" />
                     </div>
                     <div>
@@ -196,7 +196,7 @@ export const DoctorDetails = () => {
                   </div>
                   
                   {(doctor.user.healthCenter.noMunicipio || doctor.user.healthCenter.sgUf) && (
-                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-slate-100 dark:border-slate-700">
+                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-md border border-slate-100 dark:border-slate-700">
                       <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
                       <span>{doctor.user.healthCenter.noLogradouro ? `${doctor.user.healthCenter.noLogradouro}, ` : ''}{doctor.user.healthCenter.noBairro ? `${doctor.user.healthCenter.noBairro}, ` : ''}{doctor.user.healthCenter.noMunicipio} - {doctor.user.healthCenter.sgUf}</span>
                     </div>

@@ -179,7 +179,7 @@ export const CreateOrEditUser: React.FC = () => {
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate('/users')}
-          className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
+          className="flex items-center justify-center w-10 h-10 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -196,7 +196,7 @@ export const CreateOrEditUser: React.FC = () => {
       </div>
 
       {/* Form Card */}
-      <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 backdrop-blur-md space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-6">
 
         <div className="space-y-4">
           <div className="flex items-center gap-2 mb-4 text-slate-900 dark:text-white">
@@ -217,7 +217,7 @@ export const CreateOrEditUser: React.FC = () => {
                     {...field}
                     type="text"
                     placeholder="Ex: João Silva"
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                   />
                 )}
               />
@@ -237,7 +237,7 @@ export const CreateOrEditUser: React.FC = () => {
                     type="email"
                     placeholder="Ex: joao@exemplo.com"
                     disabled={isEditMode}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 disabled:opacity-50"
                   />
                 )}
               />
@@ -269,7 +269,7 @@ export const CreateOrEditUser: React.FC = () => {
                       }
                       field.onChange(formatted);
                     }}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                   />
                 )}
               />
@@ -294,7 +294,7 @@ export const CreateOrEditUser: React.FC = () => {
                 render={({ field }) => (
                   <select
                     {...field}
-                    className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 appearance-none"
+                    className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 appearance-none"
                   >
                     <option value="" disabled className="bg-slate-50 dark:bg-slate-900 text-slate-500">Selecione um perfil...</option>
                     {loadingProfiles ? (
@@ -322,7 +322,7 @@ export const CreateOrEditUser: React.FC = () => {
                     {...field}
                     type="password"
                     placeholder={isEditMode ? "Preencha para alterar" : "Mínimo 6 caracteres"}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                   />
                 )}
               />
@@ -372,7 +372,7 @@ export const CreateOrEditUser: React.FC = () => {
                         const friendlyName = permissionFriendlyNames[perm.name] || perm.name;
 
                         return (
-                          <div key={perm.id} className="shadow-md flex items-start gap-3 p-3 rounded-xl bg-slate-100 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800/80 transition-colors hover:bg-slate-100 dark:bg-slate-900">
+                          <div key={perm.id} className="shadow-md flex items-start gap-3 p-3 rounded-md bg-slate-100 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800/80 transition-colors hover:bg-slate-100 dark:bg-slate-900">
                             <button
                               type="button"
                               onClick={() => {
@@ -412,7 +412,7 @@ export const CreateOrEditUser: React.FC = () => {
             </div>
           )}
           {!selectedProfileId && (
-            <div className="text-xs text-amber-700 dark:text-amber-500 bg-amber-100 dark:bg-amber-500/10 p-3 rounded-xl border border-amber-200 dark:border-amber-500/20">
+            <div className="text-xs text-amber-700 dark:text-amber-500 bg-amber-100 dark:bg-amber-500/10 p-3 rounded-md border border-amber-200 dark:border-amber-500/20">
               Selecione um perfil de acesso primeiro para habilitar a configuração de permissões específicas.
             </div>
           )}
@@ -424,7 +424,7 @@ export const CreateOrEditUser: React.FC = () => {
             key="submit-btn"
             type="submit"
             disabled={isMutating}
-            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all duration-300 shadow-md active:scale-95 disabled:opacity-55 disabled:cursor-not-allowed ml-auto cursor-pointer"
+            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md text-sm transition-all duration-300 shadow-md active:scale-95 disabled:opacity-55 disabled:cursor-not-allowed ml-auto cursor-pointer"
           >
             {isMutating ? (
               <>

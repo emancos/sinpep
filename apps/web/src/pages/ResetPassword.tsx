@@ -54,7 +54,7 @@ export default function ResetPassword() {
  if (success) {
  return (
  <div className="min-h-screen bg-slate-100 dark:bg-slate-900 flex items-center justify-center p-4">
- <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-200 dark:border-slate-700 p-8 text-center">
+ <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-md shadow-xl overflow-hidden border border-slate-200 dark:border-slate-700 p-8 text-center">
  <div className="flex justify-center mb-6">
  <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
  <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
@@ -66,7 +66,7 @@ export default function ResetPassword() {
  </p>
  <Link
  to="/login"
- className="shadow-md inline-flex items-center justify-center w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors"
+ className="shadow-md inline-flex items-center justify-center w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"
  >
  Fazer Login Agora
  </Link>
@@ -77,7 +77,7 @@ export default function ResetPassword() {
 
  return (
  <div className="min-h-screen bg-slate-100 dark:bg-slate-900 flex items-center justify-center p-4">
- <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+ <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-md shadow-xl overflow-hidden border border-slate-200 dark:border-slate-700">
  <div className="p-8">
  <div className="mb-8 text-center">
  <h1 className="text-3xl font-bold text-blue-600 dark:text-blue-400">
@@ -105,7 +105,7 @@ export default function ResetPassword() {
  value={password}
  onChange={(e) => setPassword(e.target.value)}
  placeholder="Mínimo 6 caracteres"
- className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
+ className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-md text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
  />
  </div>
  </div>
@@ -123,7 +123,7 @@ export default function ResetPassword() {
  value={confirmPassword}
  onChange={(e) => setConfirmPassword(e.target.value)}
  placeholder="Repita a nova senha"
- className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
+ className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-md text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
  />
  </div>
  </div>
@@ -131,7 +131,7 @@ export default function ResetPassword() {
  <button
  type="submit"
  disabled={isLoading}
- className="w-full flex items-center justify-center py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 disabled:opacity-70 disabled:cursor-not-allowed"
+ className="w-full flex items-center justify-center py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 disabled:opacity-70 disabled:cursor-not-allowed"
  >
  {isLoading ? (
  <>

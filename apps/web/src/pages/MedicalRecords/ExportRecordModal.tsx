@@ -24,7 +24,7 @@ export const ExportRecordModal: React.FC<Props> = ({ patient, records, onClose }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-md shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <FileDown className="w-5 h-5 text-blue-600" /> Exportar Prontuário em PDF
@@ -51,7 +51,7 @@ export const ExportRecordModal: React.FC<Props> = ({ patient, records, onClose }
                 <div 
                   key={record.id} 
                   onClick={() => toggleSelection(record.id)}
-                  className={`p-3 rounded-lg border cursor-pointer transition-colors flex items-center gap-3 ${
+                  className={`p-3 rounded-md border cursor-pointer transition-colors flex items-center gap-3 ${
                     isSelected 
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
                       : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -73,7 +73,7 @@ export const ExportRecordModal: React.FC<Props> = ({ patient, records, onClose }
         </div>
 
         <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
+          <button onClick={onClose} className="px-4 py-2 rounded-md font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
             Cancelar
           </button>
           
@@ -81,7 +81,7 @@ export const ExportRecordModal: React.FC<Props> = ({ patient, records, onClose }
             <PDFDownloadLink
               document={<MedicalRecordPDF patient={patient} records={selectedRecords} />}
               fileName={`Prontuario_${patient.name.replace(/\\s+/g, '_')}.pdf`}
-              className="px-6 py-2 rounded-lg font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors flex items-center gap-2"
+              className="px-6 py-2 rounded-md font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
               {/* @ts-ignore */}
               {({ loading }) => loading ? (
@@ -91,7 +91,7 @@ export const ExportRecordModal: React.FC<Props> = ({ patient, records, onClose }
               )}
             </PDFDownloadLink>
           ) : (
-            <button disabled className="px-6 py-2 rounded-lg font-medium text-white bg-slate-400 cursor-not-allowed flex items-center gap-2">
+            <button disabled className="px-6 py-2 rounded-md font-medium text-white bg-slate-400 cursor-not-allowed flex items-center gap-2">
               <FileDown className="w-5 h-5" /> Baixar PDF
             </button>
           )}

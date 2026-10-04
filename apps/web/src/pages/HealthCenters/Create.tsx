@@ -356,7 +356,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  <div className="flex items-center gap-4">
  <button
  onClick={() => (isEditMode ? navigate(`/health-centers/${id}`) : navigate('/health-centers'))}
- className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
+ className="flex items-center justify-center w-10 h-10 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
  >
  <ArrowLeft className="w-5 h-5" />
  </button>
@@ -373,7 +373,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  </div>
 
  {/* Progress Tracker */}
- <div className="grid grid-cols-2 gap-4 bg-white shadow-md dark:bg-slate-900/40 border border-slate-900 rounded-2xl p-4 backdrop-blur-md">
+ <div className="grid grid-cols-2 gap-4 bg-white shadow-md dark:bg-slate-900/40 border border-slate-900 rounded-md p-4 backdrop-blur-md">
  {steps.map((s) => {
  const Icon = s.icon;
  const isCompleted = step > s.number;
@@ -382,7 +382,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  return (
  <div
  key={s.number}
- className={`flex items-center gap-3 p-2.5 rounded-xl transition-all duration-300 ${
+ className={`flex items-center gap-3 p-2.5 rounded-md transition-all duration-300 ${
  isActive 
  ? 'bg-blue-100 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-slate-900 dark:text-white' 
  : isCompleted 
@@ -391,7 +391,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  }`}
  >
  <div
- className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
+ className={`w-9 h-9 rounded-md flex items-center justify-center font-bold text-sm shrink-0 ${
  isActive
  ? 'bg-blue-500 text-white'
  : isCompleted
@@ -415,7 +415,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  </div>
 
  {/* Form Card */}
- <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 backdrop-blur-md space-y-6">
+ <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-6">
  
  {/* STEP 1: Identification data */}
  {step === 1 && (
@@ -438,7 +438,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  {...field}
  type="text"
  placeholder="Ex: UBS São Bento Centro"
- className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${
+ className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${
  errors.name
  ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
  : field.value
@@ -465,7 +465,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  type="text"
  placeholder="Ex: 1234567"
  onChange={(e) => field.onChange(formatCNES(e.target.value))}
- className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none font-mono transition-all ${
+ className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none font-mono transition-all ${
  errors.cnes
  ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
  : field.value
@@ -491,7 +491,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  {...field}
  type="text"
  placeholder="Ex: Enf. Maria Souza"
- className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${
+ className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${
  errors.nurseName
  ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
  : field.value
@@ -534,7 +534,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  handleCepBlur(e.target.value);
  }}
  disabled={isLoadingCep}
- className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed font-mono transition-all ${
+ className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed font-mono transition-all ${
  errors.zipCode
  ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
  : field.value
@@ -560,7 +560,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  type="text"
  placeholder="Ex: Rua das Palmeiras"
  disabled={isLoadingCep}
- className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${
+ className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${
  errors.street
  ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
  : field.value
@@ -585,7 +585,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  {...field}
  type="text"
  placeholder="Ex: S/N ou 120"
- className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${
+ className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${
  errors.number
  ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
  : field.value
@@ -610,7 +610,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  {...field}
  type="text"
  placeholder="Ex: Próximo ao Hospital"
- className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${
+ className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${
  errors.complement
  ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
  : field.value
@@ -636,7 +636,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  type="text"
  placeholder="Ex: Centro"
  disabled={isLoadingCep}
- className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${
+ className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${
  errors.neighborhood
  ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
  : field.value
@@ -662,7 +662,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  type="text"
  placeholder="Ex: São Bento"
  disabled={isLoadingCep}
- className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${
+ className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${
  errors.city
  ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
  : field.value
@@ -686,7 +686,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  <select
  {...field}
  disabled={isLoadingCep}
- className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${
+ className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${
  errors.state
  ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
  : field.value
@@ -738,7 +738,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  key="prev-btn"
  type="button"
  onClick={handlePrevStep}
- className="flex items-center gap-2 px-5 py-2.5 bg-slate-200 dark:bg-slate-850 hover:bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:text-white font-medium rounded-xl text-sm transition-all duration-300 isActive:scale-95 cursor-pointer shadow-md"
+ className="flex items-center gap-2 px-5 py-2.5 bg-slate-200 dark:bg-slate-850 hover:bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:text-white font-medium rounded-md text-sm transition-all duration-300 isActive:scale-95 cursor-pointer shadow-md"
  >
  <ChevronLeft className="w-4 h-4" />
  <span>Voltar</span>
@@ -752,7 +752,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  key="next-btn"
  type="button"
  onClick={handleNextStep}
- className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl text-sm transition-all duration-300 isActive:scale-95 ml-auto cursor-pointer shadow-md"
+ className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-md text-sm transition-all duration-300 isActive:scale-95 ml-auto cursor-pointer shadow-md"
  >
  <span>Avançar</span>
  <ChevronRight className="w-4 h-4" />
@@ -762,7 +762,7 @@ export const CreateOrEditHealthCenter: React.FC = () => {
  key="submit-btn"
  type="submit"
  disabled={isMutating}
- className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all duration-300 shadow-md isActive:scale-95 disabled:opacity-55 disabled:cursor-not-allowed ml-auto cursor-pointer"
+ className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md text-sm transition-all duration-300 shadow-md isActive:scale-95 disabled:opacity-55 disabled:cursor-not-allowed ml-auto cursor-pointer"
  >
  {isMutating ? (
  <>

@@ -101,7 +101,7 @@ export const Layout = () => {
                   <button
                     onClick={() => !isCollapsed && toggleMenu(item.path)}
                     title={isCollapsed ? item.name : undefined}
-                    className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3 lg:px-4'} py-2 lg:py-2.5 rounded-xl text-sm font-medium transition-all duration-300 group ${isActive
+                    className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3 lg:px-4'} py-2 lg:py-2.5 rounded-md text-sm font-medium transition-all duration-300 group ${isActive
                       ? 'bg-white/15 border-l-2 border-white text-white shadow-md'
                       : 'text-blue-200 hover:text-white hover:bg-white/10 border-l-2 border-transparent'
                       }`}
@@ -120,7 +120,7 @@ export const Layout = () => {
                           <Link
                             key={sub.path}
                             to={sub.path}
-                            className={`px-3 py-2 rounded-lg text-sm transition-colors ${isSubActive
+                            className={`px-3 py-2 rounded-md text-sm transition-colors ${isSubActive
                               ? 'text-white bg-blue-500/10 font-medium'
                               : 'text-blue-200 hover:text-white hover:bg-white/10'
                               }`}
@@ -140,7 +140,7 @@ export const Layout = () => {
                 key={item.path}
                 to={item.path}
                 title={isCollapsed ? item.name : undefined}
-                className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-3 lg:px-4'} py-2 lg:py-2.5 rounded-xl text-sm font-medium transition-all duration-300 group ${isActive
+                className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-3 lg:px-4'} py-2 lg:py-2.5 rounded-md text-sm font-medium transition-all duration-300 group ${isActive
                   ? 'bg-white/15 border-l-2 border-white text-white shadow-md'
                   : 'text-blue-200 hover:text-white hover:bg-white/10 border-l-2 border-transparent'
                   }`}
@@ -186,7 +186,7 @@ export const Layout = () => {
                 key={item.path}
                 to={item.path}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-2 lg:gap-3 px-3 py-2 lg:px-4 lg:py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
+                className={`flex items-center gap-2 lg:gap-3 px-3 py-2 lg:px-4 lg:py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${isActive
                   ? 'bg-white/15 border-l-2 border-white text-white'
                   : 'text-blue-200 hover:text-white hover:bg-white/10'
                   }`}
@@ -225,7 +225,7 @@ export const Layout = () => {
             <ThemeToggle />
             <NotificationBell />
 
-            <div className="flex items-stretch shadow-md rounded-xl overflow-hidden border border-slate-300 dark:border-slate-800">
+            <div className="flex items-stretch shadow-md rounded-md overflow-hidden border border-slate-300 dark:border-slate-800">
               <Link to="/profile" className="flex items-center gap-2 px-2.5 py-1 bg-slate-100 dark:bg-slate-900/80 text-[13px] hover:bg-slate-200 dark:bg-slate-800 transition-all duration-300 cursor-pointer">
                 <div className="w-5 h-5 rounded-full bg-blue-500/20 border border-slate-200 dark:border-slate-800/80 flex items-center justify-center overflow-hidden shrink-0">
                   <CachedAvatar src={user?.avatar} alt={user?.name} />

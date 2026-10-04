@@ -52,10 +52,10 @@ const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','P
 type FormData = zod.infer<typeof doctorSchema>;
 
 const customSelectStyles = {
-  control: () => "px-2 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white shadow-sm hover:border-blue-500 transition-colors flex items-center",
-  menu: () => "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg mt-2 overflow-hidden z-50",
+  control: () => "px-2 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white shadow-sm hover:border-blue-500 transition-colors flex items-center",
+  menu: () => "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-lg mt-2 overflow-hidden z-50",
   option: ({ isFocused, isSelected }: any) => `px-4 py-2 text-sm cursor-pointer ${isSelected ? 'bg-blue-600 text-white' : isFocused ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`,
-  multiValue: () => "bg-blue-100 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded-lg m-1 flex items-center",
+  multiValue: () => "bg-blue-100 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded-md m-1 flex items-center",
   multiValueLabel: () => "px-2 py-0.5 text-xs font-semibold",
   multiValueRemove: () => "px-1.5 py-1 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-r-lg cursor-pointer transition-colors",
   input: () => "text-slate-900 dark:text-white",
@@ -319,7 +319,7 @@ export const CreateOrEditDoctor: React.FC = () => {
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/doctors')}
-            className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-all shadow-md"
+            className="flex items-center justify-center w-10 h-10 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-all shadow-md"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -342,12 +342,12 @@ export const CreateOrEditDoctor: React.FC = () => {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-xl shadow-slate-200/50 dark:shadow-none dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden">
+      <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-xl shadow-slate-200/50 dark:shadow-none dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md overflow-hidden">
         
         {/* Step 1: Unidade de Vínculo */}
         <div className={`p-6 md:p-8 space-y-8 ${step === 1 ? 'block' : 'hidden'}`}>
           <div className="flex items-center gap-3 text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-4">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-xl">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-md">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
@@ -358,7 +358,7 @@ export const CreateOrEditDoctor: React.FC = () => {
 
           <div className="space-y-6">
             {!currentValues.healthCenter && (
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-800">
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-md p-6 border border-slate-200 dark:border-slate-800">
                 <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-4">Buscar no CNES</h3>
                 <div className="flex gap-3">
                   <div className="relative flex-1">
@@ -371,14 +371,14 @@ export const CreateOrEditDoctor: React.FC = () => {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleSearchCnes(e);
                       }}
-                      className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleSearchCnes}
                     disabled={isSearchingCnes}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-all shadow-md shadow-blue-500/20 active:scale-95 flex items-center gap-2"
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md text-sm transition-all shadow-md shadow-blue-500/20 active:scale-95 flex items-center gap-2"
                   >
                     {isSearchingCnes ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
                     <span>Buscar</span>
@@ -393,7 +393,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                         <div
                           key={est.coCnes}
                           onClick={() => reset({ ...currentValues, healthCenter: est })}
-                          className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-500 hover:shadow-md cursor-pointer transition-all flex justify-between items-center group"
+                          className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md hover:border-blue-500 hover:shadow-md cursor-pointer transition-all flex justify-between items-center group"
                         >
                           <div>
                             <h4 className="font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
@@ -403,7 +403,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                               CNES: <span className="font-semibold">{est.coCnes}</span> • {est.noMunicipio} - {est.sgUf}
                             </p>
                           </div>
-                          <div className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
                             Vincular
                           </div>
                         </div>
@@ -413,7 +413,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                 )}
 
                 {hasSearchedAndFailed && cnesResults.length === 0 && (
-                  <div className="mt-6 p-5 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                  <div className="mt-6 p-5 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-md space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
                     <h4 className="text-sm font-bold text-rose-800 dark:text-rose-400">Inserção Manual</h4>
                     <p className="text-xs text-rose-600 dark:text-rose-300">Como a busca não retornou resultados, insira os dados do estabelecimento abaixo.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -423,7 +423,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                           type="text"
                           value={manualCnesData.noFantasia}
                           onChange={(e) => setManualCnesData({ ...manualCnesData, noFantasia: e.target.value })}
-                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm"
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-sm"
                           placeholder="Ex: POSTO DE SAUDE CENTRAL"
                         />
                       </div>
@@ -433,7 +433,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                           type="text"
                           value={manualCnesData.coCnes}
                           onChange={(e) => setManualCnesData({ ...manualCnesData, coCnes: e.target.value })}
-                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm"
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-sm"
                           placeholder="Ex: 1234567"
                         />
                       </div>
@@ -443,7 +443,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                           type="text"
                           value={manualCnesData.noMunicipio}
                           onChange={(e) => setManualCnesData({ ...manualCnesData, noMunicipio: e.target.value })}
-                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm"
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-sm"
                           placeholder="Ex: JOAO PESSOA"
                         />
                       </div>
@@ -452,7 +452,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                         <select
                           value={manualCnesData.sgUf}
                           onChange={(e) => setManualCnesData({ ...manualCnesData, sgUf: e.target.value })}
-                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm"
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-sm"
                         >
                           {UFS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
                         </select>
@@ -467,7 +467,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                         }
                         reset({ ...currentValues, healthCenter: manualCnesData });
                       }}
-                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-sm transition-all"
+                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-md text-sm transition-all"
                     >
                       Salvar Manualmente
                     </button>
@@ -477,7 +477,7 @@ export const CreateOrEditDoctor: React.FC = () => {
             )}
 
             {currentValues.healthCenter && (
-              <div className="p-6 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center justify-between">
+              <div className="p-6 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-md flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-emerald-800 dark:text-emerald-400 mb-1">Unidade Selecionada</h3>
                   <p className="text-lg font-bold text-slate-900 dark:text-white">
@@ -490,7 +490,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => reset({ ...currentValues, healthCenter: null })}
-                  className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 font-bold rounded-xl text-sm transition-all"
+                  className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 font-bold rounded-md text-sm transition-all"
                 >
                   Trocar Unidade
                 </button>
@@ -502,7 +502,7 @@ export const CreateOrEditDoctor: React.FC = () => {
             <button
               type="button"
               onClick={handleNextStep1}
-              className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/30 active:scale-95"
+              className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md text-sm transition-all shadow-lg shadow-blue-500/30 active:scale-95"
             >
               <span>Próxima Etapa</span>
               <ChevronRight className="w-4 h-4" />
@@ -513,7 +513,7 @@ export const CreateOrEditDoctor: React.FC = () => {
         {/* Step 2: Identificação */}
         <div className={`p-6 md:p-8 space-y-8 ${step === 2 ? 'block' : 'hidden'}`}>
           <div className="flex items-center gap-3 text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-4">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-xl">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-md">
               <User className="w-5 h-5" />
             </div>
             <div>
@@ -524,7 +524,7 @@ export const CreateOrEditDoctor: React.FC = () => {
 
           <div className="space-y-6">
             {!isEditMode && (
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 mb-6">
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-md p-6 border border-slate-200 dark:border-slate-800 mb-6">
                 <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-4">Autopreencher via CNES (Opcional)</h3>
                 <p className="text-xs text-slate-500 mb-4">Busque pelo nome do médico para preencher os dados automaticamente baseados na unidade selecionada.</p>
                 <div className="flex gap-3">
@@ -538,14 +538,14 @@ export const CreateOrEditDoctor: React.FC = () => {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleSearchPro(e);
                       }}
-                      className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleSearchPro}
                     disabled={isSearchingPro}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-all shadow-md shadow-blue-500/20 active:scale-95 flex items-center gap-2"
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md text-sm transition-all shadow-md shadow-blue-500/20 active:scale-95 flex items-center gap-2"
                   >
                     {isSearchingPro ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
                     <span className="hidden sm:inline">Buscar</span>
@@ -584,7 +584,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                             setProResults([]);
                             toast.success('Dados preenchidos! Por favor, substitua os X pelo CPF real e complete o CRM.');
                           }}
-                          className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-500 hover:shadow-md cursor-pointer transition-all flex justify-between items-center group"
+                          className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md hover:border-blue-500 hover:shadow-md cursor-pointer transition-all flex justify-between items-center group"
                         >
                           <div>
                             <h4 className="font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
@@ -599,7 +599,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                               </p>
                             )}
                           </div>
-                          <div className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                          <div className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                             Preencher
                           </div>
                         </div>
@@ -609,7 +609,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                 )}
                 
                 {hasSearchedProAndFailed && proResults.length === 0 && (
-                  <div className="mt-6 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-xl">
+                  <div className="mt-6 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-md">
                     <p className="text-sm font-bold text-rose-800 dark:text-rose-400">Nenhum médico encontrado.</p>
                     <p className="text-xs text-rose-600 dark:text-rose-300 mt-1">Por favor, preencha os dados abaixo manualmente.</p>
                   </div>
@@ -629,7 +629,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                     {...field}
                     type="text"
                     placeholder="Ex: João Silva"
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                   />
                 )}
               />
@@ -647,7 +647,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                       {...field}
                       type="text"
                       placeholder="Ex: 123456"
-                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                     />
                   )}
                 />
@@ -662,7 +662,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                   render={({ field }) => (
                     <select
                       {...field}
-                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none cursor-pointer"
                     >
                       <option value="" disabled>Selecione a UF</option>
                       {UFS.map(uf => (
@@ -685,7 +685,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                       type="text"
                       onChange={e => field.onChange(formatCPF(e.target.value))}
                       placeholder="000.000.000-00"
-                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                     />
                   )}
                 />
@@ -704,7 +704,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                       disabled={isCnsDisabled}
                       onChange={e => field.onChange(formatCNS(e.target.value))}
                       placeholder="000 0000 0000 0000"
-                      className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${isCnsDisabled ? 'opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-900' : ''}`}
+                      className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${isCnsDisabled ? 'opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-900' : ''}`}
                     />
                   )}
                 />
@@ -717,7 +717,7 @@ export const CreateOrEditDoctor: React.FC = () => {
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold rounded-xl text-sm transition-all active:scale-95"
+              className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold rounded-md text-sm transition-all active:scale-95"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Voltar</span>
@@ -725,7 +725,7 @@ export const CreateOrEditDoctor: React.FC = () => {
             <button
               type="button"
               onClick={handleNextStep2}
-              className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/30 active:scale-95"
+              className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md text-sm transition-all shadow-lg shadow-blue-500/30 active:scale-95"
             >
               <span>Próxima Etapa</span>
               <ChevronRight className="w-4 h-4" />
@@ -736,7 +736,7 @@ export const CreateOrEditDoctor: React.FC = () => {
         {/* Step 3: Atuação */}
         <div className={`p-6 md:p-8 space-y-8 ${step === 3 ? 'block' : 'hidden'}`}>
           <div className="flex items-center gap-3 text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-4">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-xl">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-md">
               <Stethoscope className="w-5 h-5" />
             </div>
             <div>
@@ -780,7 +780,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                 {['CONSULTA', 'EXAME', 'AMBOS'].map((type) => (
                   <label 
                     key={type} 
-                    className={`flex items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all ${attendanceType === type ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-600 dark:text-slate-400'}`}
+                    className={`flex items-center justify-center p-4 rounded-md border-2 cursor-pointer transition-all ${attendanceType === type ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-600 dark:text-slate-400'}`}
                   >
                     <Controller
                       name="attendanceType"
@@ -841,7 +841,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                   <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 cursor-pointer">
                     <input 
                       type="checkbox" 
-                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 bg-white dark:bg-slate-950" 
+                      className="rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 bg-white dark:bg-slate-950" 
                       checked={isByGroup}
                       onChange={(e) => {
                         setIsByGroup(e.target.checked);
@@ -900,7 +900,7 @@ export const CreateOrEditDoctor: React.FC = () => {
             <button
               type="button"
               onClick={() => setStep(2)}
-              className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold rounded-xl text-sm transition-all active:scale-95"
+              className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold rounded-md text-sm transition-all active:scale-95"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Voltar</span>
@@ -908,7 +908,7 @@ export const CreateOrEditDoctor: React.FC = () => {
             <button
               type="button"
               onClick={handleNextStep3}
-              className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/30 active:scale-95"
+              className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md text-sm transition-all shadow-lg shadow-blue-500/30 active:scale-95"
             >
               <span>Ver Resumo</span>
               <ChevronRight className="w-4 h-4" />
@@ -919,7 +919,7 @@ export const CreateOrEditDoctor: React.FC = () => {
         {/* Step 4: Resumo */}
         <div className={`p-6 md:p-8 space-y-8 ${step === 4 ? 'block' : 'hidden'}`}>
           <div className="flex items-center gap-3 text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-4">
-            <div className="p-2 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 rounded-xl">
+            <div className="p-2 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 rounded-md">
               <ClipboardList className="w-5 h-5" />
             </div>
             <div>
@@ -929,7 +929,7 @@ export const CreateOrEditDoctor: React.FC = () => {
           </div>
 
           <div className="space-y-6">
-            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-6 space-y-6">
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-md p-6 space-y-6">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
                   <User className="w-4 h-4 text-blue-500" />
@@ -1025,7 +1025,7 @@ export const CreateOrEditDoctor: React.FC = () => {
             <button
               type="button"
               onClick={() => setStep(3)}
-              className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold rounded-xl text-sm transition-all active:scale-95"
+              className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold rounded-md text-sm transition-all active:scale-95"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Voltar</span>
@@ -1033,7 +1033,7 @@ export const CreateOrEditDoctor: React.FC = () => {
             <button
               type="submit"
               disabled={isMutating}
-              className="flex items-center gap-2 px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-500/30 active:scale-95 disabled:opacity-55 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-md text-sm transition-all shadow-lg shadow-emerald-500/30 active:scale-95 disabled:opacity-55 disabled:cursor-not-allowed"
             >
               {isMutating ? (
                 <>

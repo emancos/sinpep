@@ -49,13 +49,13 @@ export const SisregFichaModal: React.FC<SisregFichaModalProps> = ({ isOpen, onCl
  return (
  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm">
  <div 
- className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800"
+ className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-md shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800"
  onClick={(e) => e.stopPropagation()}
  >
  {/* Header */}
  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
  <div className="flex items-center gap-3">
- <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+ <div className="w-10 h-10 rounded-md bg-blue-500/10 flex items-center justify-center">
  <FileText className="w-5 h-5 text-blue-500" />
  </div>
  <div>
@@ -65,7 +65,7 @@ export const SisregFichaModal: React.FC<SisregFichaModalProps> = ({ isOpen, onCl
  </div>
  <button 
  onClick={onClose}
- className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+ className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
  >
  <X className="w-5 h-5" />
  </button>
@@ -95,7 +95,7 @@ export const SisregFichaModal: React.FC<SisregFichaModalProps> = ({ isOpen, onCl
  
  {/* Status and Risk Highlight */}
  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
- <div className={`col-span-1 md:col-span-2 px-4 py-3 rounded-xl border flex items-center justify-between ${getStatusColor(ficha.request.status)}`}>
+ <div className={`col-span-1 md:col-span-2 px-4 py-3 rounded-md border flex items-center justify-between ${getStatusColor(ficha.request.status)}`}>
  <div className="flex items-center gap-3">
  <Activity className="w-5 h-5" />
  <div>
@@ -104,7 +104,7 @@ export const SisregFichaModal: React.FC<SisregFichaModalProps> = ({ isOpen, onCl
  </div>
  </div>
  </div>
- <div className="px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
+ <div className="px-4 py-3 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
  <div>
  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Risco / Prioridade</p>
  <p className="font-bold text-slate-800 dark:text-white mt-0.5">{ficha.request.risk?.replace(/<[^>]*>?/gm, '') || 'NÃO INFORMADO'}</p>
@@ -114,7 +114,7 @@ export const SisregFichaModal: React.FC<SisregFichaModalProps> = ({ isOpen, onCl
  </div>
 
  {/* Patient Data */}
- <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+ <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md overflow-hidden">
  <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-center gap-2">
  <User className="w-4 h-4 text-slate-500" />
  <h3 className="font-semibold text-slate-700 dark:text-slate-200">Dados do Paciente</h3>
@@ -144,7 +144,7 @@ export const SisregFichaModal: React.FC<SisregFichaModalProps> = ({ isOpen, onCl
  </div>
 
  {/* Request Data */}
- <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+ <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md overflow-hidden">
  <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-center gap-2">
  <FileText className="w-4 h-4 text-slate-500" />
  <h3 className="font-semibold text-slate-700 dark:text-slate-200">Dados da Solicitação</h3>
@@ -157,7 +157,7 @@ export const SisregFichaModal: React.FC<SisregFichaModalProps> = ({ isOpen, onCl
  <div className="md:col-span-2">
  <p className="text-xs text-slate-500">Diagnóstico Inicial (CID)</p>
  <div className="flex items-center gap-2 mt-1">
- <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-800 rounded font-mono font-bold text-xs">{ficha.request.cid || 'N/A'}</span>
+ <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-800 rounded-md font-mono font-bold text-xs">{ficha.request.cid || 'N/A'}</span>
  <span className="font-medium text-slate-800 dark:text-white">{ficha.request.initialDiagnosis || 'Não Informado'}</span>
  </div>
  </div>
@@ -183,7 +183,7 @@ export const SisregFichaModal: React.FC<SisregFichaModalProps> = ({ isOpen, onCl
 
  {/* Scheduling Data */}
  {ficha.request?.status?.toUpperCase().includes('AUTORIZADA / REGULADOR') && (
- <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl overflow-hidden">
+ <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-md overflow-hidden">
  <div className="px-4 py-3 border-b border-emerald-500/20 bg-emerald-500/10 flex items-center gap-2">
  <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
  <h3 className="font-semibold text-emerald-800 dark:text-emerald-400">Dados do Agendamento</h3>
@@ -220,7 +220,7 @@ export const SisregFichaModal: React.FC<SisregFichaModalProps> = ({ isOpen, onCl
  </div>
  )}
  {ficha.scheduling.instructions && (
- <div className="md:col-span-2 mt-2 p-3 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg border border-emerald-100 dark:border-emerald-800/50">
+ <div className="md:col-span-2 mt-2 p-3 bg-emerald-50 dark:bg-emerald-900/30 rounded-md border border-emerald-100 dark:border-emerald-800/50">
  <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 font-bold uppercase tracking-wider mb-1">Preparo / Instruções</p>
  <p className="text-emerald-800 dark:text-emerald-200 whitespace-pre-line text-sm">{ficha.scheduling.instructions}</p>
  </div>
@@ -231,7 +231,7 @@ export const SisregFichaModal: React.FC<SisregFichaModalProps> = ({ isOpen, onCl
 
  {/* History / Observations */}
  {ficha.history && ficha.history.length > 0 && (
- <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+ <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md overflow-hidden">
  <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-center gap-2">
  <Clock className="w-4 h-4 text-slate-500" />
  <h3 className="font-semibold text-slate-700 dark:text-slate-200">Histórico de Observações</h3>
@@ -253,7 +253,7 @@ export const SisregFichaModal: React.FC<SisregFichaModalProps> = ({ isOpen, onCl
  </span>
  </div>
  </div>
- <div className="mt-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-200 dark:border-slate-800">
+ <div className="mt-3 bg-slate-50 dark:bg-slate-800/50 rounded-md p-3 border border-slate-200 dark:border-slate-800">
  <p className="text-xs font-bold text-slate-500 uppercase mb-1">{h.noteTitle}</p>
  <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line">{h.noteContent}</p>
  </div>
@@ -265,7 +265,7 @@ export const SisregFichaModal: React.FC<SisregFichaModalProps> = ({ isOpen, onCl
 
  {/* Warnings */}
  {ficha.warnings && ficha.warnings.length > 0 && (
- <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+ <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-4">
  <div className="flex items-center gap-2 mb-2 text-amber-600 dark:text-amber-400">
  <AlertTriangle className="w-5 h-5" />
  <h3 className="font-bold">Avisos do Município</h3>

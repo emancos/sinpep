@@ -60,7 +60,7 @@ export const MedicalHistory: React.FC = () => {
         <ArrowLeft className="w-4 h-4" /> Voltar para Busca
       </button>
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-8 flex items-center justify-between">
+      <div className="bg-white dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-8 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-3xl">
             {patient?.name?.charAt(0).toUpperCase()}
@@ -81,14 +81,14 @@ export const MedicalHistory: React.FC = () => {
         <div className="flex items-center gap-3 shrink-0">
           <button 
             onClick={() => setIsExportModalOpen(true)}
-            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-2 whitespace-nowrap text-sm"
+            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-md font-medium shadow-sm transition-colors flex items-center gap-2 whitespace-nowrap text-sm"
           >
             <FileDown className="w-4 h-4" /> Exportar PDF
           </button>
           {canWrite && (
           <button 
             onClick={() => navigate(`/medical-records/${id}/new`)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-2 whitespace-nowrap text-sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium shadow-sm transition-colors flex items-center gap-2 whitespace-nowrap text-sm"
           >
             <Plus className="w-4 h-4" /> Novo Atendimento
           </button>
@@ -115,7 +115,7 @@ export const MedicalHistory: React.FC = () => {
                 <div className="ml-10">
                   <div 
                     onClick={() => toggleRecord(record.id)}
-                    className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-5 cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
+                    className="bg-white dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 p-5 cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
                   >
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -147,7 +147,7 @@ export const MedicalHistory: React.FC = () => {
                           <h4 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2 mb-2">
                             <FileText className="w-4 h-4 text-blue-500" /> Prescrição e Observações
                           </h4>
-                          <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                          <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-md text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
                             {record.observation}
                           </div>
                         </div>
@@ -159,13 +159,13 @@ export const MedicalHistory: React.FC = () => {
                             </h4>
                             <div className="flex flex-wrap gap-2">
                               {record.medications.map((med: any, i: number) => (
-                                <div key={i} className="bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300 px-3 py-1.5 rounded-lg border border-green-200 dark:border-green-800/50 text-sm">
+                                <div key={i} className="bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300 px-3 py-1.5 rounded-md border border-green-200 dark:border-green-800/50 text-sm">
                                   <strong>{med.name}</strong> - {med.dosage}
                                 </div>
                               ))}
                             </div>
                               {record.medicationsJustification && (
-                                <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 italic">
+                                <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-3 rounded-md border border-slate-200 dark:border-slate-800 italic">
                                   <strong>Justificativa:</strong> {record.medicationsJustification}
                                 </div>
                               )}
@@ -183,7 +183,7 @@ export const MedicalHistory: React.FC = () => {
                               ))}
                             </ul>
                               {record.examsJustification && (
-                                <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 italic">
+                                <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-3 rounded-md border border-slate-200 dark:border-slate-800 italic">
                                   <strong>Justificativa:</strong> {record.examsJustification}
                                 </div>
                               )}
@@ -200,7 +200,7 @@ export const MedicalHistory: React.FC = () => {
                                 <div 
                                   key={file.id} 
                                   onClick={(e) => { e.stopPropagation(); setViewerFile({ url: `${apiUrl}${file.fileUrl}`, type: file.fileType, name: file.fileName }); }}
-                                  className="w-24 h-24 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg flex flex-col items-center justify-center gap-2 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                                  className="w-24 h-24 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md flex flex-col items-center justify-center gap-2 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
                                 >
                                   {file.fileType.includes('pdf') ? (
                                     <FileText className="w-8 h-8 text-rose-500" />
@@ -212,7 +212,7 @@ export const MedicalHistory: React.FC = () => {
                               ))}
                             </div>
                               {record.medicationsJustification && (
-                                <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 italic">
+                                <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-3 rounded-md border border-slate-200 dark:border-slate-800 italic">
                                   <strong>Justificativa:</strong> {record.medicationsJustification}
                                 </div>
                               )}
@@ -220,7 +220,7 @@ export const MedicalHistory: React.FC = () => {
                           )}
 
                         {record.returnRequestedValue && (
-                          <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-500/10 p-3 rounded-lg border border-orange-200 dark:border-orange-500/20">
+                          <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-500/10 p-3 rounded-md border border-orange-200 dark:border-orange-500/20">
                             <Clock className="w-5 h-5" />
                             <span className="font-medium">
                               Retorno Solicitado: {record.returnRequestedValue} {record.returnRequestedUnit?.toLowerCase() || 'dias'}

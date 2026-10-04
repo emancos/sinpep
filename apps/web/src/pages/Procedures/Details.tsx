@@ -32,7 +32,7 @@ export const ProcedureDetails: React.FC = () => {
 
     if (isError || !procedure) {
         return (
-            <div className="flex items-center gap-3 p-4 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 rounded-2xl max-w-xl mx-auto my-10 font-sans">
+            <div className="flex items-center gap-3 p-4 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 rounded-md max-w-xl mx-auto my-10 font-sans">
                 <AlertCircle className="w-6 h-6 shrink-0" />
                 <div>
                     <h4 className="font-semibold">Erro ao carregar detalhes</h4>
@@ -41,7 +41,7 @@ export const ProcedureDetails: React.FC = () => {
                     </p>
                     <button
                         onClick={() => navigate('/procedures')}
-                        className="mt-3 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-400 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-md"
+                        className="mt-3 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-400 rounded-md text-xs font-semibold transition-all cursor-pointer shadow-md"
                     >
                         Voltar para Listagem
                     </button>
@@ -57,7 +57,7 @@ export const ProcedureDetails: React.FC = () => {
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => navigate('/procedures')}
-                        className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
+                        className="flex items-center justify-center w-10 h-10 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </button>
@@ -70,7 +70,7 @@ export const ProcedureDetails: React.FC = () => {
                 {(userPermissions.includes('procedures:write') || userPermissions.includes('admin:access')) && (
                     <button
                         onClick={() => navigate(`/procedures/${procedure.id}/edit`)}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:bg-slate-850 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl text-sm transition-all duration-300 shadow-md active:scale-95 cursor-pointer animate-fade-in"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:bg-slate-850 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-md text-sm transition-all duration-300 shadow-md active:scale-95 cursor-pointer animate-fade-in"
                     >
                         <Edit2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         <span>Editar Procedimento</span>
@@ -81,7 +81,7 @@ export const ProcedureDetails: React.FC = () => {
             {/* Details Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Identificação Card */}
-                <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 backdrop-blur-md space-y-4 lg:col-span-2">
+                <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-4 lg:col-span-2">
                     <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2 border-b border-slate-300 dark:border-slate-800/60 pb-3">
                         <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         <span>Identificação do Procedimento</span>
@@ -95,7 +95,7 @@ export const ProcedureDetails: React.FC = () => {
                             <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Código do Procedimento</span>
                             <div className="flex items-center gap-1.5 mt-0.5 text-sm text-indigo-600 dark:text-indigo-400 font-mono font-semibold">
                                 <Hash className="w-4 h-4 text-slate-500" />
-                                <span className="bg-indigo-100 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 px-2 py-0.5 rounded-lg">{procedure.code}</span>
+                                <span className="bg-indigo-100 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 px-2 py-0.5 rounded-md">{procedure.code}</span>
                             </div>
                         </div>
                         <div className="md:col-span-2">
@@ -109,7 +109,7 @@ export const ProcedureDetails: React.FC = () => {
                 </div>
 
                 {/* Restrições Card */}
-                <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 backdrop-blur-md space-y-4">
+                <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-4">
                     <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2 border-b border-slate-300 dark:border-slate-800/60 pb-3">
                         <UserCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                         <span>Restrições de Solicitação</span>
@@ -117,7 +117,7 @@ export const ProcedureDetails: React.FC = () => {
                     <div className="space-y-4">
                         <div>
                             <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold mb-1">Sexo Permitido</span>
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${procedure.genderAllowed === 'AMBOS'
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${procedure.genderAllowed === 'AMBOS'
                                     ? 'bg-emerald-100 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                                     : procedure.genderAllowed === 'FEMININO'
                                         ? 'bg-pink-500/10 border-pink-500/20 text-pink-400'

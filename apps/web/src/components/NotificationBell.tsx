@@ -128,7 +128,7 @@ export const NotificationBell = () => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={handleToggle}
-        className={`relative p-1.5 rounded-lg border transition-all duration-300 cursor-pointer ${
+        className={`relative p-1.5 rounded-md border transition-all duration-300 cursor-pointer ${
           isOpen
             ? 'bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white shadow-lg shadow-black/20'
             : 'bg-slate-50 dark:bg-slate-900 border-slate-300 dark:border-slate-800 hover:bg-slate-200 dark:bg-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200'
@@ -144,7 +144,7 @@ export const NotificationBell = () => {
       </button>
 
       {isOpen && (
-        <div className="fixed sm:absolute left-4 right-4 top-20 sm:left-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-80 md:w-96 bg-slate-100 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-300 dark:border-slate-800/80 rounded-2xl shadow-2xl shadow-black/50 z-50 overflow-hidden transform origin-top-right transition-all duration-200">
+        <div className="fixed sm:absolute left-4 right-4 top-20 sm:left-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-80 md:w-96 bg-slate-100 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-300 dark:border-slate-800/80 rounded-md shadow-2xl shadow-black/50 z-50 overflow-hidden transform origin-top-right transition-all duration-200">
           <div className="p-4 border-b border-slate-300 dark:border-slate-800/60 flex items-center justify-between bg-slate-100 dark:bg-slate-900/40">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-slate-900 dark:text-white text-sm tracking-wide">Notificações</h3>

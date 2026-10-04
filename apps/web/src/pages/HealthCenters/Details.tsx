@@ -252,7 +252,7 @@ export const HealthCenterDetails: React.FC = () => {
 
  if (isError || !healthCenter) {
  return (
- <div className="flex items-center gap-3 p-4 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 rounded-2xl max-w-xl mx-auto my-10 font-sans">
+ <div className="flex items-center gap-3 p-4 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 rounded-md max-w-xl mx-auto my-10 font-sans">
  <AlertCircle className="w-6 h-6 shrink-0" />
  <div>
  <h4 className="font-semibold">Erro ao carregar detalhes</h4>
@@ -261,7 +261,7 @@ export const HealthCenterDetails: React.FC = () => {
  </p>
  <button
  onClick={() => navigate('/health-centers')}
- className="mt-3 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-400 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-md"
+ className="mt-3 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-400 rounded-md text-xs font-semibold transition-all cursor-pointer shadow-md"
  >
  Voltar para Listagem
  </button>
@@ -292,7 +292,7 @@ export const HealthCenterDetails: React.FC = () => {
  <div className="flex items-center gap-4">
  <button
  onClick={() => navigate('/health-centers')}
- className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
+ className="flex items-center justify-center w-10 h-10 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
  >
  <ArrowLeft className="w-5 h-5" />
  </button>
@@ -304,7 +304,7 @@ export const HealthCenterDetails: React.FC = () => {
 
  <button
  onClick={() => navigate(`/health-centers/${healthCenter.id}/edit`)}
- className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:bg-slate-850 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl text-sm transition-all duration-300 shadow-md active:scale-95 cursor-pointer animate-fade-in"
+ className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:bg-slate-850 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-md text-sm transition-all duration-300 shadow-md active:scale-95 cursor-pointer animate-fade-in"
  >
  <Edit2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
  <span>Editar UBS</span>
@@ -328,7 +328,7 @@ export const HealthCenterDetails: React.FC = () => {
  }`}
  >
  <span>Agentes de Saúde (ACS)</span>
- <span className={`px-1.5 py-0.5 rounded text-[10px] ${activeTab === 'agents' ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-900 text-slate-500'}`}>
+ <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeTab === 'agents' ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-900 text-slate-500'}`}>
  {healthCenter.healthAgents?.length || 0}
  </span>
  </button>
@@ -339,7 +339,7 @@ export const HealthCenterDetails: React.FC = () => {
  }`}
  >
  <span>Pacientes</span>
- <span className={`px-1.5 py-0.5 rounded text-[10px] ${activeTab === 'patients' ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-900 text-slate-500'}`}>
+ <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeTab === 'patients' ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'bg-slate-50 dark:bg-slate-900 text-slate-500'}`}>
  {healthCenter.patients?.length || 0}
  </span>
  </button>
@@ -350,7 +350,7 @@ export const HealthCenterDetails: React.FC = () => {
  {/* TAB 1: General Info */}
  {activeTab === 'geral' && (
  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
- <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 backdrop-blur-md space-y-4 lg:col-span-1">
+ <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-4 lg:col-span-1">
  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2 border-b border-slate-300 dark:border-slate-800/60 pb-3">
  <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
  <span>Identificação</span>
@@ -375,7 +375,7 @@ export const HealthCenterDetails: React.FC = () => {
  </div>
  </div>
 
- <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 backdrop-blur-md space-y-4 lg:col-span-2">
+ <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-4 lg:col-span-2">
  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2 border-b border-slate-300 dark:border-slate-800/60 pb-3">
  <MapPin className="w-5 h-5 text-teal-600 dark:text-teal-400" />
  <span>Endereço e Localização</span>
@@ -392,7 +392,7 @@ export const HealthCenterDetails: React.FC = () => {
 
  {/* TAB 2: ACS management */}
  {activeTab === 'agents' && (
- <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 backdrop-blur-md space-y-4">
+ <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-4">
  <div className="flex justify-between items-center pb-3 border-b border-slate-300 dark:border-slate-800/60">
  <div>
  <h3 className="text-base font-bold text-slate-900 dark:text-white">Agentes Comunitários de Saúde (ACS)</h3>
@@ -413,7 +413,7 @@ export const HealthCenterDetails: React.FC = () => {
  </label>
  <button
  onClick={handleOpenCreateAcs}
- className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold transition-all duration-300 active:scale-95 cursor-pointer shadow-md "
+ className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md text-xs font-semibold transition-all duration-300 active:scale-95 cursor-pointer shadow-md "
  >
  <Plus className="w-4 h-4" />
  <span>Adicionar ACS</span>
@@ -421,7 +421,7 @@ export const HealthCenterDetails: React.FC = () => {
  </div>
  </div>
 
- <div className="overflow-hidden border border-slate-200 dark:border-slate-850 rounded-xl">
+ <div className="overflow-hidden border border-slate-200 dark:border-slate-850 rounded-md">
  <table className="w-full text-left border-collapse">
  <thead>
  <tr className="bg-white dark:bg-slate-950/60 text-slate-500 dark:text-slate-400 text-[10px] uppercase font-semibold tracking-wider border-b border-slate-300 dark:border-slate-800">
@@ -450,9 +450,9 @@ export const HealthCenterDetails: React.FC = () => {
  <td className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">
  <div className="flex items-center gap-2">
  <span className={agent.isActive !== false ? 'text-slate-700 dark:text-slate-200' : 'text-slate-500 line-through'}>{agent.name}</span>
- {agent.isActive === false && <span className="text-[9px] bg-rose-500/20 border border-rose-300 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 px-1 py-0.5 rounded uppercase tracking-wider font-bold">Desabilitado</span>}
+ {agent.isActive === false && <span className="text-[9px] bg-rose-500/20 border border-rose-300 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 px-1 py-0.5 rounded-md uppercase tracking-wider font-bold">Desabilitado</span>}
  {isHighlighted && (
- <span className="text-[9px] bg-indigo-500/20 border border-indigo-300 dark:border-indigo-500/30 text-indigo-300 px-1 py-0.5 rounded uppercase tracking-wider font-bold">
+ <span className="text-[9px] bg-indigo-500/20 border border-indigo-300 dark:border-indigo-500/30 text-indigo-300 px-1 py-0.5 rounded-md uppercase tracking-wider font-bold">
  Correspondência
  </span>
  )}
@@ -475,7 +475,7 @@ export const HealthCenterDetails: React.FC = () => {
  <div className="flex justify-end gap-2.5">
  <button
  onClick={() => handleOpenTransferAcs(agent)}
- className="px-2 py-1 bg-slate-200 dark:bg-slate-850 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-800 rounded hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md text-[10px] font-semibold flex items-center gap-1 disabled:opacity-50"
+ className="px-2 py-1 bg-slate-200 dark:bg-slate-850 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-800 rounded-md hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md text-[10px] font-semibold flex items-center gap-1 disabled:opacity-50"
  title="Transferir Agente para outra UBS"
  disabled={!userPermissions.includes('health-agents:write') && !userPermissions.includes('admin:access')}
  >
@@ -484,7 +484,7 @@ export const HealthCenterDetails: React.FC = () => {
  </button>
  <button
  onClick={() => handleOpenEditAcs(agent)}
- className="px-2 py-1 bg-slate-200 dark:bg-slate-850 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-800 rounded hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md text-[10px] font-semibold disabled:opacity-50"
+ className="px-2 py-1 bg-slate-200 dark:bg-slate-850 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-800 rounded-md hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md text-[10px] font-semibold disabled:opacity-50"
  disabled={!userPermissions.includes('health-agents:write') && !userPermissions.includes('admin:access')}
  >
  Editar
@@ -493,7 +493,7 @@ export const HealthCenterDetails: React.FC = () => {
  {(userPermissions.includes('health-agents:write') || userPermissions.includes('admin:access')) && (
  <button
  onClick={() => handleToggleAcsActive(agent.id, agent.isActive !== false)}
- className={`p-1 border rounded transition-all cursor-pointer ${
+ className={`p-1 border rounded-md transition-all cursor-pointer ${
  agent.isActive !== false
  ? 'bg-amber-100 dark:bg-amber-500/10 hover:bg-amber-200 dark:hover:bg-amber-500/20 border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-400' 
  : 'bg-teal-100 dark:bg-teal-500/10 hover:bg-teal-200 dark:hover:bg-teal-500/20 border-teal-200 dark:border-teal-500/20 text-teal-600 dark:text-teal-400'
@@ -507,7 +507,7 @@ export const HealthCenterDetails: React.FC = () => {
  {userPermissions.includes('admin:access') && (
  <button
  onClick={() => handleDeleteAcs(agent.id, agent.name)}
- className="p-1 bg-rose-100 dark:bg-rose-500/10 hover:bg-rose-200 dark:hover:bg-rose-500/20 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 rounded transition-all cursor-pointer shadow-md"
+ className="p-1 bg-rose-100 dark:bg-rose-500/10 hover:bg-rose-200 dark:hover:bg-rose-500/20 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 rounded-md transition-all cursor-pointer shadow-md"
  title="Excluir Definitivamente"
  >
  <Trash2 className="w-3.5 h-3.5" />
@@ -533,13 +533,13 @@ export const HealthCenterDetails: React.FC = () => {
 
  {/* TAB 3: Patients List */}
  {activeTab === 'patients' && (
- <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 backdrop-blur-md space-y-4">
+ <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-4">
  <div className="pb-3 border-b border-slate-300 dark:border-slate-800/60">
  <h3 className="text-base font-bold text-slate-900 dark:text-white">Pacientes Cadastrados</h3>
  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Lista de cidadãos atendidos por esta UBS.</p>
  </div>
 
- <div className="overflow-hidden border border-slate-200 dark:border-slate-850 rounded-xl">
+ <div className="overflow-hidden border border-slate-200 dark:border-slate-850 rounded-md">
  <table className="w-full text-left border-collapse">
  <thead>
  <tr className="bg-white dark:bg-slate-950/60 text-slate-500 dark:text-slate-400 text-[10px] uppercase font-semibold tracking-wider border-b border-slate-300 dark:border-slate-800">
@@ -564,7 +564,7 @@ export const HealthCenterDetails: React.FC = () => {
  <td className="px-4 py-3 text-right">
  <Link
  to={`/patients/${patient.id}`}
- className="shadow-md inline-block px-2.5 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:text-white rounded-lg transition-all font-semibold"
+ className="shadow-md inline-block px-2.5 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:text-white rounded-md transition-all font-semibold"
  >
  Ver Ficha
  </Link>
@@ -588,7 +588,7 @@ export const HealthCenterDetails: React.FC = () => {
  {/* Floating Modal for ACS CRUD */}
  {isAcsModalOpen && (
  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
- <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 space-y-5">
+ <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-2xl p-6 space-y-5">
  {/* Close Button */}
  <button
  onClick={() => setIsAcsModalOpen(false)}
@@ -620,7 +620,7 @@ export const HealthCenterDetails: React.FC = () => {
  <input
  {...field}
  type="text"
- className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${
+ className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${
  errors.name
  ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
  : field.value
@@ -646,7 +646,7 @@ export const HealthCenterDetails: React.FC = () => {
  type="text"
  placeholder="Ex: (83) 99999-9999"
  onChange={(e) => field.onChange(formatPhone(e.target.value))}
- className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none font-mono transition-all ${
+ className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none font-mono transition-all ${
  errors.phone
  ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
  : field.value
@@ -671,7 +671,7 @@ export const HealthCenterDetails: React.FC = () => {
  {...field}
  type="text"
  placeholder="Ex: 01 ou Centro A"
- className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${
+ className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${
  errors.microArea
  ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
  : field.value
@@ -688,14 +688,14 @@ export const HealthCenterDetails: React.FC = () => {
  <button
  type="button"
  onClick={() => setIsAcsModalOpen(false)}
- className="px-4 py-2 bg-slate-200 dark:bg-slate-850 hover:bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:text-white rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-md"
+ className="px-4 py-2 bg-slate-200 dark:bg-slate-850 hover:bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:text-white rounded-md text-xs font-semibold transition-all cursor-pointer shadow-md"
  >
  Cancelar
  </button>
  <button
  type="submit"
  disabled={isAcsPending}
- className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-all duration-300 active:scale-95 disabled:opacity-50 cursor-pointer shadow-md"
+ className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition-all duration-300 active:scale-95 disabled:opacity-50 cursor-pointer shadow-md"
  >
  {isAcsPending ? (
  <>
@@ -718,7 +718,7 @@ export const HealthCenterDetails: React.FC = () => {
  {/* Floating Modal for ACS Transfer */}
  {isTransferModalOpen && transferringAcs && (
  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
- <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 space-y-5">
+ <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-2xl p-6 space-y-5">
  {/* Close Button */}
  <button
  onClick={() => {
@@ -748,7 +748,7 @@ export const HealthCenterDetails: React.FC = () => {
  <select
  value={selectedTargetCenterId}
  onChange={(e) => setSelectedTargetCenterId(e.target.value)}
- className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 cursor-pointer shadow-md"
+ className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 cursor-pointer shadow-md"
  disabled={isLoadingCenters}
  >
  <option value="">Selecione uma UBS...</option>
@@ -775,14 +775,14 @@ export const HealthCenterDetails: React.FC = () => {
  setIsTransferModalOpen(false);
  setTransferringAcs(null);
  }}
- className="px-4 py-2 bg-slate-200 dark:bg-slate-850 hover:bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:text-white rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-md"
+ className="px-4 py-2 bg-slate-200 dark:bg-slate-850 hover:bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:text-white rounded-md text-xs font-semibold transition-all cursor-pointer shadow-md"
  >
  Cancelar
  </button>
  <button
  type="submit"
  disabled={updateAcsMutation.isPending || !selectedTargetCenterId}
- className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-all duration-300 active:scale-95 disabled:opacity-50 cursor-pointer shadow-md"
+ className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition-all duration-300 active:scale-95 disabled:opacity-50 cursor-pointer shadow-md"
  >
  {updateAcsMutation.isPending ? (
  <>

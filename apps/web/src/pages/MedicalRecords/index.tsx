@@ -39,7 +39,7 @@ export const MedicalRecords: React.FC = () => {
         </p>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -48,7 +48,7 @@ export const MedicalRecords: React.FC = () => {
               placeholder="Buscar por nome, CPF ou CNS..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
             />
           </div>
         </div>
@@ -88,7 +88,7 @@ export const MedicalRecords: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <button className="text-blue-600 font-medium px-4 py-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1">
+                    <button className="text-blue-600 font-medium px-4 py-2 rounded-md bg-blue-50 dark:bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1">
                       Acessar Prontuário <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>

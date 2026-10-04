@@ -28,7 +28,7 @@ export const AttachmentViewer: React.FC<Props> = ({ file, onClose }) => {
         </button>
       </div>
 
-      <div className="w-full h-full max-w-6xl max-h-[90vh] bg-white dark:bg-slate-900 rounded-xl overflow-hidden flex flex-col relative mt-16 sm:mt-0">
+      <div className="w-full h-full max-w-6xl max-h-[90vh] bg-white dark:bg-slate-900 rounded-md overflow-hidden flex flex-col relative mt-16 sm:mt-0">
         <div className="p-3 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-center font-medium text-slate-800 dark:text-slate-200 truncate">
           {file.name}
         </div>

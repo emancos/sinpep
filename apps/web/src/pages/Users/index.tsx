@@ -90,7 +90,7 @@ export const UsersList = () => {
 
                 <button
                     onClick={() => navigate('/users/create')}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl text-sm transition-all duration-300 shadow-md active:scale-95 cursor-pointer"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md text-sm transition-all duration-300 shadow-md active:scale-95 cursor-pointer"
                 >
                     <Plus className="w-4 h-4" />
                     <span>Novo Utilizador</span>
@@ -98,7 +98,7 @@ export const UsersList = () => {
             </div>
 
             {/* Search and Filter bar */}
-            <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 backdrop-blur-md flex flex-col sm:flex-row items-center gap-4">
+            <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-4 backdrop-blur-md flex flex-col sm:flex-row items-center gap-4">
                 <div className="relative w-full sm:max-w-md">
                     <Search className="absolute left-3 top-3 w-5 h-5 text-slate-500" />
                     <input
@@ -106,7 +106,7 @@ export const UsersList = () => {
                         placeholder="Buscar por nome ou email..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
+                        className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
                     />
                 </div>
 
@@ -143,7 +143,7 @@ export const UsersList = () => {
 
             {/* Error State */}
             {isError && (
-                <div className="flex items-center gap-3 p-4 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 rounded-2xl max-w-xl mx-auto">
+                <div className="flex items-center gap-3 p-4 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 rounded-md max-w-xl mx-auto">
                     <AlertCircle className="w-6 h-6 shrink-0" />
                     <div>
                         <h4 className="font-semibold">{t('Error Loading')}</h4>
@@ -154,7 +154,7 @@ export const UsersList = () => {
 
             {/* Table Section */}
             {!isLoading && !isError && (
-                <div className="bg-white shadow-md dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl overflow-hidden backdrop-blur-md">
+                <div className="bg-white shadow-md dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-md overflow-hidden backdrop-blur-md">
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse text-left">
                             <thead>
@@ -196,7 +196,7 @@ export const UsersList = () => {
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">
                                                     <ShieldAlert className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                                                    <span className="px-2.5 py-1 text-xs font-medium bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20 rounded-lg">
+                                                    <span className="px-2.5 py-1 text-xs font-medium bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20 rounded-md">
                                                         {user.profile?.name || 'Sem perfil'}
                                                     </span>
                                                 </div>
@@ -206,7 +206,7 @@ export const UsersList = () => {
                                                 <div className="flex justify-end gap-2">
                                                     <button
                                                         onClick={() => navigate(`/users/${user.id}`)}
-                                                        className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/10 hover:bg-indigo-200 dark:hover:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/20 rounded-lg transition-all cursor-pointer shadow-md"
+                                                        className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/10 hover:bg-indigo-200 dark:hover:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/20 rounded-md transition-all cursor-pointer shadow-md"
                                                         title="Visualizar"
                                                     >
                                                         <Eye className="w-4 h-4" />
@@ -214,7 +214,7 @@ export const UsersList = () => {
 
                                                     <button
                                                         onClick={() => navigate(`/users/${user.id}/edit`)}
-                                                        className="p-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-100 dark:bg-blue-500/10 hover:bg-blue-200 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/20 rounded-lg transition-all cursor-pointer shadow-md disabled:opacity-50"
+                                                        className="p-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-100 dark:bg-blue-500/10 hover:bg-blue-200 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/20 rounded-md transition-all cursor-pointer shadow-md disabled:opacity-50"
                                                         title="Editar"
                                                         disabled={!userPermissions.includes('users:write') && !userPermissions.includes('admin:access')}
                                                     >
@@ -224,7 +224,7 @@ export const UsersList = () => {
                                                     {(userPermissions.includes('users:write') || userPermissions.includes('admin:access')) && (
                                                         <button
                                                             onClick={() => handleToggleActive(user.id, user.isActive)}
-                                                            className={`p-1.5 border rounded-lg transition-all cursor-pointer ${user.isActive
+                                                            className={`p-1.5 border rounded-md transition-all cursor-pointer ${user.isActive
                                                                     ? 'text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 bg-amber-100 dark:bg-amber-500/10 hover:bg-amber-200 dark:hover:bg-amber-500/20 border-amber-200 dark:border-amber-500/20'
                                                                     : 'text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 bg-teal-100 dark:bg-teal-500/10 hover:bg-teal-200 dark:hover:bg-teal-500/20 border-teal-200 dark:border-teal-500/20'
                                                                 }`}
@@ -237,7 +237,7 @@ export const UsersList = () => {
                                                     {userPermissions.includes('admin:access') && (
                                                         <button
                                                             onClick={() => handleDeleteUser(user.id)}
-                                                            className="p-1.5 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 bg-rose-100 dark:bg-rose-500/10 hover:bg-rose-200 dark:hover:bg-rose-500/20 border border-rose-200 dark:border-rose-500/20 rounded-lg transition-all cursor-pointer shadow-md"
+                                                            className="p-1.5 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 bg-rose-100 dark:bg-rose-500/10 hover:bg-rose-200 dark:hover:bg-rose-500/20 border border-rose-200 dark:border-rose-500/20 rounded-md transition-all cursor-pointer shadow-md"
                                                             title="Excluir Definitivamente"
                                                         >
                                                             <Trash2 className="w-4 h-4" />

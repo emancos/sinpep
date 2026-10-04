@@ -401,7 +401,7 @@ export const CreatePatient: React.FC = () => {
                             navigate('/patients');
                         }
                     }}
-                    className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
+                    className="flex items-center justify-center w-10 h-10 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
                 >
                     <ArrowLeft className="w-5 h-5" />
                 </button>
@@ -414,7 +414,7 @@ export const CreatePatient: React.FC = () => {
             </div>
 
             {/* Progress Tracker */}
-            <div className="grid grid-cols-3 gap-4 bg-white shadow-md dark:bg-slate-900/40 border border-slate-900 rounded-2xl p-4 backdrop-blur-md">
+            <div className="grid grid-cols-3 gap-4 bg-white shadow-md dark:bg-slate-900/40 border border-slate-900 rounded-md p-4 backdrop-blur-md">
                 {steps.map((s) => {
                     const Icon = s.icon;
                     const isCompleted = step > s.number;
@@ -423,7 +423,7 @@ export const CreatePatient: React.FC = () => {
                     return (
                         <div
                             key={s.number}
-                            className={`flex items-center gap-3 p-2.5 rounded-xl transition-all duration-300 ${isActive
+                            className={`flex items-center gap-3 p-2.5 rounded-md transition-all duration-300 ${isActive
                                 ? 'bg-blue-100 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-slate-900 dark:text-white'
                                 : isCompleted
                                     ? 'text-teal-600 dark:text-teal-400'
@@ -431,7 +431,7 @@ export const CreatePatient: React.FC = () => {
                                 }`}
                         >
                             <div
-                                className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${isActive
+                                className={`w-9 h-9 rounded-md flex items-center justify-center font-bold text-sm shrink-0 ${isActive
                                     ? 'bg-blue-500 text-white'
                                     : isCompleted
                                         ? 'bg-teal-500/20 text-teal-600 dark:text-teal-400'
@@ -454,7 +454,7 @@ export const CreatePatient: React.FC = () => {
             </div>
 
             {/* Form Card */}
-            <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 backdrop-blur-md space-y-6">
+            <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-6">
 
                 {/* STEP 1: Demographic data */}
                 {step === 1 && (
@@ -482,7 +482,7 @@ export const CreatePatient: React.FC = () => {
                                                 field.onBlur();
                                                 handleCpfBlur(e.target.value);
                                             }}
-                                            className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none font-mono transition-all ${errors.cpf
+                                            className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none font-mono transition-all ${errors.cpf
                                                 ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
                                                 : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
                                                 }`}
@@ -510,7 +510,7 @@ export const CreatePatient: React.FC = () => {
                                                     field.onBlur();
                                                     handleCnsBlur(e.target.value);
                                                 }}
-                                                className={`flex-1 px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none font-mono transition-all ${errors.cns
+                                                className={`flex-1 px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none font-mono transition-all ${errors.cns
                                                     ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
                                                     : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
                                                     }`}
@@ -534,7 +534,7 @@ export const CreatePatient: React.FC = () => {
                                             {...field}
                                             type="text"
                                             placeholder="Ex: João da Silva"
-                                            className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${errors.name
+                                            className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${errors.name
                                                 ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
                                                 : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
                                                 }`}
@@ -555,7 +555,7 @@ export const CreatePatient: React.FC = () => {
                                         <input
                                             {...field}
                                             type="date"
-                                            className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${errors.birthDate
+                                            className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${errors.birthDate
                                                 ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
                                                 : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
                                                 }`}
@@ -575,7 +575,7 @@ export const CreatePatient: React.FC = () => {
                                     render={({ field }) => (
                                         <select
                                             {...field}
-                                            className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${errors.gender
+                                            className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${errors.gender
                                                 ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
                                                 : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
                                                 }`}
@@ -613,7 +613,7 @@ export const CreatePatient: React.FC = () => {
                                         render={({ field }) => (
                                             <select
                                                 {...field}
-                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${errors.healthCenterId
+                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${errors.healthCenterId
                                                     ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
                                                     : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
                                                     }`}
@@ -645,7 +645,7 @@ export const CreatePatient: React.FC = () => {
                                             <select
                                                 {...field}
                                                 disabled={!selectedHealthCenterId}
-                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all ${errors.healthAgentId
+                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all ${errors.healthAgentId
                                                     ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
                                                     : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
                                                     }`}
@@ -699,7 +699,7 @@ export const CreatePatient: React.FC = () => {
                                                     handleCepBlur(e.target.value);
                                                 }}
                                                 disabled={isLoadingCep}
-                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed font-mono transition-all ${errors.zipCode
+                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed font-mono transition-all ${errors.zipCode
                                                     ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
                                                     : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
                                                     }`}
@@ -722,7 +722,7 @@ export const CreatePatient: React.FC = () => {
                                                 type="text"
                                                 placeholder="Ex: Rua das Palmeiras"
                                                 disabled={isLoadingCep}
-                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${errors.street
+                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${errors.street
                                                     ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
                                                     : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
                                                     }`}
@@ -744,7 +744,7 @@ export const CreatePatient: React.FC = () => {
                                                 {...field}
                                                 type="text"
                                                 placeholder="Ex: 123"
-                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${errors.number
+                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${errors.number
                                                     ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
                                                     : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
                                                     }`}
@@ -766,7 +766,7 @@ export const CreatePatient: React.FC = () => {
                                                 {...field}
                                                 type="text"
                                                 placeholder="Ex: Bloco B Apt 201"
-                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${errors.complement
+                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none transition-all ${errors.complement
                                                     ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
                                                     : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
                                                     }`}
@@ -788,7 +788,7 @@ export const CreatePatient: React.FC = () => {
                                                 type="text"
                                                 placeholder="Ex: Centro"
                                                 disabled={isLoadingCep}
-                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${errors.neighborhood
+                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${errors.neighborhood
                                                     ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
                                                     : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
                                                     }`}
@@ -811,7 +811,7 @@ export const CreatePatient: React.FC = () => {
                                                 type="text"
                                                 placeholder="Ex: João Pessoa"
                                                 disabled={isLoadingCep}
-                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${errors.city
+                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${errors.city
                                                     ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
                                                     : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
                                                     }`}
@@ -832,7 +832,7 @@ export const CreatePatient: React.FC = () => {
                                             <select
                                                 {...field}
                                                 disabled={isLoadingCep}
-                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${errors.state
+                                                className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none disabled:opacity-50 transition-all ${errors.state
                                                     ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
                                                     : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
                                                     }`}
@@ -885,7 +885,7 @@ export const CreatePatient: React.FC = () => {
                             </div>
 
                             {/* Toggle No Phone */}
-                            <div className="p-4 bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-850 rounded-xl flex items-center justify-between">
+                            <div className="p-4 bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-850 rounded-md flex items-center justify-between">
                                 <div className="space-y-0.5">
                                     <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 block">Paciente não possui telefone</span>
                                     <span className="text-xs text-slate-500 dark:text-slate-400 block">
@@ -900,7 +900,7 @@ export const CreatePatient: React.FC = () => {
                                             type="checkbox"
                                             checked={field.value}
                                             onChange={(e) => field.onChange(e.target.checked)}
-                                            className="w-5 h-5 accent-blue-500 bg-slate-100 dark:bg-slate-900 border-slate-300 dark:border-slate-800 rounded cursor-pointer shadow-md"
+                                            className="w-5 h-5 accent-blue-500 bg-slate-100 dark:bg-slate-900 border-slate-300 dark:border-slate-800 rounded-md cursor-pointer shadow-md"
                                         />
                                     )}
                                 />
@@ -914,7 +914,7 @@ export const CreatePatient: React.FC = () => {
                                         <button
                                             type="button"
                                             onClick={() => append({ phoneNumber: '', isWhatsapp: false })}
-                                            className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-100 dark:bg-blue-500/10 hover:bg-blue-200 dark:hover:bg-blue-500/20 border border-blue-500/10 rounded-lg cursor-pointer shadow-md transition-all"
+                                            className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-100 dark:bg-blue-500/10 hover:bg-blue-200 dark:hover:bg-blue-500/20 border border-blue-500/10 rounded-md cursor-pointer shadow-md transition-all"
                                         >
                                             <Plus className="w-3.5 h-3.5" />
                                             <span>Adicionar Telefone</span>
@@ -923,7 +923,7 @@ export const CreatePatient: React.FC = () => {
 
                                     <div className="space-y-3">
                                         {fields.map((f, index) => (
-                                            <div key={f.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-white dark:bg-slate-950/20 p-3 border border-slate-200 dark:border-slate-850 rounded-xl">
+                                            <div key={f.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-white dark:bg-slate-950/20 p-3 border border-slate-200 dark:border-slate-850 rounded-md">
                                                 <div className="flex-1 w-full space-y-1">
                                                     <Controller
                                                         name={`phones.${index}.phoneNumber`}
@@ -934,7 +934,7 @@ export const CreatePatient: React.FC = () => {
                                                                 type="text"
                                                                 placeholder="Ex: (83) 99999-9999"
                                                                 onChange={(e) => field.onChange(formatPhone(e.target.value))}
-                                                                className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono"
+                                                                className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono"
                                                             />
                                                         )}
                                                     />
@@ -953,7 +953,7 @@ export const CreatePatient: React.FC = () => {
                                                                     type="checkbox"
                                                                     checked={field.value}
                                                                     onChange={(e) => field.onChange(e.target.checked)}
-                                                                    className="w-4 h-4 accent-emerald-500 rounded bg-white dark:bg-slate-950"
+                                                                    className="w-4 h-4 accent-emerald-500 rounded-md bg-white dark:bg-slate-950"
                                                                 />
                                                             )}
                                                         />
@@ -964,7 +964,7 @@ export const CreatePatient: React.FC = () => {
                                                         type="button"
                                                         onClick={() => remove(index)}
                                                         disabled={fields.length === 1}
-                                                        className="p-2 text-rose-700 dark:text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                                        className="p-2 text-rose-700 dark:text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                                         title="Remover"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
@@ -987,7 +987,7 @@ export const CreatePatient: React.FC = () => {
                                 <p className="text-sm text-slate-500 dark:text-slate-400">Verifique com atenção todos os campos antes de confirmar o cadastro.</p>
                             </div>
 
-                            <div className="bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-850 rounded-2xl p-5 space-y-4 text-sm">
+                            <div className="bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-850 rounded-md p-5 space-y-4 text-sm">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <span className="text-xs text-slate-500 block">Nome Completo</span>
@@ -1034,7 +1034,7 @@ export const CreatePatient: React.FC = () => {
                                     <div className="sm:col-span-2">
                                         <span className="text-xs text-slate-500 block">Contatos de Telefone</span>
                                         {noPhoneValue ? (
-                                            <span className="inline-flex items-center gap-1.5 mt-1 text-amber-600 dark:text-amber-400 font-medium bg-amber-100 dark:bg-amber-500/10 px-2.5 py-0.5 border border-amber-200 dark:border-amber-500/20 rounded-lg text-xs">
+                                            <span className="inline-flex items-center gap-1.5 mt-1 text-amber-600 dark:text-amber-400 font-medium bg-amber-100 dark:bg-amber-500/10 px-2.5 py-0.5 border border-amber-200 dark:border-amber-500/20 rounded-md text-xs">
                                                 <Info className="w-3.5 h-3.5" />
                                                 <span>Contactar Agente de Saúde</span>
                                             </span>
@@ -1044,13 +1044,13 @@ export const CreatePatient: React.FC = () => {
                                                     p.phoneNumber ? (
                                                         <span
                                                             key={idx}
-                                                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs rounded-lg border ${p.isWhatsapp
+                                                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs rounded-md border ${p.isWhatsapp
                                                                 ? 'bg-emerald-100 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                                                                 : 'bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200'
                                                                 }`}
                                                         >
                                                             <span>{p.phoneNumber}</span>
-                                                            {p.isWhatsapp && <span className="text-[10px] font-bold tracking-tight bg-emerald-500/20 px-1 rounded">W</span>}
+                                                            {p.isWhatsapp && <span className="text-[10px] font-bold tracking-tight bg-emerald-500/20 px-1 rounded-md">W</span>}
                                                         </span>
                                                     ) : null
                                                 ))}
@@ -1072,7 +1072,7 @@ export const CreatePatient: React.FC = () => {
                         <button
                             type="button"
                             onClick={handlePrevStep}
-                            className="flex items-center gap-1.5 px-4 py-2 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:text-white rounded-xl text-sm font-semibold transition-all cursor-pointer"
+                            className="flex items-center gap-1.5 px-4 py-2 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:text-white rounded-md text-sm font-semibold transition-all cursor-pointer"
                         >
                             <ChevronLeft className="w-4 h-4" />
                             <span>Voltar</span>
@@ -1085,7 +1085,7 @@ export const CreatePatient: React.FC = () => {
                         <button
                             type="button"
                             onClick={handleNextStep}
-                            className="flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold shadow-md transition-all cursor-pointer"
+                            className="flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md text-sm font-semibold shadow-md transition-all cursor-pointer"
                         >
                             <span>Avançar</span>
                             <ChevronRight className="w-4 h-4" />
@@ -1094,7 +1094,7 @@ export const CreatePatient: React.FC = () => {
                         <button
                             type="submit"
                             disabled={createPatientMutation.isPending}
-                            className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                            className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50"
                         >
                             {createPatientMutation.isPending ? (
                                 <>

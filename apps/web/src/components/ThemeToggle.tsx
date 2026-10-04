@@ -6,7 +6,7 @@ export const ThemeToggle: React.FC = () => {
  const { theme, setTheme } = useTheme();
 
  return (
- <div className="flex items-center p-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors">
+ <div className="flex items-center p-0.5 bg-slate-100 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700 transition-colors">
  <button
  onClick={() => setTheme('light')}
  className={`p-1 rounded-md transition-all ${

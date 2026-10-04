@@ -56,12 +56,12 @@ export const ConfirmProvider: React.FC<ConfirmProviderProps> = ({ children }) =>
  {isOpen && options && (
  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
  <div 
- className="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200"
+ className="bg-slate-900 border border-slate-800 rounded-md max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200"
  role="alertdialog"
  aria-modal="true"
  >
  <div className="flex gap-4">
- <div className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center ${
+ <div className={`w-10 h-10 rounded-md shrink-0 flex items-center justify-center ${
  options.variant === 'danger' 
  ? 'bg-rose-500/10 text-rose-500' 
  : 'bg-blue-500/10 text-blue-500'
@@ -87,7 +87,7 @@ export const ConfirmProvider: React.FC<ConfirmProviderProps> = ({ children }) =>
  <button
  type="button"
  onClick={handleCancel}
- className="px-4 py-2 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold transition-all cursor-pointer"
+ className="px-4 py-2 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white rounded-md text-xs font-semibold transition-all cursor-pointer"
  >
  {options.cancelText || 'Cancelar'}
  </button>
@@ -95,7 +95,7 @@ export const ConfirmProvider: React.FC<ConfirmProviderProps> = ({ children }) =>
  <button
  type="button"
  onClick={handleConfirm}
- className={`px-4 py-2 text-xs font-semibold rounded-xl text-white transition-all cursor-pointer ${
+ className={`px-4 py-2 text-xs font-semibold rounded-md text-white transition-all cursor-pointer ${
  options.variant === 'danger'
  ? 'bg-rose-600 hover:bg-rose-500 shadow-md '
  : 'bg-blue-600 hover:bg-blue-500 shadow-md '

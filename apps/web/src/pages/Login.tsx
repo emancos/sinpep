@@ -61,7 +61,7 @@ export const Login: React.FC = () => {
             <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-blue-100 dark:bg-blue-500/10 blur-[120px]" />
             <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-teal-100 dark:bg-teal-500/10 blur-[120px]" />
 
-            <div className="w-full max-w-md p-8 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl backdrop-blur-xl z-10 transition-all duration-300 hover:border-slate-300 dark:border-slate-700/80">
+            <div className="w-full max-w-md p-8 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-md shadow-2xl backdrop-blur-xl z-10 transition-all duration-300 hover:border-slate-300 dark:border-slate-700/80">
 
                 {/* Logo and Header */}
                 <div className="flex flex-col items-center mb-8">
@@ -72,7 +72,7 @@ export const Login: React.FC = () => {
 
                 {/* Error Alert */}
                 {error && (
-                    <div className="flex items-center gap-3 p-4 mb-6 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm rounded-xl">
+                    <div className="flex items-center gap-3 p-4 mb-6 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm rounded-md">
                         <AlertCircle className="w-5 h-5 shrink-0" />
                         <p>{error}</p>
                     </div>
@@ -93,7 +93,7 @@ export const Login: React.FC = () => {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 placeholder="exemplo@email.com"
-                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
+                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
                             />
                         </div>
                     </div>
@@ -116,7 +116,7 @@ export const Login: React.FC = () => {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="••••••••••••"
-                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
+                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
                             />
                         </div>
                     </div>
@@ -124,7 +124,7 @@ export const Login: React.FC = () => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all duration-300 shadow-md active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 text-sm mt-8 cursor-pointer"
+                        className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-all duration-300 shadow-md active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 text-sm mt-8 cursor-pointer"
                     >
                         {loading ? (
                             <>

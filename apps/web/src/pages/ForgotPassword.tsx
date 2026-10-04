@@ -32,7 +32,7 @@ export default function ForgotPassword() {
 
  return (
  <div className="min-h-screen bg-slate-100 dark:bg-slate-900 flex items-center justify-center p-4">
- <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+ <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-md shadow-xl overflow-hidden border border-slate-200 dark:border-slate-700">
  <div className="p-8">
  <div className="mb-8 text-center">
  <h1 className="text-3xl font-bold text-blue-600 dark:text-blue-400">
@@ -47,7 +47,7 @@ export default function ForgotPassword() {
  </div>
 
  {success ? (
- <div className="text-center bg-blue-50 dark:bg-blue-900/20 p-6 rounded-xl border border-blue-100 dark:border-blue-800/30">
+ <div className="text-center bg-blue-50 dark:bg-blue-900/20 p-6 rounded-md border border-blue-100 dark:border-blue-800/30">
  <p className="text-blue-800 dark:text-blue-300 mb-6">
  Enviamos as instruções de recuperação para o e-mail informado (caso ele esteja cadastrado em nossa base). Verifique sua caixa de entrada.
  </p>
@@ -74,7 +74,7 @@ export default function ForgotPassword() {
  value={email}
  onChange={(e) => setEmail(e.target.value)}
  placeholder="seu.email@exemplo.com"
- className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
+ className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-md text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
  />
  </div>
  </div>
@@ -82,7 +82,7 @@ export default function ForgotPassword() {
  <button
  type="submit"
  disabled={isLoading}
- className="w-full flex items-center justify-center py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 disabled:opacity-70 disabled:cursor-not-allowed"
+ className="w-full flex items-center justify-center py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 disabled:opacity-70 disabled:cursor-not-allowed"
  >
  {isLoading ? (
  <>
