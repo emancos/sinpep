@@ -26,6 +26,18 @@ export interface HealthAgent {
  microArea?: string;
 }
 
+export interface PatientAnamnesis {
+  isHypertensive: boolean;
+  isDiabetic: boolean;
+  otherDiseases?: string | null;
+  isOncological: boolean;
+  oncologicalStage?: string | null;
+  allergies?: string | null;
+  isPcd: boolean;
+  pcdDescription?: string | null;
+  continuousMedications: string[];
+}
+
 export interface Patient {
  id: string;
  name: string;
@@ -45,6 +57,7 @@ export interface Patient {
  healthAgent?: HealthAgent;
  phones: PatientPhone[];
  requests?: Request[];
+ patientAnamnesis?: PatientAnamnesis;
 }
 
 export const usePatients = (params: PaginationParams) => {
