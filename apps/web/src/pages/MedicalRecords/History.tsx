@@ -196,20 +196,25 @@ export const MedicalHistory: React.FC = () => {
                               <Paperclip className="w-4 h-4 text-purple-500" /> Anexos
                             </h4>
                             <div className="flex flex-wrap gap-4">
-                              {record.attachments.map((file) => (
-                                <div 
-                                  key={file.id} 
-                                  onClick={(e) => { e.stopPropagation(); setViewerFile({ url: `${apiUrl}${file.fileUrl}`, type: file.fileType, name: file.fileName }); }}
-                                  className="w-24 h-24 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md flex flex-col items-center justify-center gap-2 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
-                                >
-                                  {file.fileType.includes('pdf') ? (
-                                    <FileText className="w-8 h-8 text-rose-500" />
-                                  ) : (
-                                    <div className="w-full h-16 bg-cover bg-center rounded-t-md" style={{ backgroundImage: `url(${apiUrl}${file.fileUrl})` }} />
-                                  )}
-                                  <span className="text-xs text-slate-500 truncate w-full px-2 text-center">{file.fileName}</span>
-                                </div>
-                              ))}
+                                {record.attachments.map((file) => {
+                                  const actualFileUrl = file.fileUrl.startsWith('/api/storage') 
+                                    ? file.fileUrl.replace('/api/storage', '/storage') 
+                                    : file.fileUrl;
+                                  return (
+                                    <div 
+                                      key={file.id} 
+                                      onClick={(e) => { e.stopPropagation(); setViewerFile({ url: `${apiUrl}${actualFileUrl}`, type: file.fileType, name: file.fileName }); }}
+                                      className="w-24 h-24 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md flex flex-col items-center justify-center gap-2 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                                    >
+                                      {file.fileType.includes('pdf') ? (
+                                        <FileText className="w-8 h-8 text-rose-500" />
+                                      ) : (
+                                        <div className="w-full h-16 bg-cover bg-center rounded-t-md" style={{ backgroundImage: `url(${apiUrl}${actualFileUrl})` }} />
+                                      )}
+                                      <span className="text-xs text-slate-500 truncate w-full px-2 text-center">{file.fileName}</span>
+                                    </div>
+                                  );
+                                })}
                             </div>
                               {record.medicationsJustification && (
                                 <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-3 rounded-md border border-slate-200 dark:border-slate-800 italic">

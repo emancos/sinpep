@@ -3,12 +3,14 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database/schema';
 import { eq, desc } from 'drizzle-orm';
 import * as crypto from 'crypto';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class MedicalRecordsService {
   constructor(
     @Inject('DATABASE_CONNECTION')
     private readonly db: NodePgDatabase<typeof schema>,
+    private readonly storageService: StorageService,
   ) {}
 
   async create(patientId: string, doctorId: string, data: any, files: Express.Multer.File[]) {
@@ -87,15 +89,21 @@ export class MedicalRecordsService {
     });
 
     if (files && files.length > 0) {
-      const attachments = files.map(file => ({
-        id: crypto.randomUUID(),
-        medicalRecordId: recordId,
-        fileName: file.originalname,
-        fileType: file.mimetype,
-        fileUrl: `/uploads/${file.filename}`,
-        fileSize: file.size,
-        uploadedAt: new Date().toISOString(),
-      }));
+      const attachments = [];
+      for (const file of files) {
+        // Envia para o Google Drive e obtém o fileId
+        const fileId = await this.storageService.uploadFile(file, patientId);
+        
+        attachments.push({
+          id: crypto.randomUUID(),
+          medicalRecordId: recordId,
+          fileName: file.originalname,
+          fileType: file.mimetype,
+          fileUrl: `/storage/file/${fileId}`, // Rota para download através do backend
+          fileSize: file.size,
+          uploadedAt: new Date().toISOString(),
+        });
+      }
       await this.db.insert(schema.medicalRecordAttachments).values(attachments);
     }
 
