@@ -21,6 +21,7 @@ export interface MedicalRecord {
   cid10?: string;
   returnRequestedValue?: number;
   returnRequestedUnit?: string;
+  isActive?: boolean;
   medications: any[];
   medicationsJustification?: string;
   requestedExams: any[];

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { toast } from 'sonner';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useMedicalRecords } from '../../hooks/useMedicalRecords';
 import type { MedicalRecord } from '../../hooks/useMedicalRecords';
@@ -16,6 +17,7 @@ const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 export const MedicalHistory: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const token = useAuthStore(state => state.token);
   const permissions = useAuthStore(state => state.permissions);
   const isAdmin = permissions.includes('admin:access');
@@ -28,6 +30,32 @@ export const MedicalHistory: React.FC = () => {
   const toggleRecord = (recordId: string) => {
     setExpandedRecords(prev => ({ ...prev, [recordId]: !prev[recordId] }));
   };
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: async (recordId: string) => {
+      await axios.patch(`${apiUrl}/patients/${id}/medical-records/${recordId}/status`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    },
+    onSuccess: () => {
+      toast.success('Status do atendimento atualizado!');
+      queryClient.invalidateQueries({ queryKey: ['medical-records', id] });
+    },
+    onError: () => toast.error('Erro ao atualizar status.'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (recordId: string) => {
+      await axios.delete(`${apiUrl}/patients/${id}/medical-records/${recordId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    },
+    onSuccess: () => {
+      toast.success('Atendimento excluído com sucesso!');
+      queryClient.invalidateQueries({ queryKey: ['medical-records', id] });
+    },
+    onError: () => toast.error('Erro ao excluir atendimento.'),
+  });
 
   const { data: patient, isLoading: isPatientLoading } = useQuery({
     queryKey: ['patient', id],
@@ -149,7 +177,7 @@ export const MedicalHistory: React.FC = () => {
                 <div className="ml-10">
                   <div 
                     onClick={() => toggleRecord(record.id)}
-                    className="bg-white dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 p-5 cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
+                    className={`bg-white dark:bg-slate-800 rounded-md shadow-lg border p-5 cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition-colors ${record.isActive === false ? 'opacity-60 border-red-200 dark:border-red-900' : 'border-slate-200 dark:border-slate-700'}`}
                   >
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3">
                       <div>
@@ -274,6 +302,28 @@ export const MedicalHistory: React.FC = () => {
                             </span>
                           </div>
                         )}
+                      </div>
+                    )}
+                    
+                    {isAdmin && isExpanded && (
+                      <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-3">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleStatusMutation.mutate(record.id); }}
+                          className="px-4 py-2 text-sm font-medium rounded-md bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                        >
+                          {record.isActive === false ? 'Habilitar Atendimento' : 'Desabilitar Atendimento'}
+                        </button>
+                        <button
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            if(window.confirm('Tem certeza que deseja DELETAR este atendimento? Esta ação não pode ser desfeita.')) {
+                              deleteMutation.mutate(record.id);
+                            }
+                          }}
+                          className="px-4 py-2 text-sm font-medium rounded-md bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                        >
+                          Deletar Atendimento
+                        </button>
                       </div>
                     )}
                   </div>

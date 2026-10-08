@@ -1,6 +1,8 @@
-import { Controller, Get, Post, Body, Param, UseGuards, UseInterceptors, UploadedFiles, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, UseInterceptors, UploadedFiles, Req, Patch, Delete } from '@nestjs/common';
 import { MedicalRecordsService } from './medical-records.service';
 import { AuthGuard } from '@nestjs/passport';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import * as crypto from 'crypto';
@@ -13,7 +15,7 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('patients/:patientId/medical-records')
 export class MedicalRecordsController {
   constructor(private readonly medicalRecordsService: MedicalRecordsService) {}
@@ -51,5 +53,17 @@ export class MedicalRecordsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.medicalRecordsService.findOne(id);
+  }
+
+  @Patch(':id/status')
+  @Permissions('admin:access')
+  toggleStatus(@Param('id') id: string) {
+    return this.medicalRecordsService.toggleStatus(id);
+  }
+
+  @Delete(':id')
+  @Permissions('admin:access')
+  remove(@Param('id') id: string) {
+    return this.medicalRecordsService.delete(id);
   }
 }

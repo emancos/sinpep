@@ -172,4 +172,36 @@ export class MedicalRecordsService {
     if (!record) throw new NotFoundException('Medical Record not found');
     return record;
   }
+
+  async toggleStatus(id: string) {
+    const record = await this.db.query.medicalRecords.findFirst({
+      where: eq(schema.medicalRecords.id, id),
+    });
+
+    if (!record) {
+      throw new NotFoundException('Medical record not found');
+    }
+
+    await this.db.update(schema.medicalRecords)
+      .set({
+        isActive: !record.isActive,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(schema.medicalRecords.id, id));
+
+    return { message: 'Status updated successfully', isActive: !record.isActive };
+  }
+
+  async delete(id: string) {
+    const record = await this.db.query.medicalRecords.findFirst({
+      where: eq(schema.medicalRecords.id, id),
+    });
+
+    if (!record) {
+      throw new NotFoundException('Medical record not found');
+    }
+
+    await this.db.delete(schema.medicalRecords).where(eq(schema.medicalRecords.id, id));
+    return { message: 'Medical record deleted successfully' };
+  }
 }
