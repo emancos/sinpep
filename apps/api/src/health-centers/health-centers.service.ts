@@ -132,14 +132,15 @@ export class HealthCentersService {
   async searchCnes(query: any) {
     const clientId = process.env.SAUDE_API_CLIENT_ID;
     const clientSecret = process.env.SAUDE_API_CLIENT_SECRET;
+    const apiUrl = process.env.INTEGRA_SUS_URL;
 
-    if (!clientId || !clientSecret) {
-      throw new NotFoundException('Credenciais da API de Saúde não configuradas no .env');
+    if (!clientId || !clientSecret || !apiUrl) {
+      throw new NotFoundException('Credenciais ou URL da API de Saúde não configuradas no .env');
     }
 
     try {
       // 1. Obter o token de acesso
-      const authResponse = await axios.post('http://localhost:4000/auth/token', {
+      const authResponse = await axios.post(`${apiUrl}/auth/token`, {
         client_id: clientId,
         client_secret: clientSecret,
       });
@@ -147,7 +148,7 @@ export class HealthCentersService {
       const token = authResponse.data.access_token;
 
       // 2. Fazer a requisição usando o token
-      const { data } = await axios.get('http://localhost:4000/cnes/estabelecimentos', {
+      const { data } = await axios.get(`${apiUrl}/cnes/estabelecimentos`, {
         params: query,
         headers: {
           Authorization: `Bearer ${token}`,
@@ -163,14 +164,15 @@ export class HealthCentersService {
   async searchProfessionals(query: any) {
     const clientId = process.env.SAUDE_API_CLIENT_ID;
     const clientSecret = process.env.SAUDE_API_CLIENT_SECRET;
+    const apiUrl = process.env.INTEGRA_SUS_URL;
 
-    if (!clientId || !clientSecret) {
-      throw new NotFoundException('Credenciais da API de Saúde não configuradas no .env');
+    if (!clientId || !clientSecret || !apiUrl) {
+      throw new NotFoundException('Credenciais ou URL da API de Saúde não configuradas no .env');
     }
 
     try {
       // 1. Obter o token de acesso
-      const authResponse = await axios.post('http://localhost:4000/auth/token', {
+      const authResponse = await axios.post(`${apiUrl}/auth/token`, {
         client_id: clientId,
         client_secret: clientSecret,
       });
@@ -178,7 +180,7 @@ export class HealthCentersService {
       const token = authResponse.data.access_token;
 
       // 2. Fazer a requisição usando o token
-      const { data } = await axios.get('http://localhost:4000/cnes/profissionais', {
+      const { data } = await axios.get(`${apiUrl}/cnes/profissionais`, {
         params: query,
         headers: {
           Authorization: `Bearer ${token}`,
