@@ -16,6 +16,7 @@ import { ProcedureGroupsModule } from './procedure-groups/procedure-groups.modul
 import { ProceduresModule } from './procedures/procedures.module';
 import { SisregModule } from './sisreg/sisreg.module';
 import { EventsModule } from './events/events.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { EventsModule } from './events/events.module';
     SisregModule,
     EventsModule,
     StorageModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
