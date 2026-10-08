@@ -1,10 +1,13 @@
 import { useAuthStore } from '../../store/useAuthStore';
 import { usePatients } from '../../hooks/usePatients';
 import { useDoctors } from '../../hooks/useDoctors';
-import { useHealthCenters } from '../../hooks/useHealthCenters';
 import { useUsersQuery } from '../../hooks/useUsers';
-import { Building, Stethoscope, Users, Activity, ArrowRight, UserPlus } from 'lucide-react';
+import { Building, Stethoscope, Users, Activity, ArrowRight, UserPlus, ClipboardList } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export function Dashboard() {
   const { user } = useAuthStore();
@@ -12,13 +15,22 @@ export function Dashboard() {
   // Fetching real data using existing paginated endpoints (fetching just 1 page to get the totals)
   const { data: patientsData, isLoading: isLoadingPatients } = usePatients({ page: 1, limit: 5 });
   const { data: doctorsData, isLoading: isLoadingDoctors } = useDoctors({ page: 1, limit: 1 });
-  const { data: healthCentersData, isLoading: isLoadingHCs } = useHealthCenters({ page: 1, limit: 1 });
   const { data: usersData, isLoading: isLoadingUsers } = useUsersQuery();
+  const token = useAuthStore(state => state.token);
+  
+  const { data: medicalRecordsData, isLoading: isLoadingRecords } = useQuery({
+    queryKey: ['medical-records-count'],
+    queryFn: async () => {
+      const res = await axios.get(`${apiUrl}/medical-records/count`, { headers: { Authorization: `Bearer ${token}` }});
+      return res.data;
+    },
+    enabled: !!token
+  });
 
   const stats = [
     { name: 'Pacientes', value: patientsData?.total || 0, icon: Users, color: 'bg-blue-500', link: '/patients', loading: isLoadingPatients },
     { name: 'Médicos', value: doctorsData?.total || 0, icon: Stethoscope, color: 'bg-emerald-500', link: '/doctors', loading: isLoadingDoctors },
-    { name: 'Unidades de Saúde', value: healthCentersData?.total || 0, icon: Building, color: 'bg-amber-500', link: '/health-centers', loading: isLoadingHCs },
+    { name: 'Prontuários', value: medicalRecordsData?.total || 0, icon: ClipboardList, color: 'bg-amber-500', link: '/medical-records', loading: isLoadingRecords },
     { name: 'Usuários', value: usersData?.length || 0, icon: Activity, color: 'bg-purple-500', link: '/users', loading: isLoadingUsers },
   ];
 

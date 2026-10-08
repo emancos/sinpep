@@ -13,6 +13,11 @@ export class MedicalRecordsService {
     private readonly storageService: StorageService,
   ) {}
 
+  async countAll() {
+    const allRecords = await this.db.select({ id: schema.medicalRecords.id }).from(schema.medicalRecords);
+    return { total: allRecords.length };
+  }
+
   async create(patientId: string, doctorId: string, data: any, files: Express.Multer.File[]) {
     // Valida paciente
     const patient = await this.db.query.patients.findFirst({ where: eq(schema.patients.id, patientId) });
