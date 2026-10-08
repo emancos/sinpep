@@ -31,6 +31,7 @@ import { CreateOrEditProcedure } from './pages/Procedures/Create';
 import { ProcedureDetails } from './pages/Procedures/Details';
 import { SocketProvider } from './contexts/SocketContext';
 import { Reports } from './pages/Reports';
+import { Reception } from './pages/Reception';
 import './App.css';
 
 function App() {
@@ -52,6 +53,8 @@ function App() {
                   <Route element={<ProtectedRoute requiredPermission="reports:read" />}>
                     <Route path="/reports" element={<Reports />} />
                   </Route>
+                  
+                  <Route path="/reception" element={<Reception />} />
 
                   {/* Admin Only Routes */}
                   <Route element={<ProtectedRoute requiredPermission="admin:access" />}>

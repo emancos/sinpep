@@ -458,3 +458,28 @@ export const medicalRecordAttachmentsRelations = relations(medicalRecordAttachme
     references: [medicalRecords.id],
   }),
 }));
+
+export const attendanceQueue = pgTable("attendance_queue", {
+  id: uuid().primaryKey().notNull(),
+  patientId: uuid("patient_id").notNull(),
+  specialtyName: text("specialty_name").notNull(),
+  date: text().notNull(),
+  esusSolicitacaoId: text("esus_solicitacao_id"),
+  queueOrder: integer("queue_order").notNull(),
+  status: text().default('AGUARDANDO').notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+  foreignKey({
+    columns: [table.patientId],
+    foreignColumns: [patients.id],
+    name: "attendance_queue_patient_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade")
+]);
+
+export const attendanceQueueRelations = relations(attendanceQueue, ({ one }) => ({
+  patient: one(patients, {
+    fields: [attendanceQueue.patientId],
+    references: [patients.id],
+  }),
+}));

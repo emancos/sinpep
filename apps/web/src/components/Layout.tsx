@@ -13,7 +13,8 @@ import {
   Users,
   ClipboardList,
   User,
-  Settings
+  Settings,
+  CalendarCheck
 } from 'lucide-react';
 import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
@@ -45,6 +46,7 @@ export const Layout = () => {
 
   const menuItems: MenuItem[] = [
     { name: t('Dashboard'), path: '/', icon: Home },
+    { name: 'Agenda & Recepção', path: '/reception', icon: CalendarCheck },
     ...(permissions.includes('patients:read') || isAdmin ? [
       { name: 'Pacientes', path: '/patients', icon: Users },
     ] : []),

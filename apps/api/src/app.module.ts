@@ -17,6 +17,7 @@ import { ProceduresModule } from './procedures/procedures.module';
 import { SisregModule } from './sisreg/sisreg.module';
 import { EventsModule } from './events/events.module';
 import { ReportsModule } from './reports/reports.module';
+import { ReceptionModule } from './reception/reception.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { ReportsModule } from './reports/reports.module';
     EventsModule,
     StorageModule,
     ReportsModule,
+    ReceptionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
