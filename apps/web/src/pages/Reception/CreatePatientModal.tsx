@@ -45,6 +45,7 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ data, on
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!healthCenterId) throw new Error('Unidade de Saúde é obrigatória');
+      if (!healthAgentId) throw new Error('Agente Comunitário de Saúde é obrigatório');
       await createPatientFromEsus({
         esusData: p,
         healthCenterId,
@@ -105,7 +106,7 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ data, on
             {healthCenterId && (
               <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-2">
-                  <UserPlus className="w-4 h-4"/> Agente Comunitário de Saúde (Opcional)
+                  <UserPlus className="w-4 h-4"/> Agente Comunitário de Saúde *
                 </label>
                 <select 
                   value={healthAgentId}
@@ -171,7 +172,7 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ data, on
           </button>
           <button 
             onClick={() => createMutation.mutate()}
-            disabled={createMutation.isPending || !healthCenterId}
+            disabled={createMutation.isPending || !healthCenterId || !healthAgentId}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {createMutation.isPending ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : <Save className="w-4 h-4"/>}
