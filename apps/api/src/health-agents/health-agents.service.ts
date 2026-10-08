@@ -33,12 +33,17 @@ export class HealthAgentsService {
 
   async findAll(query: PaginationQueryDto) {
     const { page = 1, limit = 10, sortBy, sortOrder = 'asc', search } = query;
+    const healthCenterId = (query as any).healthCenterId;
     const skip = (page - 1) * limit;
 
     const conditions = [];
 
     if (query.includeInactive !== 'true') {
       conditions.push(eq(schema.healthAgents.isActive, true));
+    }
+
+    if (healthCenterId) {
+      conditions.push(eq(schema.healthAgents.healthCenterId, healthCenterId));
     }
 
     if (search) {
