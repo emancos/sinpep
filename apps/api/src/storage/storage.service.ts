@@ -112,11 +112,11 @@ export class StorageService {
     }
 
     try {
-      const metadata = await this.drive.files.get({ fileId, fields: 'mimeType, name' });
-      const stream = await this.drive.files.get(
-        { fileId, alt: 'media' },
-        { responseType: 'stream' }
-      );
+      // Executa as duas requisições ao Google Drive em paralelo para acelerar o tempo de resposta
+      const [metadata, stream] = await Promise.all([
+        this.drive.files.get({ fileId, fields: 'mimeType, name' }),
+        this.drive.files.get({ fileId, alt: 'media' }, { responseType: 'stream' })
+      ]);
       
       return {
         stream: stream.data,
