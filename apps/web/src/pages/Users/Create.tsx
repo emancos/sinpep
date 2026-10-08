@@ -49,7 +49,8 @@ const permissionFriendlyNames: Record<string, string> = {
   'requests:read': 'Visualizar Solicitações',
   'requests:write': 'Gerir Solicitações',
   'medical-records:read': 'Visualizar Prontuários',
-  'medical-records:write': 'Gerenciar Prontuários'
+  'medical-records:write': 'Gerenciar Prontuários',
+  'reports:read': 'Visualizar Relatórios e BI'
 };
 
 const featureFriendlyNames: Record<string, string> = {
@@ -65,6 +66,7 @@ const featureFriendlyNames: Record<string, string> = {
   requests: 'Solicitações',
   settings: 'Configurações',
   'medical-records': 'Prontuários',
+  reports: 'Relatórios',
 };
 
 export const CreateOrEditUser: React.FC = () => {
@@ -179,7 +181,7 @@ export const CreateOrEditUser: React.FC = () => {
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate('/users')}
-          className="flex items-center justify-center w-10 h-10 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
+          className="flex items-center justify-center w-10 h-10 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 transition-all cursor-pointer shadow-md"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>

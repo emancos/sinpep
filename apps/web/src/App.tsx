@@ -30,6 +30,7 @@ import { CreateRecord } from './pages/MedicalRecords/CreateRecord';
 import { CreateOrEditProcedure } from './pages/Procedures/Create';
 import { ProcedureDetails } from './pages/Procedures/Details';
 import { SocketProvider } from './contexts/SocketContext';
+import { Reports } from './pages/Reports';
 import './App.css';
 
 function App() {
@@ -48,6 +49,9 @@ function App() {
                 <Route element={<Layout />}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/profile" element={<UserProfile />} />
+                  <Route element={<ProtectedRoute requiredPermission="reports:read" />}>
+                    <Route path="/reports" element={<Reports />} />
+                  </Route>
 
                   {/* Admin Only Routes */}
                   <Route element={<ProtectedRoute requiredPermission="admin:access" />}>

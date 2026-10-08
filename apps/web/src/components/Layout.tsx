@@ -67,7 +67,10 @@ export const Layout = () => {
       { name: 'Procedimentos', path: '/procedures' }
     ] : []),
     ...(isAdmin ? [
-      { name: 'Gestão de Utilizadores', path: '/users' }
+      { name: 'Gestão de Utilizadores', path: '/users' },
+    ] : []),
+    ...(permissions.includes('reports:read') || isAdmin ? [
+      { name: 'Relatórios & BI', path: '/reports' }
     ] : []),
   ];
 
