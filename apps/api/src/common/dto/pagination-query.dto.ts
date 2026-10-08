@@ -38,4 +38,8 @@ export class PaginationQueryDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsString()
+  healthCenterId?: string;
 }
