@@ -151,6 +151,7 @@ export const CreateRecord: React.FC = () => {
   const [anamnesis, setAnamnesis] = useState({
     isHypertensive: false,
     isDiabetic: false,
+    isSmoker: false,
     otherDiseases: '',
     isOncological: false,
     oncologicalStage: '',
@@ -172,6 +173,7 @@ export const CreateRecord: React.FC = () => {
         setAnamnesis({
         isHypertensive: patient.patientAnamnesis.isHypertensive || false,
         isDiabetic: patient.patientAnamnesis.isDiabetic || false,
+        isSmoker: patient.patientAnamnesis.isSmoker || false,
         otherDiseases: patient.patientAnamnesis.otherDiseases || '',
         isOncological: patient.patientAnamnesis.isOncological || false,
         oncologicalStage: patient.patientAnamnesis.oncologicalStage || '',
@@ -415,7 +417,7 @@ export const CreateRecord: React.FC = () => {
             <div className="p-6">
               {isAnamnesisEditing ? (
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <label className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-md border border-slate-200 dark:border-slate-700 cursor-pointer">
                       <input type="checkbox" checked={anamnesis.isHypertensive} onChange={e => setAnamnesis({...anamnesis, isHypertensive: e.target.checked})} className="w-5 h-5 text-blue-600 rounded" />
                       <span className="font-medium text-slate-700 dark:text-slate-300">Hipertenso</span>
@@ -423,6 +425,10 @@ export const CreateRecord: React.FC = () => {
                     <label className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-md border border-slate-200 dark:border-slate-700 cursor-pointer">
                       <input type="checkbox" checked={anamnesis.isDiabetic} onChange={e => setAnamnesis({...anamnesis, isDiabetic: e.target.checked})} className="w-5 h-5 text-blue-600 rounded" />
                       <span className="font-medium text-slate-700 dark:text-slate-300">Diabético</span>
+                    </label>
+                    <label className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-md border border-slate-200 dark:border-slate-700 cursor-pointer">
+                      <input type="checkbox" checked={anamnesis.isSmoker} onChange={e => setAnamnesis({...anamnesis, isSmoker: e.target.checked})} className="w-5 h-5 text-blue-600 rounded" />
+                      <span className="font-medium text-slate-700 dark:text-slate-300">Fumante</span>
                     </label>
                   </div>
                   
@@ -506,10 +512,11 @@ export const CreateRecord: React.FC = () => {
                   <div className="flex flex-wrap gap-3">
                     {anamnesis.isHypertensive && <span className="px-3 py-1 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-full text-sm font-semibold">Hipertenso</span>}
                     {anamnesis.isDiabetic && <span className="px-3 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-full text-sm font-semibold">Diabético</span>}
+                    {anamnesis.isSmoker && <span className="px-3 py-1 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded-full text-sm font-semibold">Fumante</span>}
                     {anamnesis.isOncological && <span className="px-3 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 rounded-full text-sm font-semibold">Oncológico {anamnesis.oncologicalStage ? `(${anamnesis.oncologicalStage})` : ''}</span>}
                     {anamnesis.isPcd && <span className="px-3 py-1 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-full text-sm font-semibold">PcD {anamnesis.pcdDescription ? `(${anamnesis.pcdDescription})` : ''}</span>}
                     
-                    {!anamnesis.isHypertensive && !anamnesis.isDiabetic && !anamnesis.isOncological && !anamnesis.isPcd && (
+                    {!anamnesis.isHypertensive && !anamnesis.isDiabetic && !anamnesis.isSmoker && !anamnesis.isOncological && !anamnesis.isPcd && (
                       <span className="text-slate-500 italic">Nenhuma condição especial cadastrada.</span>
                     )}
                   </div>

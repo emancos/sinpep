@@ -181,6 +181,7 @@ export const patientAnamnesis = pgTable("patient_anamnesis", {
 	patientId: uuid("patient_id").notNull(),
 	isHypertensive: boolean("is_hypertensive").default(false).notNull(),
 	isDiabetic: boolean("is_diabetic").default(false).notNull(),
+	isSmoker: boolean("is_smoker").default(false).notNull(),
 	otherDiseases: text("other_diseases"),
 	isOncological: boolean("is_oncological").default(false).notNull(),
 	oncologicalStage: text("oncological_stage"),

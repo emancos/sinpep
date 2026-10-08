@@ -122,7 +122,7 @@ export const PatientDetails: React.FC = () => {
                 </p>
                 <button
                     onClick={() => navigate('/patients')}
-                    className="mt-2 px-4 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:text-white rounded-md text-sm cursor-pointer shadow-md"
+                    className="mt-2 px-4 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:text-slate-900 rounded-md text-sm cursor-pointer shadow-md"
                 >
                     Voltar para a Lista
                 </button>
@@ -178,7 +178,7 @@ export const PatientDetails: React.FC = () => {
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => navigate('/patients')}
-                        className="flex items-center justify-center w-10 h-10 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
+                        className="flex items-center justify-center w-10 h-10 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 transition-all cursor-pointer shadow-md"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </button>
@@ -221,13 +221,13 @@ export const PatientDetails: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-mono text-xs">ID Paciente: {patient.id}</p>
+                        <p className="text-slate-500 dark:text-slate-400 mt-1 font-mono text-xs">ID Paciente: {patient.id}</p>
                     </div>
                 </div>
 
                 <button
                     onClick={() => navigate(`/patients/${patient.id}/edit`)}
-                    className="px-4 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium rounded-md text-sm transition-all cursor-pointer shadow-md active:scale-95"
+                    className="px-4 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 hover:border-slate-300 text-slate-600 dark:text-slate-300 font-medium rounded-md text-sm transition-all cursor-pointer shadow-md active:scale-95"
                 >
                     Editar Paciente
                 </button>
@@ -311,6 +311,12 @@ export const PatientDetails: React.FC = () => {
                                     <span className="text-xs text-slate-500 uppercase block tracking-wider mb-1">Diabético</span>
                                     <span className={`text-sm font-semibold ${patient.patientAnamnesis.isDiabetic ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>
                                         {patient.patientAnamnesis.isDiabetic ? 'Sim' : 'Não'}
+                                    </span>
+                                </div>
+                                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-md border border-slate-200 dark:border-slate-700">
+                                    <span className="text-xs text-slate-500 uppercase block tracking-wider mb-1">Fumante</span>
+                                    <span className={`text-sm font-semibold ${patient.patientAnamnesis.isSmoker ? 'text-orange-600 dark:text-orange-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                        {patient.patientAnamnesis.isSmoker ? 'Sim' : 'Não'}
                                     </span>
                                 </div>
                                 <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-md border border-slate-200 dark:border-slate-700">
@@ -535,7 +541,7 @@ export const PatientDetails: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={() => setShowAttentionModal(false)}
-                                className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white cursor-pointer text-xl"
+                                className="text-slate-500 hover:text-slate-900 dark:text-white cursor-pointer text-xl"
                             >
                                 &times;
                             </button>
@@ -593,7 +599,7 @@ export const PatientDetails: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={() => setShowAttentionModal(false)}
-                                    className="px-4 py-2 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:text-white rounded-md text-sm transition-all cursor-pointer"
+                                    className="px-4 py-2 border border-slate-300 hover:border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 rounded-md text-sm transition-all cursor-pointer"
                                 >
                                     Cancelar
                                 </button>

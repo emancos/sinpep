@@ -40,6 +40,7 @@ export class MedicalRecordsService {
           .set({
             isHypertensive: anamnesis.isHypertensive ?? existingAnamnesis.isHypertensive,
             isDiabetic: anamnesis.isDiabetic ?? existingAnamnesis.isDiabetic,
+            isSmoker: anamnesis.isSmoker ?? existingAnamnesis.isSmoker,
             otherDiseases: anamnesis.otherDiseases ?? existingAnamnesis.otherDiseases,
             isOncological: anamnesis.isOncological ?? existingAnamnesis.isOncological,
             oncologicalStage: anamnesis.oncologicalStage ?? existingAnamnesis.oncologicalStage,
@@ -60,6 +61,7 @@ export class MedicalRecordsService {
           patientId: patientId,
           isHypertensive: anamnesis.isHypertensive ?? false,
           isDiabetic: anamnesis.isDiabetic ?? false,
+          isSmoker: anamnesis.isSmoker ?? false,
           otherDiseases: anamnesis.otherDiseases ?? null,
           isOncological: anamnesis.isOncological ?? false,
           oncologicalStage: anamnesis.oncologicalStage ?? null,

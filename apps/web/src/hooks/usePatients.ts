@@ -29,6 +29,7 @@ export interface HealthAgent {
 export interface PatientAnamnesis {
   isHypertensive: boolean;
   isDiabetic: boolean;
+  isSmoker: boolean;
   otherDiseases?: string | null;
   isOncological: boolean;
   oncologicalStage?: string | null;
