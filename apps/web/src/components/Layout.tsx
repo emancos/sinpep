@@ -4,20 +4,16 @@ import { useTranslation } from 'react-i18next';
 import {
   Home,
   LogOut,
-  Users as UsersIcon,
   Menu,
   X,
   ChevronDown,
   ChevronUp,
   ChevronLeft,
   ChevronRight,
-  Building,
   Users,
-  Stethoscope,
-  Layers,
-  Activity,
   ClipboardList,
-  User
+  User,
+  Settings
 } from 'lucide-react';
 import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
@@ -49,29 +45,40 @@ export const Layout = () => {
 
   const menuItems: MenuItem[] = [
     { name: t('Dashboard'), path: '/', icon: Home },
-    ...(permissions.includes('health-centers:read') || isAdmin ? [
-      { name: 'Unidades de Saúde', path: '/health-centers', icon: Building },
-    ] : []),
-    ...(permissions.includes('doctors:read') || isAdmin ? [
-      { name: 'Médicos', path: '/doctors', icon: Stethoscope },
-    ] : []),
-
-    ...(permissions.includes('procedure-groups:read') || isAdmin ? [
-      { name: 'Tabelas Auxiliares', path: '/auxiliary-tables', icon: Layers },
-    ] : []),
-    ...(permissions.includes('procedures:read') || isAdmin ? [
-      { name: 'Procedimentos', path: '/procedures', icon: Activity },
-    ] : []),
     ...(permissions.includes('patients:read') || isAdmin ? [
       { name: 'Pacientes', path: '/patients', icon: Users },
     ] : []),
     ...(permissions.includes('medical-records:read') || isAdmin ? [
       { name: 'Prontuários', path: '/medical-records', icon: ClipboardList },
     ] : []),
+  ];
+
+  const adminSubItems = [
+    ...(permissions.includes('health-centers:read') || isAdmin ? [
+      { name: 'Unidades de Saúde', path: '/health-centers' }
+    ] : []),
+    ...(permissions.includes('doctors:read') || isAdmin ? [
+      { name: 'Médicos', path: '/doctors' }
+    ] : []),
+    ...(permissions.includes('procedure-groups:read') || isAdmin ? [
+      { name: 'Tabelas Auxiliares', path: '/auxiliary-tables' }
+    ] : []),
+    ...(permissions.includes('procedures:read') || isAdmin ? [
+      { name: 'Procedimentos', path: '/procedures' }
+    ] : []),
     ...(isAdmin ? [
-      { name: 'Gestão de Utilizadores', path: '/users', icon: UsersIcon },
+      { name: 'Gestão de Utilizadores', path: '/users' }
     ] : []),
   ];
+
+  if (adminSubItems.length > 0) {
+    menuItems.push({
+      name: 'Administração',
+      path: '/admin',
+      icon: Settings,
+      subItems: adminSubItems
+    });
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex font-sans relative overflow-hidden">
