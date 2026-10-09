@@ -5,9 +5,29 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { Loader2, Calendar, UserPlus, ListOrdered, Activity, MapPin, ChevronLeft, Clock, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreatePatientModal } from './CreatePatientModal';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 export const Reception: React.FC = () => {
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [date, setDate] = useState(() => searchParams.get('date') || new Date().toISOString().split('T')[0]);
+  
+  React.useEffect(() => {
+    const currentUrlDate = searchParams.get('date');
+    if (date && date !== currentUrlDate) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set('date', date);
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [date, searchParams, setSearchParams]);
+
+  React.useEffect(() => {
+    const urlDate = searchParams.get('date');
+    if (urlDate && urlDate !== date) {
+      setDate(urlDate);
+    }
+  }, [searchParams]);
+
   const token = useAuthStore(state => state.token);
   const cnes = '2606712'; // Fallback
   
@@ -158,12 +178,19 @@ export const Reception: React.FC = () => {
               >
                 <ChevronLeft className="w-6 h-6" />
               </button>
-              <div>
+              <div className="flex-1">
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedSpecialty}</h2>
                 <p className="text-slate-500 dark:text-slate-400 font-medium mt-1">
                   {schedule[selectedSpecialty]?.length} pacientes agendados
                 </p>
               </div>
+              <button
+                onClick={() => navigate(`/reception/queue?specialty=${encodeURIComponent(selectedSpecialty)}&date=${date}`)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 font-bold rounded-lg transition-colors shadow-sm"
+              >
+                <ListOrdered className="w-5 h-5" />
+                <span>Ver Lista de Espera</span>
+              </button>
             </div>
 
             <div className="w-full overflow-x-auto pb-2">
