@@ -69,33 +69,50 @@ export class DoctorsService {
         }
       }
 
-      // 3. Criar o usuário
-      const [user] = await tx.insert(schema.users).values({
-        id: crypto.randomUUID(),
-        email,
-        passwordHash,
-        name: createDoctorDto.name,
-        profileId: profile.id,
-        healthCenterId,
-        forcePasswordChange: true, // Força a troca de senha no primeiro login
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }).returning();
-
-      // 4. Adicionar permissões customizadas de prontuário
-      const medicalRecordsPerms = await tx.select().from(schema.permissions).where(ilike(schema.permissions.name, 'medical-records%'));
-      for (const perm of medicalRecordsPerms) {
-        await tx.insert(schema.userCustomPermissions).values({
+      // 3. Checar se o usuário já existe
+      const existingUser = await tx.select().from(schema.users).where(eq(schema.users.email, email)).limit(1);
+      
+      let user;
+      if (existingUser.length > 0) {
+        user = existingUser[0];
+        
+        if (healthCenterId && user.healthCenterId !== healthCenterId) {
+          const [updatedUser] = await tx.update(schema.users)
+            .set({ healthCenterId, updatedAt: new Date().toISOString() })
+            .where(eq(schema.users.id, user.id))
+            .returning();
+          user = updatedUser;
+        }
+      } else {
+        // 4. Criar o usuário
+        const [newUser] = await tx.insert(schema.users).values({
           id: crypto.randomUUID(),
-          userId: user.id,
-          permissionId: perm.id,
-          isAllowed: true,
+          email,
+          passwordHash,
+          name: createDoctorDto.name,
+          profileId: profile.id,
+          healthCenterId,
+          forcePasswordChange: true, // Força a troca de senha no primeiro login
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        });
+        }).returning();
+        user = newUser;
+        
+        // 5. Adicionar permissões customizadas de prontuário
+        const medicalRecordsPerms = await tx.select().from(schema.permissions).where(ilike(schema.permissions.name, 'medical-records%'));
+        for (const perm of medicalRecordsPerms) {
+          await tx.insert(schema.userCustomPermissions).values({
+            id: crypto.randomUUID(),
+            userId: user.id,
+            permissionId: perm.id,
+            isAllowed: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        }
       }
 
-      // 5. Criar o médico vinculado ao novo usuário
+      // 6. Criar o médico vinculado ao novo usuário
       const [doctor] = await tx.insert(schema.doctors).values({
         id: crypto.randomUUID(),
         crm: createDoctorDto.crm,
