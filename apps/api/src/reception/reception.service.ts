@@ -89,13 +89,15 @@ export class ReceptionService {
         }
 
         const patientId = record.pacienteNuCpf ? localPatients[record.pacienteNuCpf] : null;
-        const isQueued = queueSet.has(record.coSolicitacao);
+        const qItem = queueItems.find(q => q.esusSolicitacaoId === record.coSolicitacao);
 
         groupedBySpecialty[spec].push({
           ...record,
           isRegistered: !!patientId,
           patientId: patientId || null,
-          isQueued: isQueued
+          isQueued: !!qItem,
+          queueStatus: qItem ? qItem.status : null,
+          queueOrder: qItem ? qItem.queueOrder : null
         });
       }
 
