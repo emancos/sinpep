@@ -12,12 +12,12 @@ export class CreateDoctorDto {
   cns?: string;
 
   @IsString()
-  @IsNotEmpty()
-  crm: string;
+  @IsOptional()
+  crm?: string;
 
   @IsString()
-  @IsNotEmpty()
-  crmState: string;
+  @IsOptional()
+  crmState?: string;
 
   @IsString()
   @IsNotEmpty()

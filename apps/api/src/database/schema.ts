@@ -206,8 +206,8 @@ export const patientAnamnesis = pgTable("patient_anamnesis", {
 
 export const doctors = pgTable("doctors", {
 	id: uuid().primaryKey().notNull(),
-	crm: text().notNull(),
-	crmState: text("crm_state").notNull(),
+	crm: text(),
+	crmState: text("crm_state"),
 	attendanceType: text("attendance_type").default('AMBOS').notNull(),
 	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
