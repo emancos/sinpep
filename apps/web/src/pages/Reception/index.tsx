@@ -35,8 +35,8 @@ export const Reception: React.FC = () => {
   // We no longer auto-select a specialty to allow the user to see the grid
 
   const enqueueMutation = useMutation({
-    mutationFn: async (vars: { patientId: string, spec: string, esusId: string }) => {
-      await enqueuePatient(vars.patientId, vars.spec, date, vars.esusId, token!);
+    mutationFn: async (vars: { patientId: string, spec: string, esusId: string, esusData: any }) => {
+      await enqueuePatient(vars.patientId, vars.spec, date, vars.esusId, vars.esusData, token!);
     },
     onSuccess: () => {
       toast.success('Paciente adicionado à fila!');
@@ -81,7 +81,7 @@ export const Reception: React.FC = () => {
             </div>
           ) : (
             <button 
-              onClick={() => enqueueMutation.mutate({ patientId: p.patientId, spec: specialty, esusId: p.coSolicitacao })}
+              onClick={() => enqueueMutation.mutate({ patientId: p.patientId, spec: specialty, esusId: p.coSolicitacao, esusData: p })}
               disabled={enqueueMutation.isPending}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-2 shadow-sm shadow-blue-500/20"
             >

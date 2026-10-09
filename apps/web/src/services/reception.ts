@@ -10,9 +10,9 @@ export const getReceptionSchedule = async (date: string, cnes: string, token: st
   return response.data;
 };
 
-export const enqueuePatient = async (patientId: string, specialtyName: string, date: string, esusSolicitacaoId: string, token: string) => {
+export const enqueuePatient = async (patientId: string, specialtyName: string, date: string, esusSolicitacaoId: string, esusData: any, token: string) => {
   const response = await axios.post(`${apiUrl}/reception/enqueue`, {
-    patientId, specialtyName, date, esusSolicitacaoId
+    patientId, specialtyName, date, esusSolicitacaoId, esusData
   }, {
     headers: { Authorization: `Bearer ${token}` }
   });
