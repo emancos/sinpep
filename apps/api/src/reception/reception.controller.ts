@@ -20,9 +20,10 @@ export class ReceptionController {
     @Body('patientId') patientId: string,
     @Body('specialtyName') specialtyName: string,
     @Body('date') date: string,
-    @Body('esusSolicitacaoId') esusSolicitacaoId: string
+    @Body('esusSolicitacaoId') esusSolicitacaoId: string,
+    @Body('esusData') esusData: any
   ) {
-    return this.receptionService.enqueuePatient(patientId, specialtyName, date, esusSolicitacaoId);
+    return this.receptionService.enqueuePatient(patientId, specialtyName, date, esusSolicitacaoId, esusData);
   }
 
   @Post('patient-from-esus')
