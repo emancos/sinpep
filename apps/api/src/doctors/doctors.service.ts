@@ -265,9 +265,13 @@ export class DoctorsService {
         },
         doctorProcedureGroups: {
           with: {
-            procedureGroup: true
-          }
-        }
+            procedureGroup: {
+              with: {
+                procedures: true,
+              },
+            },
+          },
+        },
       },
       orderBy: [sortFn(orderByField)],
       limit: limit,
@@ -305,9 +309,13 @@ export class DoctorsService {
         },
         doctorProcedureGroups: {
           with: {
-            procedureGroup: true
-          }
-        }
+            procedureGroup: {
+              with: {
+                procedures: true,
+              },
+            },
+          },
+        },
       }
     });
 
@@ -342,7 +350,11 @@ export class DoctorsService {
         },
         doctorProcedureGroups: {
           with: {
-            procedureGroup: true,
+            procedureGroup: {
+              with: {
+                procedures: true,
+              },
+            },
           },
         },
       },
