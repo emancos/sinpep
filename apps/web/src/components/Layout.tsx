@@ -14,7 +14,8 @@ import {
   ClipboardList,
   User,
   Settings,
-  CalendarCheck
+  CalendarCheck,
+  Stethoscope
 } from 'lucide-react';
 import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
@@ -53,6 +54,9 @@ export const Layout = () => {
     ...(permissions.includes('medical-records:read') || isAdmin ? [
       { name: 'Prontuários', path: '/medical-records', icon: ClipboardList },
     ] : []),
+    ...(permissions.includes('procedures:read') && !isAdmin ? [
+      { name: 'Procedimentos', path: '/procedures', icon: Stethoscope },
+    ] : []),
   ];
 
   const adminSubItems = [
@@ -65,7 +69,7 @@ export const Layout = () => {
     ...(permissions.includes('procedure-groups:read') || isAdmin ? [
       { name: 'Tabelas Auxiliares', path: '/auxiliary-tables' }
     ] : []),
-    ...(permissions.includes('procedures:read') || isAdmin ? [
+    ...(isAdmin ? [
       { name: 'Procedimentos', path: '/procedures' }
     ] : []),
     ...(isAdmin ? [
@@ -193,8 +197,38 @@ export const Layout = () => {
         </div>
         <nav className="px-2 py-3 lg:px-4 lg:py-6 space-y-0.5 lg:space-y-1">
           {menuItems.filter(item => !['/', '/patients', '/medical-records'].includes(item.path)).map((item) => {
-            const isActive = location.pathname === item.path;
+            const isActive = location.pathname === item.path || (item.subItems && item.subItems.some((sub: any) => location.pathname === sub.path));
             const Icon = item.icon;
+
+            if (item.subItems && item.subItems.length > 0) {
+              return (
+                <div key={item.path} className="flex flex-col space-y-1 pt-1">
+                  <div className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-blue-300/80">
+                    <Icon className="w-4 h-4 text-blue-300" />
+                    <span>{item.name}</span>
+                  </div>
+                  <div className="pl-4 flex flex-col space-y-1">
+                    {item.subItems.map((sub: any) => {
+                      const isSubActive = location.pathname === sub.path;
+                      return (
+                        <Link
+                          key={sub.path}
+                          to={sub.path}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${isSubActive
+                            ? 'bg-white/15 text-white font-bold'
+                            : 'text-blue-200 hover:text-white hover:bg-white/10'
+                          }`}
+                        >
+                          {sub.name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <Link
                 key={item.path}
