@@ -182,11 +182,18 @@ export const WaitingList: React.FC = () => {
                   <span>Horário Marcado: <strong className="text-slate-700 dark:text-slate-300">{p.hrMarcacao || 'Sem horário'}</strong></span>
                 </div>
 
-                {/* Nome do paciente e atalho para iniciar atendimento exclusivo para médico */}
+                {/* Posição de atendimento e nome do paciente */}
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                  <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 truncate flex-1 min-w-[140px]" title={p.pacienteNome}>
-                    {p.pacienteNome}
-                  </h3>
+                  <div className="flex items-center gap-2.5 flex-1 min-w-[140px] truncate">
+                    <span className="shrink-0 px-2.5 py-1 bg-[#0051A2] text-white font-black text-xs sm:text-sm rounded-lg shadow-sm flex items-center gap-1">
+                      <ListOrdered className="w-3.5 h-3.5" />
+                      <span>{p.attendanceOrder || p.queueOrder ? `${p.attendanceOrder || p.queueOrder}º` : 'Fila'}</span>
+                    </span>
+
+                    <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 truncate" title={p.pacienteNome}>
+                      {p.pacienteNome}
+                    </h3>
+                  </div>
 
                   {isDoctor && p.patientId && (
                     <button

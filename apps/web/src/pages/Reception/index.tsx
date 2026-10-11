@@ -42,7 +42,7 @@ export const Reception: React.FC = () => {
   const isDoctor = Boolean(currentDoctor?.id);
 
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(() => searchParams.get('specialty') || null);
-  const [activeTimeSlot, setActiveTimeSlot] = useState<string | null>(() => searchParams.get('time') || null);
+  const [activeTimeSlot, setActiveTimeSlot] = useState<string>(() => searchParams.get('time') || 'ALL');
   const [createModalData, setCreateModalData] = useState<any>(null);
   const [enqueueModalData, setEnqueueModalData] = useState<{ patient: any; specialty: string } | null>(null);
 
@@ -66,6 +66,15 @@ export const Reception: React.FC = () => {
     const urlSpecialty = searchParams.get('specialty');
     if (urlSpecialty !== selectedSpecialty) {
       setSelectedSpecialty(urlSpecialty || null);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const urlTime = searchParams.get('time');
+    if (urlTime && urlTime !== activeTimeSlot) {
+      setActiveTimeSlot(urlTime);
+    } else if (!urlTime && activeTimeSlot !== 'ALL') {
+      setActiveTimeSlot('ALL');
     }
   }, [searchParams]);
 
@@ -119,6 +128,7 @@ export const Reception: React.FC = () => {
 
   const handleSelectSpecialty = (specialty: string) => {
     setSelectedSpecialty(specialty);
+    setActiveTimeSlot('ALL');
     const newParams = new URLSearchParams(searchParams);
     newParams.set('specialty', specialty);
     newParams.delete('time');
@@ -127,7 +137,7 @@ export const Reception: React.FC = () => {
 
   const handleBackToSpecialties = () => {
     setSelectedSpecialty(null);
-    setActiveTimeSlot(null);
+    setActiveTimeSlot('ALL');
     const newParams = new URLSearchParams(searchParams);
     newParams.delete('specialty');
     newParams.delete('time');
@@ -137,7 +147,11 @@ export const Reception: React.FC = () => {
   const handleSelectTimeSlot = (time: string) => {
     setActiveTimeSlot(time);
     const newParams = new URLSearchParams(searchParams);
-    newParams.set('time', time);
+    if (time === 'ALL') {
+      newParams.delete('time');
+    } else {
+      newParams.set('time', time);
+    }
     setSearchParams(newParams, { replace: true });
   };
 
@@ -152,22 +166,50 @@ export const Reception: React.FC = () => {
     return allPatientsInSpecialty.filter((p: any) => p.isQueued);
   }, [allPatientsInSpecialty, isDoctor]);
 
-  // Horários disponíveis com base nos pacientes relevantes
-  useEffect(() => {
-    if (selectedSpecialty && relevantPatientsInSpecialty.length > 0) {
-      const times = Array.from(new Set(relevantPatientsInSpecialty.map((p: any) => p.hrMarcacao || 'Sem horário'))).sort() as string[];
-      if (times.length > 0) {
-        const urlTime = searchParams.get('time');
-        if (urlTime && times.includes(urlTime)) {
-          setActiveTimeSlot(urlTime);
-        } else if (!activeTimeSlot || !times.includes(activeTimeSlot)) {
-          setActiveTimeSlot(times[0]);
-        }
-      }
-    } else {
-      setActiveTimeSlot(null);
+  // Ordena a lista de pacientes pela ORDEM DE ATENDIMENTO
+  const sortedPatientsInSpecialty = useMemo(() => {
+    return [...relevantPatientsInSpecialty].sort((a: any, b: any) => {
+      // 1. Pacientes enfileirados primeiro
+      if (a.isQueued && !b.isQueued) return -1;
+      if (!a.isQueued && b.isQueued) return 1;
+
+      // 2. Status: AGUARDANDO primeiro
+      if (a.queueStatus === 'AGUARDANDO' && b.queueStatus !== 'AGUARDANDO') return -1;
+      if (a.queueStatus !== 'AGUARDANDO' && b.queueStatus === 'AGUARDANDO') return 1;
+
+      // 3. Ordem de atendimento (1º, 2º, 3º...)
+      const orderA = a.attendanceOrder ?? a.queueOrder ?? 9999;
+      const orderB = b.attendanceOrder ?? b.queueOrder ?? 9999;
+      if (orderA !== orderB) return orderA - orderB;
+
+      // 4. Horário marcado
+      const timeA = a.hrMarcacao || '23:59';
+      const timeB = b.hrMarcacao || '23:59';
+      return timeA.localeCompare(timeB);
+    });
+  }, [relevantPatientsInSpecialty]);
+
+  // Agrupamento por horários preservando a ordem de atendimento
+  const { groupedByTime, availableTimes } = useMemo(() => {
+    const grouped: Record<string, any[]> = {};
+    sortedPatientsInSpecialty.forEach((p: any) => {
+      const time = p.hrMarcacao || 'Sem horário';
+      if (!grouped[time]) grouped[time] = [];
+      grouped[time].push(p);
+    });
+    return {
+      groupedByTime: grouped,
+      availableTimes: Object.keys(grouped).sort(),
+    };
+  }, [sortedPatientsInSpecialty]);
+
+  // Pacientes a serem exibidos com base no filtro de horário selecionado (ou todos)
+  const displayedPatients = useMemo(() => {
+    if (!activeTimeSlot || activeTimeSlot === 'ALL') {
+      return sortedPatientsInSpecialty;
     }
-  }, [selectedSpecialty, relevantPatientsInSpecialty, searchParams]);
+    return sortedPatientsInSpecialty.filter((p: any) => (p.hrMarcacao || 'Sem horário') === activeTimeSlot);
+  }, [activeTimeSlot, sortedPatientsInSpecialty]);
 
   const enqueueMutation = useMutation({
     mutationFn: async (vars: {
@@ -190,11 +232,20 @@ export const Reception: React.FC = () => {
   const renderPatient = (p: any, idx: number, specialty: string) => (
     <div key={p.coSolicitacao || idx} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div className="flex-1">
-        <div className="flex flex-wrap items-center gap-3 mb-1">
-          <span className="text-sm font-semibold text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
-            {p.hrMarcacao}
+        <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
+          {/* Posição de atendimento em destaque ANTES do nome do paciente */}
+          {p.isQueued && (
+            <span className="shrink-0 px-2.5 py-1 bg-[#0051A2] text-white font-black text-xs sm:text-sm rounded-lg shadow-sm flex items-center gap-1 tracking-wide">
+              <ListOrdered className="w-3.5 h-3.5" />
+              <span>{p.attendanceOrder || p.queueOrder ? `${p.attendanceOrder || p.queueOrder}º` : 'Na Fila'}</span>
+            </span>
+          )}
+
+          <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700/80 px-2.5 py-1 rounded-md">
+            {p.hrMarcacao || 'Sem horário'}
           </span>
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
+
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">
             {p.pacienteNome}
           </h3>
 
@@ -231,11 +282,6 @@ export const Reception: React.FC = () => {
         {p.isRegistered ? (
           p.isQueued ? (
             <div className="flex items-center gap-2">
-              <span className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-sm">
-                <ListOrdered className="w-3.5 h-3.5" />
-                {p.attendanceOrder || p.queueOrder ? `${p.attendanceOrder || p.queueOrder}º na Fila` : 'Na Fila'}
-              </span>
-
               {p.priority === 'PRIORITARIO' ? (
                 <span className="px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">
                   <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
@@ -246,6 +292,16 @@ export const Reception: React.FC = () => {
                   Convencional
                 </span>
               )}
+
+              <span
+                className={`text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-lg border ${
+                  p.queueStatus === 'AGUARDANDO'
+                    ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800/50'
+                    : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800/50'
+                }`}
+              >
+                {p.queueStatus || 'NA FILA'}
+              </span>
             </div>
           ) : (
             // Médicos NÃO podem adicionar pacientes à fila
@@ -286,7 +342,7 @@ export const Reception: React.FC = () => {
           </h1>
           <p className="text-slate-500 dark:text-slate-400">
             {isDoctor 
-              ? 'Acompanhe a sua fila de atendimentos autorizados.'
+              ? 'Acompanhe a sua fila de atendimentos ordenados pela ordem de prioridade.'
               : 'Gerencie os atendimentos agendados via Central de Regulação.'}
           </p>
         </div>
@@ -373,7 +429,7 @@ export const Reception: React.FC = () => {
                   const params = new URLSearchParams();
                   if (selectedSpecialty) params.set('specialty', selectedSpecialty);
                   if (date) params.set('date', date);
-                  if (activeTimeSlot) params.set('time', activeTimeSlot);
+                  if (activeTimeSlot && activeTimeSlot !== 'ALL') params.set('time', activeTimeSlot);
                   navigate(`/reception/queue?${params.toString()}`);
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 font-bold rounded-lg transition-colors shadow-sm"
@@ -383,81 +439,81 @@ export const Reception: React.FC = () => {
               </button>
             </div>
 
-            {/* Abas de horários */}
-            {relevantPatientsInSpecialty.length > 0 && (
+            {/* Abas de seleção de horário e opção Fila Completa / Todos */}
+            {sortedPatientsInSpecialty.length > 0 && (
               <div className="w-full overflow-x-auto pb-2">
-                {(() => {
-                  const groupedByTime: Record<string, any[]> = {};
-                  relevantPatientsInSpecialty.forEach((p: any) => {
-                    const time = p.hrMarcacao || 'Sem horário';
-                    if (!groupedByTime[time]) groupedByTime[time] = [];
-                    groupedByTime[time].push(p);
-                  });
-                  
-                  const times = Object.keys(groupedByTime).sort();
-                  
-                  return (
-                    <div className="p-1.5 bg-slate-200/70 dark:bg-slate-800/80 rounded-xl inline-flex flex-nowrap min-w-max w-auto shadow-inner border border-slate-300/50 dark:border-slate-700/50">
-                      {times.map(time => {
-                        const isActive = activeTimeSlot === time;
-                        return (
-                          <button
-                            key={time}
-                            onClick={() => handleSelectTimeSlot(time)}
-                            className={`flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-bold transition-all duration-300 ${isActive ? 'bg-white dark:bg-slate-900 text-[#003B77] dark:text-blue-400 shadow-md transform scale-[1.02]' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'}`}
-                          >
-                            <Clock className={`w-4 h-4 ${isActive ? 'animate-pulse' : ''}`} />
-                            {time}
-                            <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${isActive ? 'bg-blue-100 text-[#003B77] dark:bg-blue-900 dark:text-blue-300' : 'bg-slate-300/50 dark:bg-slate-700 text-slate-500'}`}>
-                              {groupedByTime[time].length}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
+                <div className="p-1.5 bg-slate-200/70 dark:bg-slate-800/80 rounded-xl inline-flex flex-nowrap min-w-max w-auto shadow-inner border border-slate-300/50 dark:border-slate-700/50 gap-1">
+                  {/* Aba TODOS (Fila Completa ordenada) */}
+                  <button
+                    onClick={() => handleSelectTimeSlot('ALL')}
+                    className={`flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-300 ${
+                      activeTimeSlot === 'ALL'
+                        ? 'bg-white dark:bg-slate-900 text-[#003B77] dark:text-blue-400 shadow-md transform scale-[1.02]'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'
+                    }`}
+                  >
+                    <ListOrdered className="w-4 h-4" />
+                    <span>Fila Completa</span>
+                    <span
+                      className={`ml-1.5 px-2 py-0.5 rounded-full text-xs ${
+                        activeTimeSlot === 'ALL'
+                          ? 'bg-blue-100 text-[#003B77] dark:bg-blue-900 dark:text-blue-300'
+                          : 'bg-slate-300/50 dark:bg-slate-700 text-slate-500'
+                      }`}
+                    >
+                      {sortedPatientsInSpecialty.length}
+                    </span>
+                  </button>
+
+                  {/* Abas individuais por horário */}
+                  {availableTimes.map(time => {
+                    const isActive = activeTimeSlot === time;
+                    return (
+                      <button
+                        key={time}
+                        onClick={() => handleSelectTimeSlot(time)}
+                        className={`flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-300 ${
+                          isActive
+                            ? 'bg-white dark:bg-slate-900 text-[#003B77] dark:text-blue-400 shadow-md transform scale-[1.02]'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'
+                        }`}
+                      >
+                        <Clock className={`w-4 h-4 ${isActive ? 'animate-pulse' : ''}`} />
+                        <span>{time}</span>
+                        <span
+                          className={`ml-1.5 px-2 py-0.5 rounded-full text-xs ${
+                            isActive
+                              ? 'bg-blue-100 text-[#003B77] dark:bg-blue-900 dark:text-blue-300'
+                              : 'bg-slate-300/50 dark:bg-slate-700 text-slate-500'
+                          }`}
+                        >
+                          {groupedByTime[time]?.length || 0}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
-            {/* Lista de pacientes */}
+            {/* Lista de pacientes exibida pela ORDEM DE ATENDIMENTO */}
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
               <div className="divide-y divide-slate-100 dark:divide-slate-700/50 px-2 sm:px-6">
-                {(() => {
-                  if (relevantPatientsInSpecialty.length === 0) {
-                    return (
-                      <div className="p-12 text-center flex flex-col items-center justify-center">
-                        <Clock className="w-10 h-10 text-slate-300 dark:text-slate-600 mb-3" />
-                        <h4 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-1">
-                          {isDoctor ? 'Nenhum paciente aguardando atendimento' : 'Nenhum paciente agendado'}
-                        </h4>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm">
-                          {isDoctor 
-                            ? 'Não há pacientes adicionados à fila de espera para este procedimento no momento.'
-                            : 'Não foram encontrados pacientes neste procedimento.'}
-                        </p>
-                      </div>
-                    );
-                  }
-
-                  const groupedByTime: Record<string, any[]> = {};
-                  relevantPatientsInSpecialty.forEach((p: any) => {
-                    const time = p.hrMarcacao || 'Sem horário';
-                    if (!groupedByTime[time]) groupedByTime[time] = [];
-                    groupedByTime[time].push(p);
-                  });
-                  
-                  const activePatients = activeTimeSlot && groupedByTime[activeTimeSlot] ? groupedByTime[activeTimeSlot] : [];
-                  
-                  return activePatients.length > 0 ? (
-                    activePatients.map((p: any, idx: number) => renderPatient(p, idx, selectedSpecialty))
-                  ) : (
-                    <div className="p-12 text-center flex flex-col items-center justify-center">
-                      <Calendar className="w-10 h-10 text-slate-300 dark:text-slate-600 mb-3" />
-                      <p className="text-slate-500 dark:text-slate-400 font-medium">Nenhum paciente neste horário.</p>
-                    </div>
-                  );
-                })()}
+                {displayedPatients.length > 0 ? (
+                  displayedPatients.map((p: any, idx: number) => renderPatient(p, idx, selectedSpecialty))
+                ) : (
+                  <div className="p-12 text-center flex flex-col items-center justify-center">
+                    <Clock className="w-10 h-10 text-slate-300 dark:text-slate-600 mb-3" />
+                    <h4 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                      {isDoctor ? 'Nenhum paciente aguardando atendimento' : 'Nenhum paciente agendado'}
+                    </h4>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm">
+                      {isDoctor 
+                        ? 'Não há pacientes adicionados à fila de espera para este horário/procedimento no momento.'
+                        : 'Não foram encontrados pacientes neste horário.'}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
