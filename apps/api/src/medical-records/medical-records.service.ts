@@ -1,7 +1,7 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database';
-import { eq, desc, inArray } from 'drizzle-orm';
+import { eq, desc, inArray, and } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { StorageService } from '../storage/storage.service';
 
@@ -184,6 +184,18 @@ export class MedicalRecordsService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+
+    // Atualiza o status do atendimento do paciente na fila para 'ATENDIDO'
+    try {
+      await this.db.update(schema.attendanceQueue)
+        .set({ status: 'ATENDIDO', updatedAt: new Date().toISOString() })
+        .where(and(
+          eq(schema.attendanceQueue.patientId, patientId),
+          eq(schema.attendanceQueue.status, 'AGUARDANDO')
+        ));
+    } catch (queueErr) {
+      console.error('Erro ao atualizar status na fila de atendimento:', queueErr);
+    }
 
     if (files && files.length > 0) {
       const attachments = [];
