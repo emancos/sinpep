@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getReceptionSchedule, enqueuePatient } from '../../services/reception';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Loader2, Calendar, UserPlus, ListOrdered, Activity, MapPin, ChevronLeft, Clock, Users } from 'lucide-react';
+import { Loader2, Calendar, UserPlus, ListOrdered, Activity, MapPin, ChevronLeft, Clock, Users, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreatePatientModal } from './CreatePatientModal';
+import { EnqueuePriorityModal } from './EnqueuePriorityModal';
+import { PriorityRuleSelector } from './PriorityRuleSelector';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+
 
 export const Reception: React.FC = () => {
   const navigate = useNavigate();
@@ -88,14 +91,21 @@ export const Reception: React.FC = () => {
     }
   }, [selectedSpecialty, schedule, searchParams]);
 
-  // We no longer auto-select a specialty to allow the user to see the grid
+  const [enqueueModalData, setEnqueueModalData] = useState<{ patient: any; specialty: string } | null>(null);
 
   const enqueueMutation = useMutation({
-    mutationFn: async (vars: { patientId: string, spec: string, esusId: string, esusData: any }) => {
-      await enqueuePatient(vars.patientId, vars.spec, date, vars.esusId, vars.esusData, token!);
+    mutationFn: async (vars: {
+      patientId: string;
+      spec: string;
+      esusId: string;
+      esusData: any;
+      priority: 'PRIORITARIO' | 'CONVENCIONAL';
+    }) => {
+      await enqueuePatient(vars.patientId, vars.spec, date, vars.esusId, vars.esusData, token!, vars.priority);
     },
     onSuccess: () => {
       toast.success('Paciente adicionado à fila!');
+      setEnqueueModalData(null);
       queryClient.invalidateQueries({ queryKey: ['reception-schedule'] });
     },
     onError: () => toast.error('Erro ao adicionar paciente à fila.')
@@ -131,13 +141,26 @@ export const Reception: React.FC = () => {
       <div>
         {p.isRegistered ? (
           p.isQueued ? (
-            <div className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-sm font-medium rounded-md flex items-center gap-2">
-              <ListOrdered className="w-4 h-4" />
-              Na Fila
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-sm">
+                <ListOrdered className="w-3.5 h-3.5" />
+                {p.attendanceOrder || p.queueOrder ? `${p.attendanceOrder || p.queueOrder}º na Fila` : 'Na Fila'}
+              </span>
+
+              {p.priority === 'PRIORITARIO' ? (
+                <span className="px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">
+                  <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                  Prioritário
+                </span>
+              ) : (
+                <span className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-700/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 text-xs font-medium rounded-lg">
+                  Convencional
+                </span>
+              )}
             </div>
           ) : (
             <button 
-              onClick={() => enqueueMutation.mutate({ patientId: p.patientId, spec: specialty, esusId: p.coSolicitacao, esusData: p })}
+              onClick={() => setEnqueueModalData({ patient: p, specialty })}
               disabled={enqueueMutation.isPending}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-2 shadow-sm shadow-blue-500/20"
             >
@@ -171,14 +194,17 @@ export const Reception: React.FC = () => {
           </p>
         </div>
         
-        <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-          <Calendar className="w-5 h-5 text-slate-500 ml-2" />
-          <input 
-            type="date" 
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="bg-transparent border-none focus:ring-0 text-slate-700 dark:text-slate-200 cursor-pointer font-medium"
-          />
+        <div className="flex flex-wrap items-center gap-3">
+          <PriorityRuleSelector />
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+            <Calendar className="w-5 h-5 text-slate-500 ml-1" />
+            <input 
+              type="date" 
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="bg-transparent border-none focus:ring-0 text-slate-700 dark:text-slate-200 cursor-pointer font-medium text-sm"
+            />
+          </div>
         </div>
       </div>
 
@@ -313,6 +339,24 @@ export const Reception: React.FC = () => {
           onSuccess={() => {
             setCreateModalData(null);
             queryClient.invalidateQueries({ queryKey: ['reception-schedule'] });
+          }}
+        />
+      )}
+
+      {enqueueModalData && (
+        <EnqueuePriorityModal
+          patient={enqueueModalData.patient}
+          specialty={enqueueModalData.specialty}
+          onClose={() => setEnqueueModalData(null)}
+          isPending={enqueueMutation.isPending}
+          onConfirm={(priority) => {
+            enqueueMutation.mutate({
+              patientId: enqueueModalData.patient.patientId,
+              spec: enqueueModalData.specialty,
+              esusId: enqueueModalData.patient.coSolicitacao,
+              esusData: enqueueModalData.patient,
+              priority,
+            });
           }}
         />
       )}

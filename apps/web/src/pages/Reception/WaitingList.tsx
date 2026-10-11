@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Clock, User, Activity, ListOrdered, ArrowLeft, Loader2, Calendar } from 'lucide-react';
+import { Clock, User, Activity, ListOrdered, ArrowLeft, Loader2, Calendar, Star } from 'lucide-react';
 import { getReceptionSchedule } from '../../services/reception';
 import { useAuthStore } from '../../store/useAuthStore';
+import { PriorityRuleSelector } from './PriorityRuleSelector';
 
 export const WaitingList: React.FC = () => {
   const navigate = useNavigate();
@@ -53,9 +54,15 @@ export const WaitingList: React.FC = () => {
         .map((p: any) => ({ ...p, specialty }))
     )
     .sort((a, b) => {
-      // Sort by status (AGUARDANDO first), then by hrMarcacao
+      // Sort by status (AGUARDANDO first)
       if (a.queueStatus === 'AGUARDANDO' && b.queueStatus !== 'AGUARDANDO') return -1;
       if (a.queueStatus !== 'AGUARDANDO' && b.queueStatus === 'AGUARDANDO') return 1;
+
+      // Sort by attendance order ascending
+      const orderA = a.attendanceOrder ?? a.queueOrder ?? 9999;
+      const orderB = b.attendanceOrder ?? b.queueOrder ?? 9999;
+      if (orderA !== orderB) return orderA - orderB;
+
       const timeA = a.hrMarcacao || '23:59';
       const timeB = b.hrMarcacao || '23:59';
       return timeA.localeCompare(timeB);
@@ -77,19 +84,22 @@ export const WaitingList: React.FC = () => {
               Lista de Espera {specialtyParam && `- ${specialtyParam}`}
             </h1>
             <p className="text-slate-500 dark:text-slate-400">
-              Pacientes aguardando atendimento{specialtyParam ? ` para ${specialtyParam}` : ''}.
+              Pacientes aguardando atendimento ordenados pela regra de prioridade ativa.
             </p>
           </div>
         </div>
         
-        <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-          <Calendar className="w-5 h-5 text-slate-500 ml-2" />
-          <input 
-            type="date" 
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="bg-transparent border-none focus:ring-0 text-slate-700 dark:text-slate-200 cursor-pointer font-medium"
-          />
+        <div className="flex flex-wrap items-center gap-3">
+          <PriorityRuleSelector />
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+            <Calendar className="w-5 h-5 text-slate-500 ml-1" />
+            <input 
+              type="date" 
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="bg-transparent border-none focus:ring-0 text-slate-700 dark:text-slate-200 cursor-pointer font-medium text-sm"
+            />
+          </div>
         </div>
       </div>
 
@@ -108,26 +118,64 @@ export const WaitingList: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {waitingPatients.map((p, idx) => (
-            <div key={idx} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-              <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${p.queueStatus === 'AGUARDANDO' ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
+            <div
+              key={p.queueId || p.coSolicitacao || idx}
+              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all relative overflow-hidden group flex flex-col justify-between"
+            >
+              {/* Barra lateral destacando prioridade ou convencional */}
+              <div
+                className={`absolute left-0 top-0 bottom-0 w-1.5 ${
+                  p.priority === 'PRIORITARIO' ? 'bg-amber-500' : 'bg-blue-600'
+                }`}
+              />
               
-              <div className="flex justify-between items-start mb-4">
-                <div className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-2 py-1 rounded text-sm font-bold flex items-center gap-1.5">
-                  <Clock className="w-4 h-4" />
-                  {p.hrMarcacao || 'Sem horário'}
-                </div>
-                <span className={`text-[11px] uppercase tracking-wider font-bold px-3 py-1 rounded-full border ${p.queueStatus === 'AGUARDANDO' ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800/50' : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800/50'}`}>
-                  {p.queueStatus || 'NA FILA'}
-                </span>
-              </div>
+              <div>
+                {/* Header do Card: Ordem de Atendimento & Status */}
+                <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
+                  <span className="px-3 py-1 bg-[#0051A2] text-white rounded-lg text-xs font-black flex items-center gap-1.5 shadow-sm tracking-wide">
+                    <ListOrdered className="w-3.5 h-3.5" />
+                    <span>
+                      {p.attendanceOrder || p.queueOrder ? `${p.attendanceOrder || p.queueOrder}º a ser atendido` : 'Na Fila'}
+                    </span>
+                  </span>
 
-              <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100 mb-2 truncate" title={p.pacienteNome}>
-                {p.pacienteNome}
-              </h3>
-              
-              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-4">
-                <User className="w-4 h-4" />
-                <span>CNS: {p.pacienteNuCns || 'N/A'}</span>
+                  <div className="flex items-center gap-1.5">
+                    {p.priority === 'PRIORITARIO' ? (
+                      <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm">
+                        <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                        Prioritário
+                      </span>
+                    ) : (
+                      <span className="bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 px-2.5 py-0.5 rounded-full text-xs font-medium">
+                        Convencional
+                      </span>
+                    )}
+
+                    <span
+                      className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border ${
+                        p.queueStatus === 'AGUARDANDO'
+                          ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800/50'
+                          : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800/50'
+                      }`}
+                    >
+                      {p.queueStatus || 'NA FILA'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Horário Marcado: <strong className="text-slate-700 dark:text-slate-300">{p.hrMarcacao || 'Sem horário'}</strong></span>
+                </div>
+
+                <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 mb-2 truncate" title={p.pacienteNome}>
+                  {p.pacienteNome}
+                </h3>
+                
+                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-4">
+                  <User className="w-4 h-4" />
+                  <span>CNS: {p.pacienteNuCns || 'N/A'}</span>
+                </div>
               </div>
 
               <div className="pt-4 border-t border-slate-100 dark:border-slate-700/50 space-y-2">
@@ -158,3 +206,4 @@ export const WaitingList: React.FC = () => {
     </div>
   );
 };
+

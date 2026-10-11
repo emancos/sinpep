@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { X, Save, Building2, Phone, UserPlus } from 'lucide-react';
+import { X, Save, Building2, Phone, UserPlus, Star, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { createPatientFromEsus } from '../../services/reception';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -23,6 +23,7 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ data, on
   
   const [healthCenterId, setHealthCenterId] = useState('');
   const [healthAgentId, setHealthAgentId] = useState('');
+  const [priority, setPriority] = useState<'PRIORITARIO' | 'CONVENCIONAL' | ''>('');
   const [phones, setPhones] = useState([{ number: p.pacienteTelefones?.[0]?.nuTelefone || '', isWhatsapp: true }]);
 
   const { data: healthCenters } = useQuery({
@@ -46,11 +47,13 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ data, on
     mutationFn: async () => {
       if (!healthCenterId) throw new Error('Unidade de Saúde é obrigatória');
       if (!healthAgentId) throw new Error('Agente Comunitário de Saúde é obrigatório');
+      if (!priority) throw new Error('Classificação de atendimento (Prioritário ou Convencional) é obrigatória');
       await createPatientFromEsus({
         esusData: p,
         healthCenterId,
         healthAgentId,
-        phones
+        phones,
+        priority,
       }, token!);
     },
     onSuccess: () => {
@@ -121,6 +124,73 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ data, on
               </div>
             )}
 
+            {/* Classificação de Atendimento na Fila */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <label className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-1.5">
+                <Star className="w-4 h-4 text-amber-500" />
+                Classificação de Atendimento na Fila <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPriority('PRIORITARIO')}
+                  className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 ${
+                    priority === 'PRIORITARIO'
+                      ? 'border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 ring-2 ring-amber-500/20'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-800'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 mt-0.5 rounded-full border flex items-center justify-center shrink-0 ${
+                      priority === 'PRIORITARIO' ? 'border-amber-600 bg-amber-600' : 'border-slate-300'
+                    }`}
+                  >
+                    {priority === 'PRIORITARIO' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm flex items-center gap-1">
+                      ⭐ Paciente Prioritário
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Lei 10.048: Idoso (60+), Gestante, PCD, Autista, etc.
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPriority('CONVENCIONAL')}
+                  className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 ${
+                    priority === 'CONVENCIONAL'
+                      ? 'border-blue-500 bg-blue-50/80 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 ring-2 ring-blue-500/20'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-800'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 mt-0.5 rounded-full border flex items-center justify-center shrink-0 ${
+                      priority === 'CONVENCIONAL' ? 'border-blue-600 bg-blue-600' : 'border-slate-300'
+                    }`}
+                  >
+                    {priority === 'CONVENCIONAL' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm flex items-center gap-1">
+                      👤 Paciente Convencional
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Atendimento regular por ordem de agendamento/chegada.
+                    </p>
+                  </div>
+                </button>
+              </div>
+              {!priority && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5 font-medium flex items-center gap-1">
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  Seleção obrigatória entre Prioritário e Convencional.
+                </p>
+              )}
+            </div>
+
             <div>
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-2">
                 <Phone className="w-4 h-4"/> Telefones de Contato
@@ -172,7 +242,7 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ data, on
           </button>
           <button 
             onClick={() => createMutation.mutate()}
-            disabled={createMutation.isPending || !healthCenterId || !healthAgentId}
+            disabled={createMutation.isPending || !healthCenterId || !healthAgentId || !priority}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {createMutation.isPending ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : <Save className="w-4 h-4"/>}
