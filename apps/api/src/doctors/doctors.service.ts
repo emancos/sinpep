@@ -16,6 +16,61 @@ export class DoctorsService {
     private readonly db: NodePgDatabase<typeof schema>,
   ) {}
 
+  private async getOrCreateDoctorProfile(tx: any) {
+    let [profile] = await tx
+      .select()
+      .from(schema.profiles)
+      .where(eq(schema.profiles.name, 'Médico'))
+      .limit(1);
+
+    if (!profile) {
+      const [newProfile] = await tx
+        .insert(schema.profiles)
+        .values({
+          id: crypto.randomUUID(),
+          name: 'Médico',
+          description: 'Acesso às rotinas clínicas (prontuários, pacientes e consulta de procedimentos)',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+        .returning();
+      profile = newProfile;
+    }
+
+    // Permissões exclusivas do perfil de Médico:
+    // Prontuários (leitura/escrita), Pacientes (leitura) e Procedimentos (apenas consulta)
+    const doctorPermissionNames = [
+      'medical-records:read',
+      'medical-records:write',
+      'patients:read',
+      'procedures:read',
+    ];
+
+    const targetPermissions = await tx
+      .select()
+      .from(schema.permissions)
+      .where(inArray(schema.permissions.name, doctorPermissionNames));
+
+    const existingProfilePerms = await tx
+      .select()
+      .from(schema.profilePermissions)
+      .where(eq(schema.profilePermissions.profileId, profile.id));
+
+    const existingPermIds = new Set(existingProfilePerms.map((pp: any) => pp.permissionId));
+
+    for (const perm of targetPermissions) {
+      if (!existingPermIds.has(perm.id)) {
+        await tx.insert(schema.profilePermissions).values({
+          profileId: profile.id,
+          permissionId: perm.id,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    return profile;
+  }
+
   async create(createDoctorDto: CreateDoctorDto) {
     const doctorId = await this.db.transaction(async (tx) => {
       // 1. Extrair os números do CPF para email e senha
@@ -23,12 +78,8 @@ export class DoctorsService {
       const email = `${cpfNumbers}@integrasistemas.tech.br`;
       const passwordHash = await bcrypt.hash(cpfNumbers, 10);
 
-      // 2. Buscar um perfil para associar (pode ser qualquer um, sobrescreveremos com customPermissions)
-      const [profile] = await tx.select().from(schema.profiles).limit(1);
-
-      if (!profile) {
-        throw new NotFoundException('Nenhum perfil encontrado no sistema para vincular ao usuário.');
-      }
+      // 2. Obter ou criar o perfil exclusivo de Médico (com acesso restrito)
+      const profile = await this.getOrCreateDoctorProfile(tx);
       
       let healthCenterId = null;
       if (createDoctorDto.healthCenter) {
@@ -76,15 +127,25 @@ export class DoctorsService {
       if (existingUser.length > 0) {
         user = existingUser[0];
         
+        const userUpdates: any = {};
         if (healthCenterId && user.healthCenterId !== healthCenterId) {
+          userUpdates.healthCenterId = healthCenterId;
+        }
+        if (user.profileId !== profile.id) {
+          userUpdates.profileId = profile.id;
+        }
+        if (Object.keys(userUpdates).length > 0) {
+          userUpdates.updatedAt = new Date().toISOString();
           const [updatedUser] = await tx.update(schema.users)
-            .set({ healthCenterId, updatedAt: new Date().toISOString() })
+            .set(userUpdates)
             .where(eq(schema.users.id, user.id))
             .returning();
           user = updatedUser;
         }
+        // Limpar permissões customizadas antigas que possam conceder privilégios administrativos
+        await tx.delete(schema.userCustomPermissions).where(eq(schema.userCustomPermissions.userId, user.id));
       } else {
-        // 4. Criar o usuário
+        // 4. Criar o usuário vinculado ao perfil restrito de Médico
         const [newUser] = await tx.insert(schema.users).values({
           id: crypto.randomUUID(),
           email,
@@ -97,19 +158,6 @@ export class DoctorsService {
           updatedAt: new Date().toISOString(),
         }).returning();
         user = newUser;
-        
-        // 5. Adicionar permissões customizadas de prontuário
-        const medicalRecordsPerms = await tx.select().from(schema.permissions).where(ilike(schema.permissions.name, 'medical-records%'));
-        for (const perm of medicalRecordsPerms) {
-          await tx.insert(schema.userCustomPermissions).values({
-            id: crypto.randomUUID(),
-            userId: user.id,
-            permissionId: perm.id,
-            isAllowed: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
-        }
       }
 
       // 6. Criar o médico vinculado ao novo usuário
