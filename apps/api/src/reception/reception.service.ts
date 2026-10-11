@@ -76,9 +76,48 @@ export class ReceptionService {
         }, {} as Record<string, string>);
       }
 
-      // Check attendance queue for today
+      // Check attendance queue and queue settings for today
+      const setting = await this.db.select().from(schema.queueSettings).where(eq(schema.queueSettings.id, 'priority_rule'));
+      const priorityRule = (setting[0]?.value as 'PRIORITY_FIRST' | 'INTERLEAVED') || 'PRIORITY_FIRST';
+
       const queueItems = await this.db.select().from(schema.attendanceQueue).where(eq(schema.attendanceQueue.date, date));
-      const queueSet = new Set(queueItems.map(q => q.esusSolicitacaoId));
+
+      // Calculate attendance order per specialty
+      const queueBySpec: Record<string, typeof queueItems> = {};
+      for (const q of queueItems) {
+        if (!queueBySpec[q.specialtyName]) queueBySpec[q.specialtyName] = [];
+        queueBySpec[q.specialtyName].push(q);
+      }
+
+      const orderMap = new Map<string, number>();
+      for (const specItems of Object.values(queueBySpec)) {
+        const aguardando = specItems.filter(i => i.status === 'AGUARDANDO');
+        const others = specItems.filter(i => i.status !== 'AGUARDANDO');
+
+        const prioritarios = aguardando
+          .filter(i => i.priority === 'PRIORITARIO')
+          .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+
+        const convencionais = aguardando
+          .filter(i => i.priority !== 'PRIORITARIO')
+          .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+
+        let orderedAguardando: typeof queueItems = [];
+        if (priorityRule === 'INTERLEAVED') {
+          const maxLen = Math.max(prioritarios.length, convencionais.length);
+          for (let i = 0; i < maxLen; i++) {
+            if (i < prioritarios.length) orderedAguardando.push(prioritarios[i]);
+            if (i < convencionais.length) orderedAguardando.push(convencionais[i]);
+          }
+        } else {
+          orderedAguardando = [...prioritarios, ...convencionais];
+        }
+
+        const finalOrdered = [...orderedAguardando, ...others];
+        finalOrdered.forEach((item, index) => {
+          orderMap.set(item.id, index + 1);
+        });
+      }
 
       const groupedBySpecialty: Record<string, any[]> = {};
 
@@ -90,14 +129,19 @@ export class ReceptionService {
 
         const patientId = record.pacienteNuCpf ? localPatients[record.pacienteNuCpf] : null;
         const qItem = queueItems.find(q => q.esusSolicitacaoId === record.coSolicitacao);
+        const calculatedOrder = qItem ? orderMap.get(qItem.id) || qItem.queueOrder : null;
 
         groupedBySpecialty[spec].push({
           ...record,
           isRegistered: !!patientId,
           patientId: patientId || null,
           isQueued: !!qItem,
+          queueId: qItem ? qItem.id : null,
           queueStatus: qItem ? qItem.status : null,
-          queueOrder: qItem ? qItem.queueOrder : null
+          queueOrder: calculatedOrder,
+          attendanceOrder: calculatedOrder,
+          priority: qItem ? qItem.priority : null,
+          priorityRule,
         });
       }
 
@@ -108,14 +152,30 @@ export class ReceptionService {
     }
   }
 
-  async enqueuePatient(patientId: string, specialtyName: string, date: string, esusSolicitacaoId: string, esusData?: any) {
+  async enqueuePatient(
+    patientId: string,
+    specialtyName: string,
+    date: string,
+    esusSolicitacaoId: string,
+    esusData?: any,
+    priority: string = 'CONVENCIONAL'
+  ) {
     if (esusData) {
       await this.autoRegisterDoctor(esusData);
     }
+
+    const priorityVal = priority === 'PRIORITARIO' ? 'PRIORITARIO' : 'CONVENCIONAL';
     
     const existing = await this.db.select().from(schema.attendanceQueue).where(and(eq(schema.attendanceQueue.patientId, patientId), eq(schema.attendanceQueue.date, date), eq(schema.attendanceQueue.specialtyName, specialtyName)));
     
     if (existing.length > 0) {
+      if (existing[0].priority !== priorityVal) {
+        const [updated] = await this.db.update(schema.attendanceQueue)
+          .set({ priority: priorityVal, updatedAt: new Date().toISOString() })
+          .where(eq(schema.attendanceQueue.id, existing[0].id))
+          .returning();
+        return updated;
+      }
       return existing[0];
     }
 
@@ -129,11 +189,13 @@ export class ReceptionService {
       date,
       esusSolicitacaoId,
       queueOrder,
+      priority: priorityVal,
       updatedAt: new Date().toISOString()
     }).returning();
 
     return newItem;
   }
+
 
   async createPatientFromEsus(payload: any) {
     const { esusData, healthCenterId, healthAgentId, phones } = payload;
@@ -183,7 +245,8 @@ export class ReceptionService {
       esusData.noProcedimentoInterno || 'GERAL', 
       esusData.dtMarcacao || new Date().toISOString().split('T')[0], 
       esusData.coSolicitacao, 
-      esusData
+      esusData,
+      payload.priority || 'CONVENCIONAL'
     );
 
     return { patientId };
@@ -301,4 +364,38 @@ export class ReceptionService {
         }
       }
   }
+
+  async getQueueSettings() {
+    const setting = await this.db.select().from(schema.queueSettings).where(eq(schema.queueSettings.id, 'priority_rule'));
+    return {
+      rule: (setting[0]?.value as 'PRIORITY_FIRST' | 'INTERLEAVED') || 'PRIORITY_FIRST',
+    };
+  }
+
+  async updateQueueSettings(rule: 'PRIORITY_FIRST' | 'INTERLEAVED') {
+    const validRule = rule === 'INTERLEAVED' ? 'INTERLEAVED' : 'PRIORITY_FIRST';
+    await this.db.insert(schema.queueSettings).values({
+      id: 'priority_rule',
+      value: validRule,
+      updatedAt: new Date().toISOString(),
+    }).onConflictDoUpdate({
+      target: schema.queueSettings.id,
+      set: {
+        value: validRule,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+
+    return { rule: validRule };
+  }
+
+  async updateQueuePriority(queueId: string, priority: 'PRIORITARIO' | 'CONVENCIONAL') {
+    const priorityVal = priority === 'PRIORITARIO' ? 'PRIORITARIO' : 'CONVENCIONAL';
+    const [updated] = await this.db.update(schema.attendanceQueue)
+      .set({ priority: priorityVal, updatedAt: new Date().toISOString() })
+      .where(eq(schema.attendanceQueue.id, queueId))
+      .returning();
+    return updated;
+  }
 }
+

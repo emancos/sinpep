@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Query, UseGuards } from '@nestjs/common';
 import { ReceptionService } from './reception.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -21,13 +21,33 @@ export class ReceptionController {
     @Body('specialtyName') specialtyName: string,
     @Body('date') date: string,
     @Body('esusSolicitacaoId') esusSolicitacaoId: string,
-    @Body('esusData') esusData: any
+    @Body('esusData') esusData: any,
+    @Body('priority') priority?: string
   ) {
-    return this.receptionService.enqueuePatient(patientId, specialtyName, date, esusSolicitacaoId, esusData);
+    return this.receptionService.enqueuePatient(patientId, specialtyName, date, esusSolicitacaoId, esusData, priority);
   }
 
   @Post('patient-from-esus')
   async createPatientFromEsus(@Body() payload: any) {
     return this.receptionService.createPatientFromEsus(payload);
   }
+
+  @Get('queue-settings')
+  async getQueueSettings() {
+    return this.receptionService.getQueueSettings();
+  }
+
+  @Post('queue-settings')
+  async updateQueueSettings(@Body('rule') rule: 'PRIORITY_FIRST' | 'INTERLEAVED') {
+    return this.receptionService.updateQueueSettings(rule);
+  }
+
+  @Patch('queue-priority')
+  async updateQueuePriority(
+    @Body('queueId') queueId: string,
+    @Body('priority') priority: 'PRIORITARIO' | 'CONVENCIONAL'
+  ) {
+    return this.receptionService.updateQueuePriority(queueId, priority);
+  }
 }
+

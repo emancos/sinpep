@@ -466,6 +466,7 @@ export const attendanceQueue = pgTable("attendance_queue", {
   date: text().notNull(),
   esusSolicitacaoId: text("esus_solicitacao_id"),
   queueOrder: integer("queue_order").notNull(),
+  priority: text().default('CONVENCIONAL').notNull(),
   status: text().default('AGUARDANDO').notNull(),
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
@@ -477,9 +478,16 @@ export const attendanceQueue = pgTable("attendance_queue", {
   }).onUpdate("cascade").onDelete("cascade")
 ]);
 
+export const queueSettings = pgTable("queue_settings", {
+  id: text().primaryKey().notNull(),
+  value: text().notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 export const attendanceQueueRelations = relations(attendanceQueue, ({ one }) => ({
   patient: one(patients, {
     fields: [attendanceQueue.patientId],
     references: [patients.id],
   }),
 }));
+
