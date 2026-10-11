@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Clock, User, Activity, ListOrdered, ArrowLeft, Loader2, Calendar, Star, Stethoscope } from 'lucide-react';
+import { Clock, User, Activity, ListOrdered, ArrowLeft, Loader2, Calendar, Star, Stethoscope, CheckCircle2 } from 'lucide-react';
 import { getReceptionSchedule } from '../../services/reception';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCurrentDoctor } from '../../hooks/useDoctors';
@@ -66,7 +66,7 @@ export const WaitingList: React.FC = () => {
         .map((p: any) => ({ ...p, specialty }))
     )
     .sort((a, b) => {
-      // Sort by status (AGUARDANDO first)
+      // Sort by status (AGUARDANDO first, then ATENDIDO)
       if (a.queueStatus === 'AGUARDANDO' && b.queueStatus !== 'AGUARDANDO') return -1;
       if (a.queueStatus !== 'AGUARDANDO' && b.queueStatus === 'AGUARDANDO') return 1;
 
@@ -86,7 +86,7 @@ export const WaitingList: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={handleBack}
-            className="flex items-center justify-center w-10 h-10 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:white transition-all shadow-sm"
+            className="flex items-center justify-center w-10 h-10 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-all shadow-sm"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -131,111 +131,151 @@ export const WaitingList: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {waitingPatients.map((p, idx) => (
-            <div
-              key={p.queueId || p.coSolicitacao || idx}
-              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all relative overflow-hidden group flex flex-col justify-between"
-            >
-              {/* Barra lateral destacando prioridade ou convencional */}
+          {waitingPatients.map((p, idx) => {
+            const isAttended = p.queueStatus === 'ATENDIDO';
+            return (
               <div
-                className={`absolute left-0 top-0 bottom-0 w-1.5 ${
-                  p.priority === 'PRIORITARIO' ? 'bg-amber-500' : 'bg-blue-600'
+                key={p.queueId || p.coSolicitacao || idx}
+                className={`rounded-2xl p-5 shadow-sm hover:shadow-md transition-all relative overflow-hidden group flex flex-col justify-between ${
+                  isAttended
+                    ? 'bg-emerald-50/75 dark:bg-emerald-950/20 border-2 border-emerald-400/80 dark:border-emerald-800/80 shadow-emerald-500/10'
+                    : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
                 }`}
-              />
-              
-              <div>
-                {/* Header do Card: Ordem de Atendimento & Status */}
-                <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
-                  <span className="px-3 py-1 bg-[#0051A2] text-white rounded-lg text-xs font-black flex items-center gap-1.5 shadow-sm tracking-wide">
-                    <ListOrdered className="w-3.5 h-3.5" />
-                    <span>
-                      {p.attendanceOrder || p.queueOrder ? `${p.attendanceOrder || p.queueOrder}º a ser atendido` : 'Na Fila'}
-                    </span>
-                  </span>
-
-                  <div className="flex items-center gap-1.5">
-                    {p.priority === 'PRIORITARIO' ? (
-                      <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm">
-                        <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
-                        Prioritário
-                      </span>
-                    ) : (
-                      <span className="bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 px-2.5 py-0.5 rounded-full text-xs font-medium">
-                        Convencional
-                      </span>
-                    )}
-
+              >
+                {/* Barra lateral destacando atendimento finalizado (verde), prioridade ou convencional */}
+                <div
+                  className={`absolute left-0 top-0 bottom-0 w-1.5 ${
+                    isAttended
+                      ? 'bg-emerald-500'
+                      : p.priority === 'PRIORITARIO'
+                      ? 'bg-amber-500'
+                      : 'bg-blue-600'
+                  }`}
+                />
+                
+                <div>
+                  {/* Header do Card: Ordem de Atendimento & Status */}
+                  <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
                     <span
-                      className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border ${
-                        p.queueStatus === 'AGUARDANDO'
-                          ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800/50'
-                          : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800/50'
+                      className={`px-3 py-1 rounded-lg text-xs font-black flex items-center gap-1.5 shadow-sm tracking-wide ${
+                        isAttended ? 'bg-emerald-600 text-white' : 'bg-[#0051A2] text-white'
                       }`}
                     >
-                      {p.queueStatus || 'NA FILA'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Horário Marcado: <strong className="text-slate-700 dark:text-slate-300">{p.hrMarcacao || 'Sem horário'}</strong></span>
-                </div>
-
-                {/* Posição de atendimento e nome do paciente */}
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2.5 flex-1 min-w-[140px] truncate">
-                    <span className="shrink-0 px-2.5 py-1 bg-[#0051A2] text-white font-black text-xs sm:text-sm rounded-lg shadow-sm flex items-center gap-1">
-                      <ListOrdered className="w-3.5 h-3.5" />
-                      <span>{p.attendanceOrder || p.queueOrder ? `${p.attendanceOrder || p.queueOrder}º` : 'Fila'}</span>
+                      {isAttended ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Atendimento Concluído</span>
+                        </>
+                      ) : (
+                        <>
+                          <ListOrdered className="w-3.5 h-3.5" />
+                          <span>
+                            {p.attendanceOrder || p.queueOrder ? `${p.attendanceOrder || p.queueOrder}º a ser atendido` : 'Na Fila'}
+                          </span>
+                        </>
+                      )}
                     </span>
 
-                    <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 truncate" title={p.pacienteNome}>
-                      {p.pacienteNome}
-                    </h3>
-                  </div>
+                    <div className="flex items-center gap-1.5">
+                      {p.priority === 'PRIORITARIO' ? (
+                        <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm">
+                          <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                          Prioritário
+                        </span>
+                      ) : (
+                        <span className="bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 px-2.5 py-0.5 rounded-full text-xs font-medium">
+                          Convencional
+                        </span>
+                      )}
 
-                  {isDoctor && p.patientId && (
-                    <button
-                      onClick={() => navigate(`/medical-records/${p.patientId}/new`)}
-                      className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition-all"
-                      title="Iniciar Atendimento Clínico"
-                    >
-                      <Stethoscope className="w-3.5 h-3.5" />
-                      <span>Iniciar Atendimento</span>
-                    </button>
-                  )}
-                </div>
-                
-                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-4">
-                  <User className="w-4 h-4" />
-                  <span>CNS: {p.pacienteNuCns || 'N/A'}</span>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-700/50 space-y-2">
-                <div className="flex items-start gap-2 text-sm">
-                  <Activity className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="font-bold text-slate-700 dark:text-slate-300">{p.specialty}</p>
-                    {p.noProcedimentoInterno && p.noProcedimentoInterno !== p.specialty && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{p.noProcedimentoInterno}</p>
-                    )}
-                  </div>
-                </div>
-                
-                {p.noProfissionalExecutante && (
-                  <div className="flex items-start gap-2 text-sm pt-2">
-                    <User className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Profissional / Médico</p>
-                      <p className="font-semibold text-slate-700 dark:text-slate-300 line-clamp-1">{p.noProfissionalExecutante}</p>
+                      <span
+                        className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border ${
+                          isAttended
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/50 dark:border-emerald-700 dark:text-emerald-300'
+                            : p.queueStatus === 'AGUARDANDO'
+                            ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800/50'
+                            : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800/50'
+                        }`}
+                      >
+                        {isAttended ? 'ATENDIDO' : p.queueStatus || 'NA FILA'}
+                      </span>
                     </div>
                   </div>
-                )}
+
+                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Horário Marcado: <strong className="text-slate-700 dark:text-slate-300">{p.hrMarcacao || 'Sem horário'}</strong></span>
+                  </div>
+
+                  {/* Posição de atendimento e nome do paciente */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2.5 flex-1 min-w-[140px] truncate">
+                      <span
+                        className={`shrink-0 px-2.5 py-1 text-white font-black text-xs sm:text-sm rounded-lg shadow-sm flex items-center gap-1 ${
+                          isAttended ? 'bg-emerald-600' : 'bg-[#0051A2]'
+                        }`}
+                      >
+                        {isAttended ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Atendido</span>
+                          </>
+                        ) : (
+                          <>
+                            <ListOrdered className="w-3.5 h-3.5" />
+                            <span>{p.attendanceOrder || p.queueOrder ? `${p.attendanceOrder || p.queueOrder}º` : 'Fila'}</span>
+                          </>
+                        )}
+                      </span>
+
+                      <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 truncate" title={p.pacienteNome}>
+                        {p.pacienteNome}
+                      </h3>
+                    </div>
+
+                    {/* Botão de atendimento: exibido exclusivamente para o médico e OCULTO se já atendido */}
+                    {isDoctor && p.patientId && !isAttended && (
+                      <button
+                        onClick={() => navigate(`/medical-records/${p.patientId}/new`)}
+                        className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition-all"
+                        title="Iniciar Atendimento Clínico"
+                      >
+                        <Stethoscope className="w-3.5 h-3.5" />
+                        <span>Iniciar Atendimento</span>
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-4">
+                    <User className="w-4 h-4" />
+                    <span>CNS: {p.pacienteNuCns || 'N/A'}</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-700/50 space-y-2">
+                  <div className="flex items-start gap-2 text-sm">
+                    <Activity className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-bold text-slate-700 dark:text-slate-300">{p.specialty}</p>
+                      {p.noProcedimentoInterno && p.noProcedimentoInterno !== p.specialty && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{p.noProcedimentoInterno}</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {p.noProfissionalExecutante && (
+                    <div className="flex items-start gap-2 text-sm pt-2">
+                      <User className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Profissional / Médico</p>
+                        <p className="font-semibold text-slate-700 dark:text-slate-300 line-clamp-1">{p.noProfissionalExecutante}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

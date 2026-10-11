@@ -19,7 +19,8 @@ import {
   Clock, 
   Users, 
   Star,
-  Stethoscope
+  Stethoscope,
+  CheckCircle2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreatePatientModal } from './CreatePatientModal';
@@ -229,108 +230,133 @@ export const Reception: React.FC = () => {
     onError: () => toast.error('Erro ao adicionar paciente à fila.')
   });
 
-  const renderPatient = (p: any, idx: number, specialty: string) => (
-    <div key={p.coSolicitacao || idx} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <div className="flex-1">
-        <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
-          {/* Posição de atendimento em destaque ANTES do nome do paciente */}
-          {p.isQueued && (
-            <span className="shrink-0 px-2.5 py-1 bg-[#0051A2] text-white font-black text-xs sm:text-sm rounded-lg shadow-sm flex items-center gap-1 tracking-wide">
-              <ListOrdered className="w-3.5 h-3.5" />
-              <span>{p.attendanceOrder || p.queueOrder ? `${p.attendanceOrder || p.queueOrder}º` : 'Na Fila'}</span>
-            </span>
-          )}
-
-          <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700/80 px-2.5 py-1 rounded-md">
-            {p.hrMarcacao || 'Sem horário'}
-          </span>
-
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">
-            {p.pacienteNome}
-          </h3>
-
-          {/* Atalho de atendimento à frente do nome do paciente - EXCLUSIVO PARA O MÉDICO */}
-          {isDoctor && p.patientId && (
-            <button
-              onClick={() => navigate(`/medical-records/${p.patientId}/new`)}
-              className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition-all"
-              title="Iniciar Atendimento Clínico"
-            >
-              <Stethoscope className="w-3.5 h-3.5" />
-              <span>Iniciar Atendimento</span>
-            </button>
-          )}
-
-          {p.isRegistered ? (
-            <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full">
-              Cadastrado
-            </span>
-          ) : (
-            <span className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full">
-              Novo
-            </span>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500 dark:text-slate-400 mt-2">
-          <span>CPF: {p.pacienteNuCpf || 'N/A'}</span>
-          <span>CNS: {p.pacienteNuCns || 'N/A'}</span>
-          <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/> {p.pacienteNoMunicipioResidencia || 'Desconhecido'}</span>
-        </div>
-      </div>
-      
-      <div>
-        {p.isRegistered ? (
-          p.isQueued ? (
-            <div className="flex items-center gap-2">
-              {p.priority === 'PRIORITARIO' ? (
-                <span className="px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">
-                  <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                  Prioritário
-                </span>
-              ) : (
-                <span className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-700/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 text-xs font-medium rounded-lg">
-                  Convencional
-                </span>
-              )}
-
+  const renderPatient = (p: any, idx: number, specialty: string) => {
+    const isAttended = p.queueStatus === 'ATENDIDO';
+    return (
+      <div 
+        key={p.coSolicitacao || idx} 
+        className={`py-4 px-3 sm:px-4 rounded-xl my-1.5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
+          isAttended
+            ? 'bg-emerald-50/75 dark:bg-emerald-950/20 border-2 border-emerald-400/80 dark:border-emerald-800/80 shadow-emerald-500/10'
+            : 'hover:bg-slate-50 dark:hover:bg-slate-700/30 border border-transparent'
+        }`}
+      >
+        <div className="flex-1">
+          <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
+            {/* Posição de atendimento em destaque ANTES do nome do paciente */}
+            {p.isQueued && (
               <span
-                className={`text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-lg border ${
-                  p.queueStatus === 'AGUARDANDO'
-                    ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800/50'
-                    : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800/50'
+                className={`shrink-0 px-2.5 py-1 text-white font-black text-xs sm:text-sm rounded-lg shadow-sm flex items-center gap-1 tracking-wide ${
+                  isAttended ? 'bg-emerald-600' : 'bg-[#0051A2]'
                 }`}
               >
-                {p.queueStatus || 'NA FILA'}
+                {isAttended ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Atendido</span>
+                  </>
+                ) : (
+                  <>
+                    <ListOrdered className="w-3.5 h-3.5" />
+                    <span>{p.attendanceOrder || p.queueOrder ? `${p.attendanceOrder || p.queueOrder}º` : 'Na Fila'}</span>
+                  </>
+                )}
               </span>
-            </div>
+            )}
+
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700/80 px-2.5 py-1 rounded-md">
+              {p.hrMarcacao || 'Sem horário'}
+            </span>
+
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              {p.pacienteNome}
+            </h3>
+
+            {/* Atalho de atendimento à frente do nome do paciente - EXCLUSIVO PARA O MÉDICO (OCULTO SE ATENDIDO) */}
+            {isDoctor && p.patientId && !isAttended && (
+              <button
+                onClick={() => navigate(`/medical-records/${p.patientId}/new`)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition-all"
+                title="Iniciar Atendimento Clínico"
+              >
+                <Stethoscope className="w-3.5 h-3.5" />
+                <span>Iniciar Atendimento</span>
+              </button>
+            )}
+
+            {p.isRegistered ? (
+              <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full">
+                Cadastrado
+              </span>
+            ) : (
+              <span className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full">
+                Novo
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500 dark:text-slate-400 mt-2">
+            <span>CPF: {p.pacienteNuCpf || 'N/A'}</span>
+            <span>CNS: {p.pacienteNuCns || 'N/A'}</span>
+            <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/> {p.pacienteNoMunicipioResidencia || 'Desconhecido'}</span>
+          </div>
+        </div>
+        
+        <div>
+          {p.isRegistered ? (
+            p.isQueued ? (
+              <div className="flex items-center gap-2">
+                {p.priority === 'PRIORITARIO' ? (
+                  <span className="px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm">
+                    <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                    Prioritário
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-700/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 text-xs font-medium rounded-lg">
+                    Convencional
+                  </span>
+                )}
+
+                <span
+                  className={`text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-lg border ${
+                    isAttended
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/50 dark:border-emerald-700 dark:text-emerald-300'
+                      : p.queueStatus === 'AGUARDANDO'
+                      ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800/50'
+                      : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800/50'
+                  }`}
+                >
+                  {isAttended ? 'ATENDIDO' : p.queueStatus || 'NA FILA'}
+                </span>
+              </div>
+            ) : (
+              // Médicos NÃO podem adicionar pacientes à fila
+              !isDoctor && (
+                <button 
+                  onClick={() => setEnqueueModalData({ patient: p, specialty })}
+                  disabled={enqueueMutation.isPending}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-2 shadow-sm shadow-blue-500/20"
+                >
+                  <ListOrdered className="w-4 h-4" />
+                  Colocar na Fila
+                </button>
+              )
+            )
           ) : (
-            // Médicos NÃO podem adicionar pacientes à fila
+            // Médicos NÃO criam prontuários a partir da fila da recepção
             !isDoctor && (
               <button 
-                onClick={() => setEnqueueModalData({ patient: p, specialty })}
-                disabled={enqueueMutation.isPending}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-2 shadow-sm shadow-blue-500/20"
+                onClick={() => setCreateModalData({ patient: p, specialty })}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-2 shadow-sm shadow-amber-500/20"
               >
-                <ListOrdered className="w-4 h-4" />
-                Colocar na Fila
+                <UserPlus className="w-4 h-4" />
+                Criar Prontuário
               </button>
             )
-          )
-        ) : (
-          // Médicos NÃO criam prontuários a partir da fila da recepção
-          !isDoctor && (
-            <button 
-              onClick={() => setCreateModalData({ patient: p, specialty })}
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-2 shadow-sm shadow-amber-500/20"
-            >
-              <UserPlus className="w-4 h-4" />
-              Criar Prontuário
-            </button>
-          )
-        )}
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">

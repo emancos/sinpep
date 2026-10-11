@@ -76,6 +76,7 @@ export const useCreateMedicalRecord = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['medical-records', variables.patientId] });
       queryClient.invalidateQueries({ queryKey: ['medical-records', 'recent'] });
+      queryClient.invalidateQueries({ queryKey: ['reception-schedule'] });
     },
   });
 };
