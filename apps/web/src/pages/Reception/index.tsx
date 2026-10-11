@@ -27,6 +27,7 @@ import { CreatePatientModal } from './CreatePatientModal';
 import { EnqueuePriorityModal } from './EnqueuePriorityModal';
 import { PriorityRuleSelector } from './PriorityRuleSelector';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSocket } from '../../contexts/SocketContext';
 
 export const Reception: React.FC = () => {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ export const Reception: React.FC = () => {
   const cnes = '2606712'; // Fallback
   
   const queryClient = useQueryClient();
+  const { socket } = useSocket();
 
   // Dados do médico autenticado (se o usuário logado for um médico)
   const { data: currentDoctor, isLoading: isLoadingDoctor } = useCurrentDoctor();
@@ -83,7 +85,23 @@ export const Reception: React.FC = () => {
     queryKey: ['reception-schedule', date, cnes],
     queryFn: () => getReceptionSchedule(date, cnes, token!),
     enabled: !!token,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
   });
+
+  // Atualização automática em tempo real (ao vivo) via WebSocket quando a fila mudar
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleQueueUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: ['reception-schedule'] });
+    };
+
+    socket.on('queue_updated', handleQueueUpdated);
+    return () => {
+      socket.off('queue_updated', handleQueueUpdated);
+    };
+  }, [socket, queryClient]);
 
   const isLoading = isLoadingSchedule || isLoadingDoctor;
 
@@ -167,26 +185,30 @@ export const Reception: React.FC = () => {
     return allPatientsInSpecialty.filter((p: any) => p.isQueued);
   }, [allPatientsInSpecialty, isDoctor]);
 
-  // Ordena a lista de pacientes pela ORDEM DE ATENDIMENTO
+  // Ordena a lista de pacientes: primeiro pelo Horário Marcado (ex: 11h antes de 15h)
+  // e dentro de cada horário pela ORDEM DE ATENDIMENTO (1º, 2º, 3º...)
   const sortedPatientsInSpecialty = useMemo(() => {
     return [...relevantPatientsInSpecialty].sort((a: any, b: any) => {
-      // 1. Pacientes enfileirados primeiro
+      // 1. Horário marcado (11hs antes de 15hs)
+      const timeA = a.hrMarcacao || '23:59';
+      const timeB = b.hrMarcacao || '23:59';
+      if (timeA !== timeB) return timeA.localeCompare(timeB);
+
+      // 2. Pacientes enfileirados primeiro dentro do mesmo horário
       if (a.isQueued && !b.isQueued) return -1;
       if (!a.isQueued && b.isQueued) return 1;
 
-      // 2. Status: AGUARDANDO primeiro
+      // 3. Status: AGUARDANDO primeiro, ATENDIDO depois
       if (a.queueStatus === 'AGUARDANDO' && b.queueStatus !== 'AGUARDANDO') return -1;
       if (a.queueStatus !== 'AGUARDANDO' && b.queueStatus === 'AGUARDANDO') return 1;
 
-      // 3. Ordem de atendimento (1º, 2º, 3º...)
+      // 4. Ordem de atendimento calculada individualmente para o horário (1º, 2º, 3º...)
       const orderA = a.attendanceOrder ?? a.queueOrder ?? 9999;
       const orderB = b.attendanceOrder ?? b.queueOrder ?? 9999;
       if (orderA !== orderB) return orderA - orderB;
 
-      // 4. Horário marcado
-      const timeA = a.hrMarcacao || '23:59';
-      const timeB = b.hrMarcacao || '23:59';
-      return timeA.localeCompare(timeB);
+      // 5. Nome do paciente para estabilidade de ordenação
+      return (a.pacienteNome || '').localeCompare(b.pacienteNome || '');
     });
   }, [relevantPatientsInSpecialty]);
 

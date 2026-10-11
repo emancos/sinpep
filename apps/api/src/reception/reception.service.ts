@@ -6,6 +6,7 @@ import axios from 'axios';
 import * as crypto from 'crypto';
 import { DoctorsService } from '../doctors/doctors.service';
 import { HealthCentersService } from '../health-centers/health-centers.service';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class ReceptionService {
@@ -13,6 +14,7 @@ export class ReceptionService {
     @Inject('DATABASE_CONNECTION') private readonly db: NodePgDatabase<typeof schema>,
     private readonly doctorsService: DoctorsService,
     private readonly healthCentersService: HealthCentersService,
+    private readonly eventsGateway: EventsGateway,
   ) {}
 
   async getEsusSchedule(date: string, cnes: string) {
@@ -82,17 +84,30 @@ export class ReceptionService {
 
       const queueItems = await this.db.select().from(schema.attendanceQueue).where(eq(schema.attendanceQueue.date, date));
 
-      // Calculate attendance order per specialty
-      const queueBySpec: Record<string, typeof queueItems> = {};
-      for (const q of queueItems) {
-        if (!queueBySpec[q.specialtyName]) queueBySpec[q.specialtyName] = [];
-        queueBySpec[q.specialtyName].push(q);
+      // Mapear o horário marcado (hrMarcacao) de cada agendamento do e-SUS
+      const timeByEsusId = new Map<string, string>();
+      for (const record of records) {
+        if (record.coSolicitacao) {
+          timeByEsusId.set(record.coSolicitacao, record.hrMarcacao || 'Sem horário');
+        }
       }
 
+      // Agrupar itens da fila separadamente por Especialidade E Horário (ex: "CONSULTA EM UROLOGIA___11:00", "CONSULTA EM UROLOGIA___15:00")
+      const queueBySpecAndTime: Record<string, typeof queueItems> = {};
+      for (const q of queueItems) {
+        const time = (q.esusSolicitacaoId && timeByEsusId.get(q.esusSolicitacaoId)) || 'Sem horário';
+        const groupKey = `${q.specialtyName}___${time}`;
+        if (!queueBySpecAndTime[groupKey]) {
+          queueBySpecAndTime[groupKey] = [];
+        }
+        queueBySpecAndTime[groupKey].push(q);
+      }
+
+      // Para cada grupo (especialidade + horário), calcular a ordem de 1 até N separadamente
       const orderMap = new Map<string, number>();
-      for (const specItems of Object.values(queueBySpec)) {
-        const aguardando = specItems.filter(i => i.status === 'AGUARDANDO');
-        const others = specItems.filter(i => i.status !== 'AGUARDANDO');
+      for (const groupItems of Object.values(queueBySpecAndTime)) {
+        const aguardando = groupItems.filter(i => i.status === 'AGUARDANDO');
+        const others = groupItems.filter(i => i.status !== 'AGUARDANDO');
 
         const prioritarios = aguardando
           .filter(i => i.priority === 'PRIORITARIO')
@@ -174,6 +189,16 @@ export class ReceptionService {
           .set({ priority: priorityVal, updatedAt: new Date().toISOString() })
           .where(eq(schema.attendanceQueue.id, existing[0].id))
           .returning();
+
+        this.eventsGateway.server?.emit('queue_updated', {
+          type: 'PRIORITY_UPDATED',
+          patientId,
+          specialtyName,
+          date,
+          queueId: existing[0].id,
+          priority: priorityVal,
+        });
+
         return updated;
       }
       return existing[0];
@@ -192,6 +217,17 @@ export class ReceptionService {
       priority: priorityVal,
       updatedAt: new Date().toISOString()
     }).returning();
+
+    // Emite evento em tempo real via WebSocket para todos os clientes conectados
+    this.eventsGateway.server?.emit('queue_updated', {
+      type: 'PATIENT_ENQUEUED',
+      patientId,
+      specialtyName,
+      date,
+      esusSolicitacaoId,
+      priority: priorityVal,
+      queueId: newItem.id,
+    });
 
     return newItem;
   }
@@ -386,6 +422,11 @@ export class ReceptionService {
       },
     });
 
+    this.eventsGateway.server?.emit('queue_updated', {
+      type: 'SETTINGS_UPDATED',
+      rule: validRule,
+    });
+
     return { rule: validRule };
   }
 
@@ -395,6 +436,28 @@ export class ReceptionService {
       .set({ priority: priorityVal, updatedAt: new Date().toISOString() })
       .where(eq(schema.attendanceQueue.id, queueId))
       .returning();
+
+    this.eventsGateway.server?.emit('queue_updated', {
+      type: 'PRIORITY_UPDATED',
+      queueId,
+      priority: priorityVal,
+    });
+
+    return updated;
+  }
+
+  async updateQueueStatus(queueId: string, status: 'AGUARDANDO' | 'ATENDIDO' | 'CANCELADO') {
+    const [updated] = await this.db.update(schema.attendanceQueue)
+      .set({ status, updatedAt: new Date().toISOString() })
+      .where(eq(schema.attendanceQueue.id, queueId))
+      .returning();
+
+    this.eventsGateway.server?.emit('queue_updated', {
+      type: 'STATUS_UPDATED',
+      queueId,
+      status,
+    });
+
     return updated;
   }
 }

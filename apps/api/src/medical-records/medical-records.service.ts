@@ -4,6 +4,7 @@ import * as schema from '../database';
 import { eq, desc, inArray, and } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { StorageService } from '../storage/storage.service';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class MedicalRecordsService {
@@ -11,6 +12,7 @@ export class MedicalRecordsService {
     @Inject('DATABASE_CONNECTION')
     private readonly db: NodePgDatabase<typeof schema>,
     private readonly storageService: StorageService,
+    private readonly eventsGateway: EventsGateway,
   ) {}
 
   async countAll() {
@@ -193,6 +195,7 @@ export class MedicalRecordsService {
           eq(schema.attendanceQueue.patientId, patientId),
           eq(schema.attendanceQueue.status, 'AGUARDANDO')
         ));
+      this.eventsGateway.server?.emit('queue_updated', { patientId, status: 'ATENDIDO' });
     } catch (queueErr) {
       console.error('Erro ao atualizar status na fila de atendimento:', queueErr);
     }

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Clock, User, Activity, ListOrdered, ArrowLeft, Loader2, Calendar, Star, Stethoscope, CheckCircle2 } from 'lucide-react';
 import { getReceptionSchedule } from '../../services/reception';
@@ -7,6 +7,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useCurrentDoctor } from '../../hooks/useDoctors';
 import { isProcedureAuthorizedForDoctor } from '../../utils/doctorProcedures';
 import { PriorityRuleSelector } from './PriorityRuleSelector';
+import { useSocket } from '../../contexts/SocketContext';
 
 export const WaitingList: React.FC = () => {
   const navigate = useNavigate();
@@ -14,6 +15,9 @@ export const WaitingList: React.FC = () => {
   const specialtyParam = searchParams.get('specialty');
   const timeParam = searchParams.get('time');
   const [date, setDate] = useState(() => searchParams.get('date') || new Date().toISOString().split('T')[0]);
+
+  const queryClient = useQueryClient();
+  const { socket } = useSocket();
 
   const { data: currentDoctor, isLoading: isLoadingDoctor } = useCurrentDoctor();
   const isDoctor = Boolean(currentDoctor?.id);
@@ -49,7 +53,23 @@ export const WaitingList: React.FC = () => {
     queryKey: ['reception-schedule', date, cnes],
     queryFn: () => getReceptionSchedule(date, cnes, token!),
     enabled: !!token,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
   });
+
+  // Atualização em tempo real (ao vivo) via WebSocket
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleQueueUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: ['reception-schedule'] });
+    };
+
+    socket.on('queue_updated', handleQueueUpdated);
+    return () => {
+      socket.off('queue_updated', handleQueueUpdated);
+    };
+  }, [socket, queryClient]);
 
   const isLoading = isLoadingSchedule || isLoadingDoctor;
 
@@ -66,18 +86,21 @@ export const WaitingList: React.FC = () => {
         .map((p: any) => ({ ...p, specialty }))
     )
     .sort((a, b) => {
-      // Sort by status (AGUARDANDO first, then ATENDIDO)
+      // 1. Horário marcado primeiro (ex: 11hs antes de 15hs)
+      const timeA = a.hrMarcacao || '23:59';
+      const timeB = b.hrMarcacao || '23:59';
+      if (timeA !== timeB) return timeA.localeCompare(timeB);
+
+      // 2. Status: AGUARDANDO primeiro, depois ATENDIDO
       if (a.queueStatus === 'AGUARDANDO' && b.queueStatus !== 'AGUARDANDO') return -1;
       if (a.queueStatus !== 'AGUARDANDO' && b.queueStatus === 'AGUARDANDO') return 1;
 
-      // Sort by attendance order ascending
+      // 3. Ordem de atendimento ascendente dentro de seu respectivo horário
       const orderA = a.attendanceOrder ?? a.queueOrder ?? 9999;
       const orderB = b.attendanceOrder ?? b.queueOrder ?? 9999;
       if (orderA !== orderB) return orderA - orderB;
 
-      const timeA = a.hrMarcacao || '23:59';
-      const timeB = b.hrMarcacao || '23:59';
-      return timeA.localeCompare(timeB);
+      return (a.pacienteNome || '').localeCompare(b.pacienteNome || '');
     });
 
   return (

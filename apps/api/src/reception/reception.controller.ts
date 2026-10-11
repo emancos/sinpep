@@ -49,5 +49,13 @@ export class ReceptionController {
   ) {
     return this.receptionService.updateQueuePriority(queueId, priority);
   }
+
+  @Patch('queue-status')
+  async updateQueueStatus(
+    @Body('queueId') queueId: string,
+    @Body('status') status: 'AGUARDANDO' | 'ATENDIDO' | 'CANCELADO'
+  ) {
+    return this.receptionService.updateQueueStatus(queueId, status);
+  }
 }
 
