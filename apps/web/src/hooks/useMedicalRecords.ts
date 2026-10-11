@@ -75,6 +75,63 @@ export const useCreateMedicalRecord = () => {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['medical-records', variables.patientId] });
+      queryClient.invalidateQueries({ queryKey: ['medical-records', 'recent'] });
     },
   });
 };
+
+export interface RecentMedicalRecordItem {
+  id: string;
+  patientId: string;
+  doctorId: string;
+  recordDate: string;
+  observation?: string;
+  cid10?: string;
+  createdAt: string;
+  patient: {
+    id: string;
+    name: string;
+    cpf: string;
+    healthCenter?: {
+      id: string;
+      name: string;
+    };
+  };
+  doctor: {
+    id: string;
+    name: string;
+    avatar?: string;
+    doctors?: {
+      crm: string;
+      crmState: string;
+      doctorSpecialties?: {
+        specialty: {
+          name: string;
+        };
+      }[];
+    }[];
+  };
+}
+
+export interface RecentMedicalRecordsResponse {
+  isDoctor: boolean;
+  specialties: string[];
+  total: number;
+  data: RecentMedicalRecordItem[];
+}
+
+export const useRecentMedicalRecords = () => {
+  const token = useAuthStore((state) => state.token);
+
+  return useQuery<RecentMedicalRecordsResponse>({
+    queryKey: ['medical-records', 'recent'],
+    queryFn: async () => {
+      const response = await axios.get(`${apiUrl}/medical-records/recent`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data;
+    },
+    enabled: !!token,
+  });
+};
+

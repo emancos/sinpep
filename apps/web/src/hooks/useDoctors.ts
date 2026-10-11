@@ -66,6 +66,21 @@ export function useDoctor(id?: string) {
   });
 }
 
+export function useCurrentDoctor() {
+  const token = useAuthStore((state) => state.token);
+  return useQuery({
+    queryKey: ['doctors', 'me'],
+    queryFn: async () => {
+      const { data } = await axios.get<Doctor | null>(`${apiUrl}/doctors/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return data;
+    },
+    enabled: !!token,
+  });
+}
+
+
 export function useCreateDoctor() {
   const queryClient = useQueryClient();
   const token = useAuthStore((state) => state.token);
