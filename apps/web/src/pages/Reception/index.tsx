@@ -32,9 +32,40 @@ export const Reception: React.FC = () => {
   const cnes = '2606712'; // Fallback
   
   const queryClient = useQueryClient();
-  const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
-  const [activeTimeSlot, setActiveTimeSlot] = useState<string | null>(null);
+  const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(() => searchParams.get('specialty') || null);
+  const [activeTimeSlot, setActiveTimeSlot] = useState<string | null>(() => searchParams.get('time') || null);
   const [createModalData, setCreateModalData] = useState<any>(null);
+
+  React.useEffect(() => {
+    const urlSpecialty = searchParams.get('specialty');
+    if (urlSpecialty !== selectedSpecialty) {
+      setSelectedSpecialty(urlSpecialty || null);
+    }
+  }, [searchParams]);
+
+  const handleSelectSpecialty = (specialty: string) => {
+    setSelectedSpecialty(specialty);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('specialty', specialty);
+    newParams.delete('time');
+    setSearchParams(newParams);
+  };
+
+  const handleBackToSpecialties = () => {
+    setSelectedSpecialty(null);
+    setActiveTimeSlot(null);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('specialty');
+    newParams.delete('time');
+    setSearchParams(newParams);
+  };
+
+  const handleSelectTimeSlot = (time: string) => {
+    setActiveTimeSlot(time);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('time', time);
+    setSearchParams(newParams, { replace: true });
+  };
 
   const { data: schedule, isLoading } = useQuery({
     queryKey: ['reception-schedule', date, cnes],
@@ -46,11 +77,16 @@ export const Reception: React.FC = () => {
     if (selectedSpecialty && schedule && schedule[selectedSpecialty]) {
       const patients = schedule[selectedSpecialty];
       const times = Array.from(new Set(patients.map((p:any) => p.hrMarcacao || 'Sem horário'))).sort() as string[];
-      if (times.length > 0 && (!activeTimeSlot || !times.includes(activeTimeSlot))) {
-        setActiveTimeSlot(times[0]);
+      if (times.length > 0) {
+        const urlTime = searchParams.get('time');
+        if (urlTime && times.includes(urlTime)) {
+          setActiveTimeSlot(urlTime);
+        } else if (!activeTimeSlot || !times.includes(activeTimeSlot)) {
+          setActiveTimeSlot(times[0]);
+        }
       }
     }
-  }, [selectedSpecialty, schedule]);
+  }, [selectedSpecialty, schedule, searchParams]);
 
   // We no longer auto-select a specialty to allow the user to see the grid
 
@@ -156,7 +192,7 @@ export const Reception: React.FC = () => {
             {Object.entries(schedule).map(([specialty, patients]: [string, any]) => (
               <button 
                 key={specialty}
-                onClick={() => setSelectedSpecialty(specialty)}
+                onClick={() => handleSelectSpecialty(specialty)}
                 className="flex flex-col p-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md hover:border-blue-300 transition-all text-left group"
               >
                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
@@ -173,7 +209,7 @@ export const Reception: React.FC = () => {
           <div className="space-y-6">
             <div className="flex items-center gap-4">
               <button 
-                onClick={() => setSelectedSpecialty(null)}
+                onClick={handleBackToSpecialties}
                 className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-500 dark:text-slate-400"
               >
                 <ChevronLeft className="w-6 h-6" />
@@ -181,11 +217,17 @@ export const Reception: React.FC = () => {
               <div className="flex-1">
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedSpecialty}</h2>
                 <p className="text-slate-500 dark:text-slate-400 font-medium mt-1">
-                  {schedule[selectedSpecialty]?.length} pacientes agendados
+                  {schedule[selectedSpecialty]?.length || 0} pacientes agendados
                 </p>
               </div>
               <button
-                onClick={() => navigate(`/reception/queue?specialty=${encodeURIComponent(selectedSpecialty)}&date=${date}`)}
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  if (selectedSpecialty) params.set('specialty', selectedSpecialty);
+                  if (date) params.set('date', date);
+                  if (activeTimeSlot) params.set('time', activeTimeSlot);
+                  navigate(`/reception/queue?${params.toString()}`);
+                }}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 font-bold rounded-lg transition-colors shadow-sm"
               >
                 <ListOrdered className="w-5 h-5" />
@@ -212,7 +254,7 @@ export const Reception: React.FC = () => {
                       return (
                         <button
                           key={time}
-                          onClick={() => setActiveTimeSlot(time)}
+                          onClick={() => handleSelectTimeSlot(time)}
                           className={`flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-bold transition-all duration-300 ${isActive ? 'bg-white dark:bg-slate-900 text-[#003B77] dark:text-blue-400 shadow-md transform scale-[1.02]' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'}`}
                         >
                           <Clock className={`w-4 h-4 ${isActive ? 'animate-pulse' : ''}`} />

@@ -9,7 +9,16 @@ export const WaitingList: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const specialtyParam = searchParams.get('specialty');
+  const timeParam = searchParams.get('time');
   const [date, setDate] = useState(() => searchParams.get('date') || new Date().toISOString().split('T')[0]);
+
+  const handleBack = () => {
+    const params = new URLSearchParams();
+    if (date) params.set('date', date);
+    if (specialtyParam) params.set('specialty', specialtyParam);
+    if (timeParam) params.set('time', timeParam);
+    navigate(`/reception?${params.toString()}`);
+  };
 
   React.useEffect(() => {
     const currentUrlDate = searchParams.get('date');
@@ -57,7 +66,7 @@ export const WaitingList: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate(`/reception?date=${date}`)}
+            onClick={handleBack}
             className="flex items-center justify-center w-10 h-10 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-all shadow-sm"
           >
             <ArrowLeft className="w-5 h-5" />
