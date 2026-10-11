@@ -35,6 +35,17 @@ export interface Doctor {
       name: string;
     }
   }[];
+  doctorProcedureGroups?: {
+    procedureGroupId: string;
+    procedureGroup: {
+      id: string;
+      name: string;
+      procedures?: {
+        id: string;
+        name: string;
+      }[];
+    };
+  }[];
 }
 
 export function useDoctors(params?: any) {

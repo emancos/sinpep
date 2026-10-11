@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Clock, User, Activity, ListOrdered, ArrowLeft, Loader2, Calendar, Star } from 'lucide-react';
+import { Clock, User, Activity, ListOrdered, ArrowLeft, Loader2, Calendar, Star, Stethoscope } from 'lucide-react';
 import { getReceptionSchedule } from '../../services/reception';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useCurrentDoctor } from '../../hooks/useDoctors';
+import { isProcedureAuthorizedForDoctor } from '../../utils/doctorProcedures';
 import { PriorityRuleSelector } from './PriorityRuleSelector';
 
 export const WaitingList: React.FC = () => {
@@ -12,6 +14,9 @@ export const WaitingList: React.FC = () => {
   const specialtyParam = searchParams.get('specialty');
   const timeParam = searchParams.get('time');
   const [date, setDate] = useState(() => searchParams.get('date') || new Date().toISOString().split('T')[0]);
+
+  const { data: currentDoctor, isLoading: isLoadingDoctor } = useCurrentDoctor();
+  const isDoctor = Boolean(currentDoctor?.id);
 
   const handleBack = () => {
     const params = new URLSearchParams();
@@ -40,14 +45,21 @@ export const WaitingList: React.FC = () => {
   const token = useAuthStore(state => state.token);
   const cnes = '2606712'; // Fallback
 
-  const { data: schedule, isLoading } = useQuery({
+  const { data: schedule, isLoading: isLoadingSchedule } = useQuery({
     queryKey: ['reception-schedule', date, cnes],
     queryFn: () => getReceptionSchedule(date, cnes, token!),
     enabled: !!token,
   });
 
+  const isLoading = isLoadingSchedule || isLoadingDoctor;
+
   const waitingPatients = Object.entries(schedule || {})
-    .filter(([specialty]) => !specialtyParam || specialty === specialtyParam)
+    .filter(([specialty]) => {
+      if (specialtyParam && specialty !== specialtyParam) return false;
+      // Se for médico, filtra para exibir exclusivamente pacientes de seus procedimentos autorizados
+      if (isDoctor && !isProcedureAuthorizedForDoctor(specialty, currentDoctor)) return false;
+      return true;
+    })
     .flatMap(([specialty, patients]) => 
       (patients as any[])
         .filter((p: any) => p.isQueued)
@@ -74,7 +86,7 @@ export const WaitingList: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={handleBack}
-            className="flex items-center justify-center w-10 h-10 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-all shadow-sm"
+            className="flex items-center justify-center w-10 h-10 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:white transition-all shadow-sm"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -90,7 +102,7 @@ export const WaitingList: React.FC = () => {
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
-          <PriorityRuleSelector />
+          {!isDoctor && <PriorityRuleSelector />}
           <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
             <Calendar className="w-5 h-5 text-slate-500 ml-1" />
             <input 
@@ -112,7 +124,9 @@ export const WaitingList: React.FC = () => {
           <Clock className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-1">Nenhum paciente na fila</h3>
           <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-            Todos os pacientes de hoje já foram atendidos ou nenhum foi enfileirado ainda.
+            {isDoctor 
+              ? 'Nenhum paciente aguardando atendimento para seus procedimentos autorizados no momento.'
+              : 'Todos os pacientes de hoje já foram atendidos ou nenhum foi enfileirado ainda.'}
           </p>
         </div>
       ) : (
@@ -168,9 +182,23 @@ export const WaitingList: React.FC = () => {
                   <span>Horário Marcado: <strong className="text-slate-700 dark:text-slate-300">{p.hrMarcacao || 'Sem horário'}</strong></span>
                 </div>
 
-                <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 mb-2 truncate" title={p.pacienteNome}>
-                  {p.pacienteNome}
-                </h3>
+                {/* Nome do paciente e atalho para iniciar atendimento exclusivo para médico */}
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 truncate flex-1 min-w-[140px]" title={p.pacienteNome}>
+                    {p.pacienteNome}
+                  </h3>
+
+                  {isDoctor && p.patientId && (
+                    <button
+                      onClick={() => navigate(`/medical-records/${p.patientId}/new`)}
+                      className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition-all"
+                      title="Iniciar Atendimento Clínico"
+                    >
+                      <Stethoscope className="w-3.5 h-3.5" />
+                      <span>Iniciar Atendimento</span>
+                    </button>
+                  )}
+                </div>
                 
                 <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-4">
                   <User className="w-4 h-4" />
@@ -206,4 +234,3 @@ export const WaitingList: React.FC = () => {
     </div>
   );
 };
-
