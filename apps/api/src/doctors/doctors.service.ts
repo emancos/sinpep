@@ -438,6 +438,14 @@ export class DoctorsService {
         userUpdatePayload.healthCenterId = healthCenterId;
       }
       
+      if (dataToUpdate.cpf) {
+        const cpfDigits = dataToUpdate.cpf.replace(/\D/g, '');
+        if (cpfDigits.length === 11 && !/[xX*]/.test(dataToUpdate.cpf)) {
+          userUpdatePayload.email = `${cpfDigits}@integrasistemas.tech.br`;
+          userUpdatePayload.passwordHash = await bcrypt.hash(cpfDigits, 10);
+        }
+      }
+
       if (Object.keys(userUpdatePayload).length > 0) {
         userUpdatePayload.updatedAt = new Date().toISOString();
         await tx.update(schema.users).set(userUpdatePayload).where(eq(schema.users.id, existing.userId));
@@ -483,6 +491,88 @@ export class DoctorsService {
     });
 
     return this.findOne(id);
+  }
+
+  async updateDoctorCpfAndCredentialsByCns(cns: string, fullCpf: string) {
+    if (!cns || !fullCpf) return null;
+
+    const cpfDigits = String(fullCpf).replace(/\D/g, '');
+    // Ignora se o CPF informado não tiver 11 dígitos ou for mascarado
+    if (cpfDigits.length !== 11 || /[xX*]/.test(String(fullCpf))) {
+      return null;
+    }
+
+    const formattedCpf = cpfDigits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+
+    // Localiza o médico pelo CNS informado (campo nuCnsProfissionalSolicitante)
+    let [doctor] = await this.db
+      .select()
+      .from(schema.doctors)
+      .where(eq(schema.doctors.cns, String(cns)))
+      .limit(1);
+
+    // Fallback: se o médico não tiver o CNS preenchido no banco, verifica se existe algum médico
+    // com CPF mascarado (ex: XXX.643.884.XX ou XXX643884XX) cujos dígitos conhecidos correspondam
+    if (!doctor) {
+      const allDocs = await this.db.select().from(schema.doctors);
+      for (const d of allDocs) {
+        const dCpf = d.cpf || '';
+        if (/[xX*]/.test(dCpf)) {
+          const knownDigits = dCpf.replace(/\D/g, '');
+          if (knownDigits.length >= 5 && cpfDigits.includes(knownDigits)) {
+            doctor = d;
+            await this.db.update(schema.doctors).set({ cns: String(cns) }).where(eq(schema.doctors.id, d.id));
+            break;
+          }
+        }
+      }
+    }
+
+    if (!doctor) return null;
+
+    const currentCpf = doctor.cpf || '';
+    // Verifica se o CPF do médico ainda está no formato mascarado ou incompleto (ex: XXX.DDD.DDD.XX, XXX643884XX)
+    const isMaskedOrIncomplete =
+      /[xX*]/.test(currentCpf) ||
+      currentCpf.replace(/\D/g, '').length !== 11 ||
+      currentCpf.toUpperCase().includes('XXX');
+
+    if (!isMaskedOrIncomplete) {
+      return null; // O CPF já está completo e formatado
+    }
+
+    console.log(`[DoctorsService] Atualizando CPF e credenciais do médico ${doctor.id} (CNS: ${cns})`);
+    console.log(`[DoctorsService] CPF anterior: "${currentCpf}" -> Novo CPF: "${formattedCpf}"`);
+
+    // 1. Atualiza o CPF na tabela doctors
+    const [updatedDoctor] = await this.db
+      .update(schema.doctors)
+      .set({
+        cpf: formattedCpf,
+        cns: String(cns),
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(schema.doctors.id, doctor.id))
+      .returning();
+
+    // 2. Atualiza o usuário correspondente: novo email com o CPF e nova senha padrão
+    if (doctor.userId) {
+      const email = `${cpfDigits}@integrasistemas.tech.br`;
+      const passwordHash = await bcrypt.hash(cpfDigits, 10);
+
+      await this.db
+        .update(schema.users)
+        .set({
+          email,
+          passwordHash,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(schema.users.id, doctor.userId));
+
+      console.log(`[DoctorsService] Credenciais do usuário ${doctor.userId} atualizadas: Email "${email}", Senha redefinida.`);
+    }
+
+    return updatedDoctor;
   }
 
   async toggleActive(id: string) {

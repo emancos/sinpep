@@ -23,6 +23,12 @@ export class DoctorsController {
     return this.doctorsService.findByUserId(req.user.id);
   }
 
+  @Permissions('doctors:write')
+  @Post('sync-cpf-cns')
+  syncCpfByCns(@Body('cns') cns: string, @Body('fullCpf') fullCpf: string) {
+    return this.doctorsService.updateDoctorCpfAndCredentialsByCns(cns, fullCpf);
+  }
+
   @Permissions('doctors:read')
   @Get()
   findAll(@Query() query: PaginationQueryDto) {

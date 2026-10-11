@@ -66,6 +66,31 @@ export class ReceptionService {
       const hits = response.data?.hits?.hits || [];
       const records = hits.map((hit: any) => hit._source);
 
+      // Sincroniza / atualiza CPF e senha dos médicos que ainda estejam no formato XXX.DDD.DDD.XX,
+      // utilizando como chave de verificação o CNS (campo nuCnsProfissionalSolicitante do JSON do e-SUS)
+      for (const record of records) {
+        if (record.nuCnsProfissionalSolicitante && record.nuCpfProfissionalSolicitante) {
+          try {
+            await this.doctorsService.updateDoctorCpfAndCredentialsByCns(
+              record.nuCnsProfissionalSolicitante,
+              record.nuCpfProfissionalSolicitante
+            );
+          } catch (syncErr) {
+            console.error('[Auto-Doctor-Sync] Erro ao sincronizar CPF do médico solicitante:', syncErr);
+          }
+        }
+        if (record.nuCnsProfissionalExecutante && record.nuCpfProfissionalExecutante) {
+          try {
+            await this.doctorsService.updateDoctorCpfAndCredentialsByCns(
+              record.nuCnsProfissionalExecutante,
+              record.nuCpfProfissionalExecutante
+            );
+          } catch (syncErr) {
+            console.error('[Auto-Doctor-Sync] Erro ao sincronizar CPF do médico executante:', syncErr);
+          }
+        }
+      }
+
       // Extract CPFs
       const cpfs = Array.from(new Set(records.map((r: any) => r.pacienteNuCpf).filter(Boolean))) as string[];
       let localPatients: Record<string, string> = {};
@@ -289,15 +314,44 @@ export class ReceptionService {
   }
 
   async autoRegisterDoctor(esusData: any) {
-    if (!esusData || !esusData.nuCpfProfissionalExecutante) return;
-      console.log("[Auto-Doctor] Iniciando para CPF:", esusData.nuCpfProfissionalExecutante);
-      const docCpf = esusData.nuCpfProfissionalExecutante;
-      const docCnes = esusData.coCnesEstabelecimentoExecutante;
-      
-      const existingDocs = await this.db.select().from(schema.doctors).where(eq(schema.doctors.cpf, docCpf));
-      console.log("[Auto-Doctor] Médicos existentes com esse CPF:", existingDocs.length);
-      
-      if (existingDocs.length === 0) {
+    if (!esusData) return;
+
+    // Sincroniza CPF e credenciais caso o médico já esteja cadastrado com CPF mascarado (XXX.DDD.DDD.XX)
+    if (esusData.nuCnsProfissionalSolicitante && esusData.nuCpfProfissionalSolicitante) {
+      try {
+        await this.doctorsService.updateDoctorCpfAndCredentialsByCns(
+          esusData.nuCnsProfissionalSolicitante,
+          esusData.nuCpfProfissionalSolicitante
+        );
+      } catch (e) {}
+    }
+    if (esusData.nuCnsProfissionalExecutante && esusData.nuCpfProfissionalExecutante) {
+      try {
+        await this.doctorsService.updateDoctorCpfAndCredentialsByCns(
+          esusData.nuCnsProfissionalExecutante,
+          esusData.nuCpfProfissionalExecutante
+        );
+      } catch (e) {}
+    }
+
+    if (!esusData.nuCpfProfissionalExecutante) return;
+    console.log("[Auto-Doctor] Iniciando para CPF:", esusData.nuCpfProfissionalExecutante);
+    const docCpf = esusData.nuCpfProfissionalExecutante;
+    const docCnes = esusData.coCnesEstabelecimentoExecutante;
+    const formattedDocCpf = docCpf.includes('.') ? docCpf : docCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    
+    const existingConditions = [
+      eq(schema.doctors.cpf, docCpf),
+      eq(schema.doctors.cpf, formattedDocCpf),
+    ];
+    if (esusData.nuCnsProfissionalExecutante) {
+      existingConditions.push(eq(schema.doctors.cns, esusData.nuCnsProfissionalExecutante));
+    }
+
+    const existingDocs = await this.db.select().from(schema.doctors).where(or(...existingConditions));
+    console.log("[Auto-Doctor] Médicos existentes com esse CPF ou CNS:", existingDocs.length);
+    
+    if (existingDocs.length === 0) {
         try {
           console.log("[Auto-Doctor] Buscando no CNES para CNES:", docCnes, "Nome:", esusData.noProfissionalExecutante);
           const cnesData = await this.healthCentersService.searchProfessionals({ 
