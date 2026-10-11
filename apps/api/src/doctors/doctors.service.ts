@@ -321,6 +321,43 @@ export class DoctorsService {
     };
   }
 
+  async findByUserId(userId: string) {
+    const doctor = await this.db.query.doctors.findFirst({
+      where: eq(schema.doctors.userId, userId),
+      with: {
+        user: {
+          with: {
+            healthCenter: true,
+          },
+        },
+        doctorSpecialties: {
+          with: {
+            specialty: true,
+          },
+        },
+        doctorProcedures: {
+          with: {
+            procedure: true,
+          },
+        },
+        doctorProcedureGroups: {
+          with: {
+            procedureGroup: true,
+          },
+        },
+      },
+    });
+
+    if (!doctor) {
+      return null;
+    }
+
+    return {
+      ...doctor,
+      name: doctor.user?.name || 'Desconhecido',
+    };
+  }
+
   async update(id: string, updateDoctorDto: UpdateDoctorDto) {
     const existing = await this.findOne(id);
     

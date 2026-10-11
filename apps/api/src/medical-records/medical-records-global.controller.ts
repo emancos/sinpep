@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { MedicalRecordsService } from './medical-records.service';
 import { AuthGuard } from '@nestjs/passport';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -13,5 +13,11 @@ export class MedicalRecordsGlobalController {
   @Permissions('medical-records:read')
   countAll() {
     return this.medicalRecordsService.countAll();
+  }
+
+  @Get('recent')
+  @Permissions('medical-records:read')
+  findRecent(@Request() req: any) {
+    return this.medicalRecordsService.findRecent(req.user.id);
   }
 }

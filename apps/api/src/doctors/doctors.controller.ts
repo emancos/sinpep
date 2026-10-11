@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Request } from '@nestjs/common';
 import { DoctorsService } from './doctors.service';
 import { CreateDoctorDto } from './dto/create-doctor.dto';
 import { UpdateDoctorDto } from './dto/update-doctor.dto';
@@ -16,6 +16,11 @@ export class DoctorsController {
   @Post()
   create(@Body() createDoctorDto: CreateDoctorDto) {
     return this.doctorsService.create(createDoctorDto);
+  }
+
+  @Get('me')
+  findCurrentDoctor(@Request() req: any) {
+    return this.doctorsService.findByUserId(req.user.id);
   }
 
   @Permissions('doctors:read')

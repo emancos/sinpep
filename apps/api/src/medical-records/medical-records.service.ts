@@ -1,7 +1,7 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import * as schema from '../database/schema';
-import { eq, desc } from 'drizzle-orm';
+import * as schema from '../database';
+import { eq, desc, inArray } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { StorageService } from '../storage/storage.service';
 
@@ -16,6 +16,88 @@ export class MedicalRecordsService {
   async countAll() {
     const allRecords = await this.db.select({ id: schema.medicalRecords.id }).from(schema.medicalRecords);
     return { total: allRecords.length };
+  }
+
+  async findRecent(userId: string) {
+    // 1. Verificar se o usuário autenticado é um médico
+    const currentDoctor: any = await this.db.query.doctors.findFirst({
+      where: eq(schema.doctors.userId, userId),
+      with: {
+        doctorSpecialties: {
+          with: {
+            specialty: true,
+          },
+        },
+      },
+    });
+
+    let whereClause = undefined;
+    let specialtyNames: string[] = [];
+
+    if (currentDoctor && currentDoctor.doctorSpecialties && currentDoctor.doctorSpecialties.length > 0) {
+      const specialtyIds = currentDoctor.doctorSpecialties.map((ds: any) => ds.specialtyId);
+      specialtyNames = currentDoctor.doctorSpecialties.map((ds: any) => ds.specialty.name);
+
+      // Buscar todos os médicos que compartilham as mesmas especialidades
+      const docsWithSameSpecialty: any[] = await this.db.query.doctorSpecialties.findMany({
+        where: inArray(schema.doctorSpecialties.specialtyId, specialtyIds),
+        with: {
+          doctor: true,
+        },
+      });
+
+      const userIdsWithSameSpecialty = Array.from(
+        new Set(docsWithSameSpecialty.map((d: any) => d.doctor?.userId).filter(Boolean))
+      );
+
+      if (userIdsWithSameSpecialty.length > 0) {
+        whereClause = inArray(schema.medicalRecords.doctorId, userIdsWithSameSpecialty as string[]);
+      }
+    }
+
+    const records = await this.db.query.medicalRecords.findMany({
+      where: whereClause,
+      with: {
+        patient: {
+          with: {
+            healthCenter: true,
+          },
+        },
+        doctor: {
+          columns: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+          with: {
+            doctors: {
+              columns: { crm: true, crmState: true },
+              with: {
+                doctorSpecialties: {
+                  with: {
+                    specialty: { columns: { name: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [desc(schema.medicalRecords.createdAt)],
+      limit: 10,
+    });
+
+    const allMatching = await this.db.query.medicalRecords.findMany({
+      where: whereClause,
+      columns: { id: true },
+    });
+
+    return {
+      isDoctor: !!currentDoctor,
+      specialties: specialtyNames,
+      total: allMatching.length,
+      data: records,
+    };
   }
 
   async create(patientId: string, doctorId: string, data: any, files: Express.Multer.File[]) {
