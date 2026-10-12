@@ -399,16 +399,39 @@ export class ReceptionService {
           }
 
           let procedureId = null;
-          if (esusData.coProcedimentoSigtap || esusData.noProcedimentoInterno) {
-            console.log("[Auto-Doctor] Buscando procedimento SIGTAP:", esusData.coProcedimentoSigtap);
-            const procConditions = [];
-            if (esusData.coProcedimentoSigtap) procConditions.push(eq(schema.procedures.code, esusData.coProcedimentoSigtap));
-            if (esusData.noProcedimentoInterno) procConditions.push(ilike(schema.procedures.name, `%${esusData.noProcedimentoInterno}%`));
-            
-            if (procConditions.length > 0) {
-              const procs = await this.db.select().from(schema.procedures).where(or(...procConditions)).limit(1);
-              console.log("[Auto-Doctor] Procedimentos encontrados no DB:", procs.length);
-              if (procs.length > 0) procedureId = procs[0].id;
+          if (esusData.noProcedimentoInterno) {
+            console.log("[Auto-Doctor] Buscando procedimento específico:", esusData.noProcedimentoInterno);
+            // 1. Busca por correspondência exata do nome
+            let procs = await this.db.select()
+              .from(schema.procedures)
+              .where(ilike(schema.procedures.name, esusData.noProcedimentoInterno.trim()))
+              .limit(1);
+
+            // 2. Se não achou exato, busca contendo o nome do procedimento interno
+            if (procs.length === 0) {
+              procs = await this.db.select()
+                .from(schema.procedures)
+                .where(ilike(schema.procedures.name, `%${esusData.noProcedimentoInterno.trim()}%`))
+                .limit(1);
+            }
+
+            // 3. Se ainda não achou, busca pela palavra-chave da especialidade (ex: "UROLOGIA", "NEUROLOGIA")
+            if (procs.length === 0) {
+              const procTerm = esusData.noProcedimentoInterno
+                .replace(/^CONSULTA\s+(EM|DE)\s+/i, '')
+                .trim()
+                .split(' ')[0];
+              if (procTerm.length > 3) {
+                procs = await this.db.select()
+                  .from(schema.procedures)
+                  .where(ilike(schema.procedures.name, `%${procTerm}%`))
+                  .limit(1);
+              }
+            }
+
+            if (procs.length > 0) {
+              procedureId = procs[0].id;
+              console.log("[Auto-Doctor] Procedimento vinculado com sucesso:", procs[0].name);
             }
           }
 

@@ -18,6 +18,7 @@ import { SisregModule } from './sisreg/sisreg.module';
 import { EventsModule } from './events/events.module';
 import { ReportsModule } from './reports/reports.module';
 import { ReceptionModule } from './reception/reception.module';
+import { RoomsModule } from './rooms/rooms.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ReceptionModule } from './reception/reception.module';
     StorageModule,
     ReportsModule,
     ReceptionModule,
+    RoomsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getReceptionSchedule, enqueuePatient } from '../../services/reception';
+import { getRoomAllocations, deallocateRoom, type RoomAllocation } from '../../services/rooms';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCurrentDoctor } from '../../hooks/useDoctors';
 import { 
@@ -18,14 +19,20 @@ import {
   ChevronLeft, 
   Clock, 
   Users, 
-  Star,
-  Stethoscope,
-  CheckCircle2
+  Star, 
+  Stethoscope, 
+  CheckCircle2, 
+  DoorOpen, 
+  ArrowLeftRight, 
+  LogOut, 
+  AlertCircle, 
+  Layers 
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreatePatientModal } from './CreatePatientModal';
 import { EnqueuePriorityModal } from './EnqueuePriorityModal';
 import { PriorityRuleSelector } from './PriorityRuleSelector';
+import { SelectRoomModal } from './SelectRoomModal';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSocket } from '../../contexts/SocketContext';
 
@@ -48,6 +55,10 @@ export const Reception: React.FC = () => {
   const [activeTimeSlot, setActiveTimeSlot] = useState<string>(() => searchParams.get('time') || 'ALL');
   const [createModalData, setCreateModalData] = useState<any>(null);
   const [enqueueModalData, setEnqueueModalData] = useState<{ patient: any; specialty: string } | null>(null);
+  
+  // Controle do modal de vinculação/troca de ambulatório
+  const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
+  const [isMandatoryRoomModal, setIsMandatoryRoomModal] = useState(false);
 
   useEffect(() => {
     const currentUrlDate = searchParams.get('date');
@@ -89,7 +100,14 @@ export const Reception: React.FC = () => {
     refetchIntervalInBackground: true,
   });
 
-  // Atualização automática em tempo real (ao vivo) via WebSocket quando a fila mudar
+  // Busca as alocações de salas/ambulatórios na data
+  const { data: allAllocations = [], isLoading: isLoadingAllocations } = useQuery({
+    queryKey: ['all-room-allocations', date],
+    queryFn: () => getRoomAllocations(date, token!),
+    enabled: !!token,
+  });
+
+  // Atualização automática em tempo real (ao vivo) via WebSocket quando a fila ou ambulatórios mudarem
   useEffect(() => {
     if (!socket) return;
 
@@ -97,13 +115,62 @@ export const Reception: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['reception-schedule'] });
     };
 
+    const handleRoomsUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: ['all-room-allocations'] });
+      queryClient.invalidateQueries({ queryKey: ['rooms-with-occupancy'] });
+    };
+
     socket.on('queue_updated', handleQueueUpdated);
+    socket.on('room_allocated', handleRoomsUpdated);
+    socket.on('room_deallocated', handleRoomsUpdated);
+
     return () => {
       socket.off('queue_updated', handleQueueUpdated);
+      socket.off('room_allocated', handleRoomsUpdated);
+      socket.off('room_deallocated', handleRoomsUpdated);
     };
   }, [socket, queryClient]);
 
-  const isLoading = isLoadingSchedule || isLoadingDoctor;
+  // Alocação da sala/ambulatório para a especialidade atualmente selecionada
+  const currentRoomAllocation = useMemo<RoomAllocation | null>(() => {
+    if (!selectedSpecialty || !allAllocations) return null;
+    return (
+      allAllocations.find(
+        (a) => a.specialtyName?.trim().toUpperCase() === selectedSpecialty?.trim().toUpperCase()
+      ) || null
+    );
+  }, [selectedSpecialty, allAllocations]);
+
+  // Mapa de alocações por especialidade para exibição rápida nos cards
+  const roomAllocationsMap = useMemo(() => {
+    const map: Record<string, RoomAllocation> = {};
+    if (allAllocations) {
+      allAllocations.forEach((alloc) => {
+        if (alloc.specialtyName) {
+          map[alloc.specialtyName.trim().toUpperCase()] = alloc;
+        }
+      });
+    }
+    return map;
+  }, [allAllocations]);
+
+  // Desocupar ambulatório
+  const deallocateMutation = useMutation({
+    mutationFn: (specialtyName: string) => deallocateRoom({ specialtyName, date }, token!),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['all-room-allocations', date] });
+      queryClient.invalidateQueries({ queryKey: ['rooms-with-occupancy', date] });
+      toast.success(res.message || 'Ambulatório desocupado com sucesso!');
+      // Conforme regra: se desocupou, é necessário vincular outro para prosseguir
+      setIsMandatoryRoomModal(true);
+      setIsRoomModalOpen(true);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Erro ao desocupar ambulatório.');
+    },
+  });
+
+  const isLoading = isLoadingSchedule || isLoadingDoctor || isLoadingAllocations;
 
   // Filtra as especialidades/procedimentos autorizados para o médico
   const authorizedScheduleEntries = useMemo(() => {
@@ -145,6 +212,20 @@ export const Reception: React.FC = () => {
     }
   }, [hasSingleAuthorizedProcedure, singleAuthorizedProcedureName, selectedSpecialty, searchParams, setSearchParams]);
 
+  // Regra 4: Sempre que uma especialidade não esteja vinculada a um ambulatório, a vinculação é obrigatória para o recepcionista
+  useEffect(() => {
+    if (
+      !isDoctor &&
+      selectedSpecialty &&
+      !isLoadingAllocations &&
+      !currentRoomAllocation &&
+      !isRoomModalOpen
+    ) {
+      setIsMandatoryRoomModal(true);
+      setIsRoomModalOpen(true);
+    }
+  }, [isDoctor, selectedSpecialty, isLoadingAllocations, currentRoomAllocation, isRoomModalOpen]);
+
   const handleSelectSpecialty = (specialty: string) => {
     setSelectedSpecialty(specialty);
     setActiveTimeSlot('ALL');
@@ -152,15 +233,36 @@ export const Reception: React.FC = () => {
     newParams.set('specialty', specialty);
     newParams.delete('time');
     setSearchParams(newParams);
+
+    // Se o recepcionista selecionou uma especialidade e ela ainda não tem ambulatório hoje, abre o modal obrigatório
+    const alloc = roomAllocationsMap[specialty.trim().toUpperCase()];
+    if (!isDoctor && !alloc) {
+      setIsMandatoryRoomModal(true);
+      setIsRoomModalOpen(true);
+    }
   };
 
   const handleBackToSpecialties = () => {
     setSelectedSpecialty(null);
     setActiveTimeSlot('ALL');
+    setIsRoomModalOpen(false);
+    setIsMandatoryRoomModal(false);
     const newParams = new URLSearchParams(searchParams);
     newParams.delete('specialty');
     newParams.delete('time');
     setSearchParams(newParams);
+  };
+
+  const handleCloseRoomModal = () => {
+    // Se o modal for obrigatório e a especialidade ainda não tiver sala vinculada,
+    // ao cancelar, retorna o usuário para a lista de especialidades para evitar estado inconsistente
+    if (isMandatoryRoomModal && !currentRoomAllocation) {
+      toast.info('Para iniciar e visualizar a fila de atendimentos, é obrigatório vincular um ambulatório.');
+      handleBackToSpecialties();
+    } else {
+      setIsRoomModalOpen(false);
+      setIsMandatoryRoomModal(false);
+    }
   };
 
   const handleSelectTimeSlot = (time: string) => {
@@ -430,18 +532,38 @@ export const Reception: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {authorizedScheduleEntries.map(([specialty, patients]: [string, any]) => {
               const queuedCount = (patients as any[]).filter((p: any) => p.isQueued).length;
+              const specAllocation = roomAllocationsMap[specialty.trim().toUpperCase()];
+
               return (
                 <button 
                   key={specialty}
                   onClick={() => handleSelectSpecialty(specialty)}
-                  className="flex flex-col p-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md hover:border-blue-300 transition-all text-left group"
+                  className="flex flex-col justify-between p-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md hover:border-blue-300 transition-all text-left group min-h-[140px]"
                 >
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    {specialty}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-4 text-slate-500 dark:text-slate-400">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      {specialty}
+                    </h3>
+
+                    {/* Badge do Ambulatório / Sala Alocada no Dia */}
+                    <div className="mt-3">
+                      {specAllocation?.room ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                          <DoorOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                          <span>Sala {specAllocation.room.number} • {specAllocation.room.name}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Ambulatório pendente</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-5 pt-3 border-t border-slate-100 dark:border-slate-700/60 text-slate-500 dark:text-slate-400">
                     <Users className="w-4 h-4" />
-                    <span className="font-medium">
+                    <span className="font-medium text-xs">
                       {isDoctor
                         ? `${queuedCount} na fila (${patients.length} agendados)`
                         : `${patients.length} pacientes`}
@@ -485,6 +607,94 @@ export const Reception: React.FC = () => {
                 <ListOrdered className="w-5 h-5" />
                 <span>Ver Lista de Espera</span>
               </button>
+            </div>
+
+            {/* Banner em Destaque do Ambulatório Vinculado */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-50/90 via-white to-slate-50 dark:from-slate-800/90 dark:via-slate-800/60 dark:to-slate-800/40 border border-blue-200/80 dark:border-blue-900/40 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
+                  <DoorOpen className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs uppercase tracking-wider font-extrabold text-blue-600 dark:text-blue-400">
+                      Ambulatório Vinculado
+                    </span>
+                    {currentRoomAllocation?.room?.number && (
+                      <span className="px-2 py-0.5 rounded-md text-xs font-black bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">
+                        Sala {currentRoomAllocation.room.number}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+                    {currentRoomAllocation?.room?.name || 'Nenhum ambulatório vinculado'}
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {currentRoomAllocation?.room?.sector && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Setor: <strong className="text-slate-700 dark:text-slate-300">{currentRoomAllocation.room.sector}</strong></span>
+                      </span>
+                    )}
+                    {currentRoomAllocation?.room?.floor && (
+                      <span className="flex items-center gap-1">
+                        <Layers className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Andar: <strong className="text-slate-700 dark:text-slate-300">{currentRoomAllocation.room.floor}</strong></span>
+                      </span>
+                    )}
+                    {!currentRoomAllocation && (
+                      <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        É obrigatório vincular uma sala para iniciar os atendimentos
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Ações de Ambulatório (Disponíveis apenas para não-médicos) */}
+              {!isDoctor && (
+                <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                  {currentRoomAllocation ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMandatoryRoomModal(false);
+                          setIsRoomModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 text-xs font-bold rounded-xl shadow-sm transition-all"
+                        title="Trocar para outro ambulatório"
+                      >
+                        <ArrowLeftRight className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        <span>Alterar Sala</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deallocateMutation.mutate(selectedSpecialty)}
+                        disabled={deallocateMutation.isPending}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
+                        title="Desocupar e liberar esta sala"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>{deallocateMutation.isPending ? 'Liberando...' : 'Desocupar Sala'}</span>
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMandatoryRoomModal(true);
+                        setIsRoomModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+                    >
+                      <DoorOpen className="w-4 h-4" />
+                      <span>Vincular Ambulatório</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Abas de seleção de horário e opção Fila Completa / Todos */}
@@ -601,6 +811,21 @@ export const Reception: React.FC = () => {
               esusData: enqueueModalData.patient,
               priority,
             });
+          }}
+        />
+      )}
+
+      {selectedSpecialty && (
+        <SelectRoomModal
+          isOpen={isRoomModalOpen}
+          onClose={handleCloseRoomModal}
+          specialtyName={selectedSpecialty}
+          date={date}
+          currentAllocation={currentRoomAllocation}
+          isMandatory={isMandatoryRoomModal}
+          onSuccess={() => {
+            setIsMandatoryRoomModal(false);
+            queryClient.invalidateQueries({ queryKey: ['all-room-allocations', date] });
           }}
         />
       )}

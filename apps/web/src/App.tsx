@@ -33,6 +33,7 @@ import { SocketProvider } from './contexts/SocketContext';
 import { Reports } from './pages/Reports';
 import { Reception } from './pages/Reception';
 import { WaitingList } from './pages/Reception/WaitingList';
+import { RoomsList } from './pages/Rooms';
 import './App.css';
 
 function App() {
@@ -57,6 +58,7 @@ function App() {
                   
                   <Route path="/reception" element={<Reception />} />
                   <Route path="/reception/queue" element={<WaitingList />} />
+                  <Route path="/rooms" element={<RoomsList />} />
 
                   {/* Admin Only Routes */}
                   <Route element={<ProtectedRoute requiredPermission="admin:access" />}>

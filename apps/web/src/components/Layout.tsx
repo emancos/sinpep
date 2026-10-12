@@ -15,18 +15,23 @@ import {
   User,
   Settings,
   CalendarCheck,
-  Stethoscope
+  Stethoscope,
+  Building2
 } from 'lucide-react';
 import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
 import { NotificationBell } from './NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
 import { CachedAvatar } from './CachedAvatar';
+import { useCurrentDoctor } from '../hooks/useDoctors';
 
 export const Layout = () => {
   const { user, permissions, logout } = useAuthStore();
   const { t } = useTranslation();
   const location = useLocation();
+  const { data: currentDoctor } = useCurrentDoctor();
+  const isDoctor = Boolean(currentDoctor?.id);
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
@@ -48,6 +53,9 @@ export const Layout = () => {
   const menuItems: MenuItem[] = [
     { name: t('Dashboard'), path: '/', icon: Home },
     { name: 'Agenda & Recepção', path: '/reception', icon: CalendarCheck },
+    ...(!isDoctor ? [
+      { name: 'Ambulatórios', path: '/rooms', icon: Building2 },
+    ] : []),
     ...(permissions.includes('patients:read') || isAdmin ? [
       { name: 'Pacientes', path: '/patients', icon: Users },
     ] : []),

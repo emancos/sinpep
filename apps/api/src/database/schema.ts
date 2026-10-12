@@ -491,3 +491,53 @@ export const attendanceQueueRelations = relations(attendanceQueue, ({ one }) => 
   }),
 }));
 
+export const rooms = pgTable("rooms", {
+  id: uuid().primaryKey().notNull(),
+  name: text().notNull(),
+  number: text().notNull(),
+  sector: text(),
+  floor: text(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+});
+
+export const roomAllocations = pgTable("room_allocations", {
+  id: uuid().primaryKey().notNull(),
+  roomId: uuid("room_id").notNull(),
+  specialtyName: text("specialty_name").notNull(),
+  date: text().notNull(),
+  allocatedBy: uuid("allocated_by"),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+  uniqueIndex("room_allocations_room_date_idx").on(table.roomId, table.date),
+  uniqueIndex("room_allocations_spec_date_idx").on(table.specialtyName, table.date),
+  foreignKey({
+    columns: [table.roomId],
+    foreignColumns: [rooms.id],
+    name: "room_allocations_room_id_fkey",
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.allocatedBy],
+    foreignColumns: [users.id],
+    name: "room_allocations_allocated_by_fkey",
+  }).onUpdate("cascade").onDelete("set null"),
+]);
+
+export const roomsRelations = relations(rooms, ({ many }) => ({
+  allocations: many(roomAllocations),
+}));
+
+export const roomAllocationsRelations = relations(roomAllocations, ({ one }) => ({
+  room: one(rooms, {
+    fields: [roomAllocations.roomId],
+    references: [rooms.id],
+  }),
+  user: one(users, {
+    fields: [roomAllocations.allocatedBy],
+    references: [users.id],
+  }),
+}));
+
+

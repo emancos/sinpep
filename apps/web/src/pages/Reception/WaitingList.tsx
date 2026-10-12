@@ -1,8 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Clock, User, Activity, ListOrdered, ArrowLeft, Loader2, Calendar, Star, Stethoscope, CheckCircle2 } from 'lucide-react';
+import { 
+  Clock, 
+  User, 
+  Activity, 
+  ListOrdered, 
+  ArrowLeft, 
+  Loader2, 
+  Calendar, 
+  Star, 
+  Stethoscope, 
+  CheckCircle2, 
+  DoorOpen, 
+  MapPin, 
+  Layers 
+} from 'lucide-react';
 import { getReceptionSchedule } from '../../services/reception';
+import { getRoomAllocations } from '../../services/rooms';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCurrentDoctor } from '../../hooks/useDoctors';
 import { isProcedureAuthorizedForDoctor } from '../../utils/doctorProcedures';
@@ -57,6 +72,13 @@ export const WaitingList: React.FC = () => {
     refetchIntervalInBackground: true,
   });
 
+  // Busca alocações de salas para exibir no topo da lista de espera
+  const { data: allAllocations = [] } = useQuery({
+    queryKey: ['all-room-allocations', date],
+    queryFn: () => getRoomAllocations(date, token!),
+    enabled: !!token,
+  });
+
   // Atualização em tempo real (ao vivo) via WebSocket
   useEffect(() => {
     if (!socket) return;
@@ -65,11 +87,29 @@ export const WaitingList: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['reception-schedule'] });
     };
 
+    const handleRoomsUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: ['all-room-allocations'] });
+    };
+
     socket.on('queue_updated', handleQueueUpdated);
+    socket.on('room_allocated', handleRoomsUpdated);
+    socket.on('room_deallocated', handleRoomsUpdated);
+
     return () => {
       socket.off('queue_updated', handleQueueUpdated);
+      socket.off('room_allocated', handleRoomsUpdated);
+      socket.off('room_deallocated', handleRoomsUpdated);
     };
   }, [socket, queryClient]);
+
+  const currentAllocation = useMemo(() => {
+    if (!specialtyParam || !allAllocations) return null;
+    return (
+      allAllocations.find(
+        (a) => a.specialtyName?.trim().toUpperCase() === specialtyParam?.trim().toUpperCase()
+      ) || null
+    );
+  }, [specialtyParam, allAllocations]);
 
   const isLoading = isLoadingSchedule || isLoadingDoctor;
 
@@ -137,6 +177,44 @@ export const WaitingList: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Banner de Identificação do Ambulatório / Sala Ativa */}
+      {currentAllocation?.room && (
+        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-blue-50/80 via-white to-slate-50 dark:from-slate-800/90 dark:via-slate-800/60 dark:to-slate-800/40 border border-blue-200/80 dark:border-blue-900/40 shadow-sm flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
+              <DoorOpen className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs uppercase tracking-wider font-extrabold text-blue-600 dark:text-blue-400">
+                  Ambulatório em Atendimento
+                </span>
+                <span className="px-2 py-0.5 rounded-md text-xs font-black bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">
+                  Sala {currentAllocation.room.number}
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
+                {currentAllocation.room.name}
+              </h3>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {currentAllocation.room.sector && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-slate-400" />
+                    <span>Setor: <strong>{currentAllocation.room.sector}</strong></span>
+                  </span>
+                )}
+                {currentAllocation.room.floor && (
+                  <span className="flex items-center gap-1">
+                    <Layers className="w-3 h-3 text-slate-400" />
+                    <span>Andar: <strong>{currentAllocation.room.floor}</strong></span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center h-64">
