@@ -187,7 +187,7 @@ export const PatientsList: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 cursor-pointer hover:text-slate-700 dark:text-slate-200 transition-colors">
+                    <label className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 cursor-pointer hover:text-slate-700 transition-colors">
                         <div className="relative inline-flex items-center">
                             <input
                                 type="checkbox"
