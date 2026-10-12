@@ -11,11 +11,14 @@ export function useSecureBlobUrl(url: string | null) {
   useEffect(() => {
     if (!url) {
       setBlobUrl(null);
+      setError(null);
+      setIsLoading(false);
       return;
     }
 
     let isMounted = true;
     setIsLoading(true);
+    setError(null);
     
     axios.get(url, {
       responseType: 'blob',
@@ -33,6 +36,7 @@ export function useSecureBlobUrl(url: string | null) {
         if (!isMounted) return;
         console.error('Failed to load secure blob:', err);
         setError(err);
+        setBlobUrl(null);
         setIsLoading(false);
       });
 

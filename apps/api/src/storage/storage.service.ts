@@ -123,8 +123,12 @@ export class StorageService {
         mimeType: metadata.data.mimeType,
         name: metadata.data.name
       };
-    } catch (error) {
-      this.logger.error(`Error downloading file ${fileId} from Drive`, error);
+    } catch (error: any) {
+      const errDetail = error?.response?.data || error?.message;
+      this.logger.error(`Error downloading file ${fileId} from Drive: ${JSON.stringify(errDetail)}`, error);
+      if (error?.response?.data?.error === 'invalid_grant' || String(errDetail).includes('invalid_grant')) {
+        throw new InternalServerErrorException('Autenticação com o Google Drive expirou ou foi revogada (invalid_grant). Renove o refresh token no arquivo .env.');
+      }
       throw new NotFoundException('Arquivo não encontrado no Google Drive');
     }
   }
