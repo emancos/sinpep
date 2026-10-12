@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePatient, useUpdatePatientAttention } from '../../hooks/usePatients';
+import { useMedicalRecords } from '../../hooks/useMedicalRecords';
 import { usePermission } from '../../hooks/usePermission';
 import { toast } from 'sonner';
 import {
@@ -13,7 +14,11 @@ import {
     ShieldAlert,
     ExternalLink,
     Activity,
-    AlertTriangle
+    AlertTriangle,
+    Stethoscope,
+    FileText,
+    Pill,
+    Calendar
 } from 'lucide-react';
 
 const formatCPF = (cpf?: string) => {
@@ -68,6 +73,8 @@ export const PatientDetails: React.FC = () => {
     const navigate = useNavigate();
 
     const { data: patient, isLoading, error, refetch } = usePatient(id || '');
+    const { data: recordsData, isLoading: isLoadingRecords } = useMedicalRecords(id || '');
+    const medicalRecords = recordsData?.data || [];
     const updatePatientAttentionMutation = useUpdatePatientAttention();
     const { hasPermission } = usePermission();
     const canEditAttention = hasPermission('patients:write_attention');
@@ -130,46 +137,7 @@ export const PatientDetails: React.FC = () => {
         );
     }
 
-    const getStatusBadge = (status: string) => {
-        switch (status) {
-            case 'PENDING_REGULATION':
-                return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xxs font-semibold bg-amber-100 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-400">
-                        Aguardando Regulação
-                    </span>
-                );
-            case 'SCHEDULED':
-                return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xxs font-semibold bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                        Agendado
-                    </span>
-                );
-            case 'PENDING_SYSTEM':
-                return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xxs font-semibold bg-blue-100 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-600 dark:text-blue-400">
-                        Pendente no Sistema
-                    </span>
-                );
-            case 'RETURNED':
-                return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xxs font-semibold bg-rose-100 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400">
-                        Devolvido
-                    </span>
-                );
-            case 'ARCHIVED':
-                return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xxs font-semibold bg-slate-500/10 border border-slate-300 dark:border-slate-700/30 text-slate-500 dark:text-slate-400">
-                        Arquivado
-                    </span>
-                );
-            default:
-                return (
-                    <span className="px-2.5 py-0.5 rounded-full text-xxs font-semibold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                        {status}
-                    </span>
-                );
-        }
-    };
+
 
     return (
         <div className="space-y-6">
@@ -359,70 +327,145 @@ export const PatientDetails: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Requests History Card */}
+                    {/* Medical Records History Card */}
                     <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-4">
-                        <h2 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-300 dark:border-slate-800/60 pb-3 flex items-center gap-2">
-                            <Activity className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                            <span>Histórico de Regulação (Solicitações)</span>
-                        </h2>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-300 dark:border-slate-800/60 pb-3">
+                            <div className="flex items-center gap-2.5">
+                                <Stethoscope className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                                    Histórico de Atendimentos Clínicos (Prontuário)
+                                </h2>
+                                <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+                                    {medicalRecords.length}
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => navigate(`/medical-records/${patient.id}`)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-teal-700 dark:text-teal-300 hover:text-teal-800 dark:hover:text-teal-200 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/40 border border-teal-200 dark:border-teal-800 rounded-md transition-all cursor-pointer shadow-sm w-fit"
+                            >
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>Ver Prontuário Completo</span>
+                            </button>
+                        </div>
 
                         <div className="overflow-x-auto">
                             <table className="w-full border-collapse text-left">
                                 <thead>
                                     <tr className="border-b border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950/20 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
-                                        <th className="px-4 py-3">Procedimento</th>
-                                        <th className="px-4 py-3">Prioridade</th>
-                                        <th className="px-4 py-3">Status</th>
-                                        <th className="px-4 py-3">Solicitado em</th>
+                                        <th className="px-4 py-3">Data / Horário</th>
+                                        <th className="px-4 py-3">Profissional / Especialidade</th>
+                                        <th className="px-4 py-3">CID-10</th>
+                                        <th className="px-4 py-3">Queixa / Resumo Clínico</th>
+                                        <th className="px-4 py-3">Prescrições / Exames</th>
                                         <th className="px-4 py-3 text-right">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 text-sm">
-                                    {patient.requests && patient.requests.length > 0 ? (
-                                        patient.requests.map((req) => (
-                                            <tr key={req.id} className="hover:bg-slate-200 dark:bg-slate-800/10 transition-colors">
-                                                <td className="px-4 py-3">
-                                                    <div className="font-medium text-slate-900 dark:text-white max-w-xs truncate">
-                                                        {req.procedures && req.procedures.length > 0
-                                                            ? req.procedures.map((p) => p.procedure.name).join(', ')
-                                                            : 'Sem procedimento'}
-                                                    </div>
-                                                    <div className="text-xxs text-slate-500 mt-0.5">
-                                                        Protocolo: #{String(req.code).padStart(5, '0')}
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <div className="flex items-center gap-1.5">
+                                    {isLoadingRecords ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <div className="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                                                    <span>Carregando atendimentos...</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ) : medicalRecords.length > 0 ? (
+                                        medicalRecords.map((record) => {
+                                            const docInfo = record.doctor?.doctors?.[0];
+                                            const specialtyName = docInfo?.doctorSpecialties?.[0]?.specialty?.name;
+                                            const crmFormatted = docInfo?.crm ? `CRM ${docInfo.crm}${docInfo.crmState ? '/' + docInfo.crmState : ''}` : null;
+                                            const hasMedications = record.medications && record.medications.length > 0;
+                                            const hasExams = record.requestedExams && record.requestedExams.length > 0;
+
+                                            return (
+                                                <tr key={record.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                        <div className="font-medium text-slate-900 dark:text-white flex items-center gap-1.5">
+                                                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                                            <span>{formatDateWithTime(record.recordDate || (record as any).createdAt)}</span>
+                                                        </div>
+                                                        {record.isActive === false && (
+                                                            <span className="inline-block mt-1 text-xxs font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded px-1.5 py-0.5">
+                                                                Cancelado / Inativo
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="font-medium text-slate-900 dark:text-white">
+                                                            {record.doctor?.name || 'Profissional não identificado'}
+                                                        </div>
+                                                        <div className="text-xxs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                                            {specialtyName && (
+                                                                <span className="text-teal-600 dark:text-teal-400 font-medium">
+                                                                    {specialtyName}
+                                                                </span>
+                                                            )}
+                                                            {specialtyName && crmFormatted && <span>•</span>}
+                                                            {crmFormatted && (
+                                                                <span>{crmFormatted}</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                        {record.cid10 ? (
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                                                CID: {record.cid10}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xs text-slate-400 italic">Não informado</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3">
                                                         <div
-                                                            className={`w-2.5 h-2.5 rounded-full shrink-0 ${req.priority === 'P1'
-                                                                    ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'
-                                                                    : req.priority === 'P2'
-                                                                        ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
-                                                                        : 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]'
-                                                                }`}
-                                                        />
-                                                        <span className="text-xs text-slate-600 dark:text-slate-300">{req.priority}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3">{getStatusBadge(req.status)}</td>
-                                                <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
-                                                    {formatDateWithTime(req.createdAt)}
-                                                </td>
-                                                <td className="px-4 py-3 text-right">
-                                                    <button
-                                                        onClick={() => navigate(`/requests/${req.id}`)}
-                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-500/5 hover:bg-blue-500/10 border border-blue-500/10 hover:border-blue-200 dark:border-blue-500/20 rounded-md transition-all cursor-pointer shadow-md"
-                                                    >
-                                                        <ExternalLink className="w-3.5 h-3.5" />
-                                                        <span>Abrir</span>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
+                                                            className="text-xs text-slate-700 dark:text-slate-300 max-w-xs line-clamp-2"
+                                                            title={record.observation}
+                                                        >
+                                                            {record.observation || <span className="italic text-slate-400">Sem queixa/observação registrada</span>}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex flex-wrap items-center gap-1.5">
+                                                            {hasMedications && (
+                                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xxs font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                                                    <Pill className="w-2.5 h-2.5" />
+                                                                    <span>{record.medications.length} med.</span>
+                                                                </span>
+                                                            )}
+                                                            {hasExams && (
+                                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xxs font-medium bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                                                    <Activity className="w-2.5 h-2.5" />
+                                                                    <span>{record.requestedExams.length} exame(s)</span>
+                                                                </span>
+                                                            )}
+                                                            {record.attachments && record.attachments.length > 0 && (
+                                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xxs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                                                    <span>{record.attachments.length} anexo(s)</span>
+                                                                </span>
+                                                            )}
+                                                            {!hasMedications && !hasExams && (!record.attachments || record.attachments.length === 0) && (
+                                                                <span className="text-xs text-slate-400">-</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                                                        <button
+                                                            onClick={() => navigate(`/medical-records/${patient.id}`)}
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/10 border border-teal-500/10 hover:border-teal-200 dark:border-teal-500/20 rounded-md transition-all cursor-pointer shadow-sm"
+                                                            title="Ver detalhes no prontuário"
+                                                        >
+                                                            <ExternalLink className="w-3.5 h-3.5" />
+                                                            <span>Ver Prontuário</span>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
                                     ) : (
                                         <tr>
-                                            <td colSpan={5} className="px-4 py-8 text-center text-slate-500 italic">
-                                                Nenhuma solicitação encontrada para este paciente.
+                                            <td colSpan={6} className="px-4 py-8 text-center text-slate-500 italic">
+                                                Nenhum atendimento clínico registrado no prontuário deste paciente até o momento.
                                             </td>
                                         </tr>
                                     )}
