@@ -27,6 +27,9 @@ const routeNameMap: Record<string, string> = {
   'general': 'Geral',
   'medical-records': 'Prontuários',
   'new': 'Novo Atendimento',
+  'reception': 'Recepção',
+  'queue': 'Fila',
+  'rooms': 'Ambulatórios',
 };
 
 const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -40,8 +43,8 @@ export const Breadcrumb = () => {
     <nav className="flex items-center text-sm font-medium text-blue-200" aria-label="Breadcrumb">
       <ol className="flex items-center space-x-2">
         <li>
-          <Link 
-            to="/" 
+          <Link
+            to="/"
             className={`transition-colors flex items-center gap-1.5 ${pathnames.length === 0 ? 'text-white font-semibold cursor-default' : 'text-blue-200 hover:text-white'}`}
             onClick={(e) => pathnames.length === 0 && e.preventDefault()}
           >
@@ -55,14 +58,14 @@ export const Breadcrumb = () => {
 
           let name = routeNameMap[value.toLowerCase()];
           if (!name) {
-             if (uuidRegex.test(value)) {
-               name = 'Detalhes';
-             } else if (isSisregCode(value)) {
-               name = `#${value}`;
-             } else {
-               // Capitalize first letter as fallback
-               name = value.charAt(0).toUpperCase() + value.slice(1);
-             }
+            if (uuidRegex.test(value)) {
+              name = 'Detalhes';
+            } else if (isSisregCode(value)) {
+              name = `#${value}`;
+            } else {
+              // Capitalize first letter as fallback
+              name = value.charAt(0).toUpperCase() + value.slice(1);
+            }
           }
 
           return (
