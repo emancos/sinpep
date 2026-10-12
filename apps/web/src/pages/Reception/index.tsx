@@ -359,12 +359,22 @@ export const Reception: React.FC = () => {
     return (
       <div 
         key={p.coSolicitacao || idx} 
-        className={`py-4 px-3 sm:px-4 rounded-xl my-1.5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
+        className={`py-4 px-3 sm:px-4 pl-5 sm:pl-6 rounded-xl my-2 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all relative overflow-hidden group shadow-sm ${
           isAttended
             ? 'bg-emerald-50/75 dark:bg-emerald-950/20 border-2 border-emerald-400/80 dark:border-emerald-800/80 shadow-emerald-500/10'
-            : 'hover:bg-slate-50 dark:hover:bg-slate-700/30 border border-transparent'
+            : 'bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700/80 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md'
         }`}
       >
+        {/* Detalhe da borda esquerda (barra vertical arredondada) */}
+        <div
+          className={`absolute left-0 top-0 bottom-0 w-1.5 transition-colors ${
+            isAttended
+              ? 'bg-emerald-500'
+              : p.isQueued
+              ? (p.priority === 'PRIORITARIO' ? 'bg-amber-500' : 'bg-blue-600')
+              : 'bg-blue-600'
+          }`}
+        />
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
             {/* Posição de atendimento em destaque ANTES do nome do paciente */}
@@ -755,24 +765,22 @@ export const Reception: React.FC = () => {
             )}
 
             {/* Lista de pacientes exibida pela ORDEM DE ATENDIMENTO */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-              <div className="divide-y divide-slate-100 dark:divide-slate-700/50 px-2 sm:px-6">
-                {displayedPatients.length > 0 ? (
-                  displayedPatients.map((p: any, idx: number) => renderPatient(p, idx, selectedSpecialty))
-                ) : (
-                  <div className="p-12 text-center flex flex-col items-center justify-center">
-                    <Clock className="w-10 h-10 text-slate-300 dark:text-slate-600 mb-3" />
-                    <h4 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-1">
-                      {isDoctor ? 'Nenhum paciente aguardando atendimento' : 'Nenhum paciente agendado'}
-                    </h4>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm">
-                      {isDoctor 
-                        ? 'Não há pacientes adicionados à fila de espera para este horário/procedimento no momento.'
-                        : 'Não foram encontrados pacientes neste horário.'}
-                    </p>
-                  </div>
-                )}
-              </div>
+            <div className="space-y-2.5">
+              {displayedPatients.length > 0 ? (
+                displayedPatients.map((p: any, idx: number) => renderPatient(p, idx, selectedSpecialty))
+              ) : (
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center flex flex-col items-center justify-center">
+                  <Clock className="w-10 h-10 text-slate-300 dark:text-slate-600 mb-3" />
+                  <h4 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                    {isDoctor ? 'Nenhum paciente aguardando atendimento' : 'Nenhum paciente agendado'}
+                  </h4>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm">
+                    {isDoctor 
+                      ? 'Não há pacientes adicionados à fila de espera para este horário/procedimento no momento.'
+                      : 'Não foram encontrados pacientes neste horário.'}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )
