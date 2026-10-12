@@ -79,15 +79,21 @@ export function useDoctor(id?: string) {
 
 export function useCurrentDoctor() {
   const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
   return useQuery({
-    queryKey: ['doctors', 'me'],
+    queryKey: ['doctors', 'me', user?.id],
     queryFn: async () => {
-      const { data } = await axios.get<Doctor | null>(`${apiUrl}/doctors/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      return data;
+      if (!token || !user?.id) return null;
+      try {
+        const { data } = await axios.get<Doctor | null>(`${apiUrl}/doctors/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        return data || null;
+      } catch {
+        return null;
+      }
     },
-    enabled: !!token,
+    enabled: !!token && !!user?.id,
   });
 }
 

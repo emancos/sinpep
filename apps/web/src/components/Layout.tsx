@@ -29,8 +29,9 @@ export const Layout = () => {
   const { user, permissions, logout } = useAuthStore();
   const { t } = useTranslation();
   const location = useLocation();
+  const isAdmin = permissions.includes('admin:access');
   const { data: currentDoctor } = useCurrentDoctor();
-  const isDoctor = Boolean(currentDoctor?.id);
+  const isDoctor = !isAdmin && Boolean(currentDoctor?.id);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -40,8 +41,6 @@ export const Layout = () => {
   const toggleMenu = (path: string) => {
     setExpandedMenus(prev => ({ ...prev, [path]: !prev[path] }));
   };
-
-  const isAdmin = permissions.includes('admin:access');
 
   interface MenuItem {
     name: string;
@@ -73,6 +72,9 @@ export const Layout = () => {
     ] : []),
     ...(permissions.includes('doctors:read') || isAdmin ? [
       { name: 'Médicos', path: '/doctors' }
+    ] : []),
+    ...(isAdmin ? [
+      { name: 'Ambulatórios & Salas', path: '/rooms' }
     ] : []),
     ...(permissions.includes('procedure-groups:read') || isAdmin ? [
       { name: 'Tabelas Auxiliares', path: '/auxiliary-tables' }

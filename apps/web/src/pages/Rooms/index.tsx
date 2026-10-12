@@ -31,13 +31,15 @@ import { Navigate } from 'react-router-dom';
 
 export const RoomsList: React.FC = () => {
   const token = useAuthStore(state => state.token);
+  const permissions = useAuthStore(state => state.permissions);
+  const isAdmin = permissions.includes('admin:access');
   const queryClient = useQueryClient();
   const confirm = useConfirm();
 
   // Verifica se o usuário atual é médico.
   // Regra do usuário: "Médicos não terão acesso a essa página. Todos os outros usuários poderão gerenciar as salas."
   const { data: currentDoctor, isLoading: isLoadingDoctor } = useCurrentDoctor();
-  const isDoctor = Boolean(currentDoctor?.id);
+  const isDoctor = !isAdmin && Boolean(currentDoctor?.id);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -95,7 +97,7 @@ export const RoomsList: React.FC = () => {
     },
   });
 
-  if (isLoadingDoctor) {
+  if (isLoadingDoctor && !isAdmin) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -103,8 +105,8 @@ export const RoomsList: React.FC = () => {
     );
   }
 
-  // Se o usuário for médico, redireciona para a página inicial
-  if (isDoctor) {
+  // Se o usuário for médico (e não administrador), redireciona para a página inicial
+  if (isDoctor && !isAdmin) {
     return <Navigate to="/" replace />;
   }
 
