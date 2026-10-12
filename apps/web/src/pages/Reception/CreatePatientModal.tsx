@@ -8,6 +8,16 @@ import axios from 'axios';
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+const formatBirthDate = (dateStr?: string) => {
+  if (!dateStr) return '-';
+  const cleanDate = dateStr.trim().split('T')[0].split(' ')[0];
+  const parts = cleanDate.split('-');
+  if (parts.length === 3 && parts[0].length === 4) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+};
+
 interface CreatePatientModalProps {
   data: {
     patient: any;
@@ -69,7 +79,7 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ data, on
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
-          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Confirmação de Cadastro</h2>
+          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Confirmar Cadastro</h2>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
             <X className="w-5 h-5" />
           </button>
@@ -81,7 +91,7 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ data, on
             <div className="grid grid-cols-2 gap-4 text-sm text-slate-600 dark:text-slate-400">
               <div><strong className="text-slate-800 dark:text-slate-300">Nome:</strong> {p.pacienteNome}</div>
               <div><strong className="text-slate-800 dark:text-slate-300">CPF:</strong> {p.pacienteNuCpf}</div>
-              <div><strong className="text-slate-800 dark:text-slate-300">Nascimento:</strong> {p.pacienteDtNascimento}</div>
+              <div><strong className="text-slate-800 dark:text-slate-300">Nascimento:</strong> {formatBirthDate(p.pacienteDtNascimento)}</div>
               <div><strong className="text-slate-800 dark:text-slate-300">Mãe:</strong> {p.pacienteNoMae}</div>
             </div>
           </div>
