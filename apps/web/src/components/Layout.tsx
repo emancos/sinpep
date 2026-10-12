@@ -11,7 +11,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
-  ClipboardList,
   User,
   Settings,
   CalendarCheck,
@@ -58,9 +57,7 @@ export const Layout = () => {
     ...(permissions.includes('patients:read') || isAdmin ? [
       { name: 'Pacientes', path: '/patients', icon: Users },
     ] : []),
-    ...(permissions.includes('medical-records:read') || isAdmin ? [
-      { name: 'Prontuários', path: '/medical-records', icon: ClipboardList },
-    ] : []),
+
     ...(permissions.includes('procedures:read') && !isAdmin ? [
       { name: 'Procedimentos', path: '/procedures', icon: Stethoscope },
     ] : []),
@@ -206,7 +203,7 @@ export const Layout = () => {
           </button>
         </div>
         <nav className="px-2 py-3 lg:px-4 lg:py-6 space-y-0.5 lg:space-y-1">
-          {menuItems.filter(item => !['/', '/patients', '/medical-records'].includes(item.path)).map((item) => {
+          {menuItems.filter(item => !['/', '/patients'].includes(item.path)).map((item) => {
             const isActive = location.pathname === item.path || (item.subItems && item.subItems.some((sub: any) => location.pathname === sub.path));
             const Icon = item.icon;
 
@@ -356,12 +353,7 @@ export const Layout = () => {
                <span className="text-[10px] font-semibold">Pacientes</span>
              </Link>
            )}
-           {(permissions.includes('medical-records:read') || isAdmin) && (
-             <Link to="/medical-records" className={`flex flex-col items-center justify-center w-full h-full gap-1 ${location.pathname.startsWith('/medical-records') ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-               <ClipboardList className="w-5 h-5" />
-               <span className="text-[10px] font-semibold">Prontuários</span>
-             </Link>
-           )}
+
            
            <button onClick={() => setMobileMenuOpen(true)} className="flex flex-col items-center justify-center w-full h-full gap-1 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
              <Menu className="w-5 h-5" />

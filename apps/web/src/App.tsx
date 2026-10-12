@@ -24,7 +24,6 @@ import { DoctorsList } from './pages/Doctors';
 import { CreateOrEditDoctor } from './pages/Doctors/Create';
 import { AuxiliaryTables } from './pages/AuxiliaryTables';
 import { ProceduresList } from './pages/Procedures';
-import { MedicalRecords } from './pages/MedicalRecords';
 import { MedicalHistory } from './pages/MedicalRecords/History';
 import { CreateRecord } from './pages/MedicalRecords/CreateRecord';
 import { CreateOrEditProcedure } from './pages/Procedures/Create';
@@ -111,7 +110,7 @@ function App() {
                   </Route>
 
                   <Route element={<ProtectedRoute requiredPermission="medical-records:read" />}>
-                    <Route path="/medical-records" element={<MedicalRecords />} />
+                    <Route path="/medical-records" element={<Navigate to="/patients" replace />} />
                     <Route path="/medical-records/:id" element={<MedicalHistory />} />
                     <Route path="/medical-records/:id/new" element={<CreateRecord />} />
                   </Route>
