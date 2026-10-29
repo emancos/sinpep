@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, ExternalLink, Loader2, AlertTriangle } from 'lucide-react';
+import { X, ExternalLink, Loader2, AlertTriangle, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { useSecureBlobUrl } from '../../hooks/useSecureBlobUrl';
 
@@ -36,7 +36,7 @@ export const AttachmentViewer: React.FC<Props> = ({ file, onClose }) => {
           {file.name}
         </div>
         
-        <div className="flex-1 overflow-hidden flex items-center justify-center bg-slate-200 dark:bg-black p-4">
+        <div className="flex-1 overflow-hidden flex items-center justify-center bg-slate-200 dark:bg-black p-4 relative">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center gap-2 text-white">
               <Loader2 className="w-8 h-8 animate-spin text-teal-400" />
@@ -51,14 +51,80 @@ export const AttachmentViewer: React.FC<Props> = ({ file, onClose }) => {
               </p>
             </div>
           ) : isImage ? (
-            <TransformWrapper initialScale={1}>
-              <TransformComponent wrapperClass="w-full h-full flex items-center justify-center">
-                <img 
-                  src={blobUrl} 
-                  alt={file.name} 
-                  className="max-w-full max-h-full object-contain pointer-events-none"
-                />
-              </TransformComponent>
+            <TransformWrapper
+              initialScale={1}
+              minScale={1}
+              maxScale={8}
+              centerOnInit={true}
+              limitToBounds={false}
+              smooth={true}
+              wheel={{
+                step: 0.002,
+                disabled: false,
+              }}
+              pinch={{
+                step: 2,
+                disabled: false,
+              }}
+              doubleClick={{
+                disabled: false,
+                mode: 'toggle',
+                step: 1.5,
+                animationTime: 250,
+              }}
+              panning={{
+                disabled: false,
+                allowLeftClickPan: true,
+                velocityDisabled: false,
+              }}
+            >
+              {({ zoomIn, zoomOut, resetTransform }) => (
+                <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                  {/* Floating Zoom & Pan Controls Toolbar */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 bg-slate-900/85 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-700/80 shadow-2xl">
+                    <button
+                      type="button"
+                      onClick={() => zoomOut()}
+                      className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-all cursor-pointer"
+                      title="Diminuir Zoom (-)"
+                    >
+                      <ZoomOut className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => zoomIn()}
+                      className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-all cursor-pointer"
+                      title="Aumentar Zoom (+)"
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </button>
+                    <div className="w-px h-4 bg-slate-700 mx-1" />
+                    <button
+                      type="button"
+                      onClick={() => resetTransform()}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-all cursor-pointer font-medium"
+                      title="Ajustar ao centro / Redefinir"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Ajustar</span>
+                    </button>
+                  </div>
+
+                  <TransformComponent
+                    wrapperClass="!w-full !h-full cursor-grab active:cursor-grabbing select-none"
+                    contentClass="!w-full !h-full flex items-center justify-center"
+                    wrapperStyle={{ width: '100%', height: '100%' }}
+                    contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <img 
+                      src={blobUrl} 
+                      alt={file.name} 
+                      className="max-w-full max-h-full object-contain pointer-events-none select-none drop-shadow-md"
+                      draggable={false}
+                    />
+                  </TransformComponent>
+                </div>
+              )}
             </TransformWrapper>
           ) : (
             <iframe 
