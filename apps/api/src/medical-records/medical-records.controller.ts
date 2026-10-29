@@ -21,6 +21,7 @@ export class MedicalRecordsController {
   constructor(private readonly medicalRecordsService: MedicalRecordsService) {}
 
   @Post()
+  @Permissions('medical-records:write')
   @UseInterceptors(FilesInterceptor('attachments', 10, {
     storage: memoryStorage(),
     fileFilter: (req, file, cb) => {
@@ -46,11 +47,13 @@ export class MedicalRecordsController {
   }
 
   @Get()
+  @Permissions('medical-records:read')
   findAll(@Param('patientId') patientId: string) {
     return this.medicalRecordsService.findAllByPatient(patientId);
   }
 
   @Get(':id')
+  @Permissions('medical-records:read')
   findOne(@Param('id') id: string) {
     return this.medicalRecordsService.findOne(id);
   }

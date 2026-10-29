@@ -7,6 +7,7 @@ node_modules
 scripts/*
 !scripts/seed-anvisa-medications.ts
 !scripts/migrate-medications.ts
+!scripts/seed-receptionist-profile.ts
 node_modules/
 dist/
 .agents/
