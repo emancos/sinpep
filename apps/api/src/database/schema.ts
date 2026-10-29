@@ -1,4 +1,4 @@
-import { pgTable, uniqueIndex, uuid, text, timestamp, foreignKey, boolean, integer, primaryKey, pgEnum, serial, jsonb } from "drizzle-orm/pg-core"
+import { pgTable, uniqueIndex, index, uuid, text, timestamp, foreignKey, boolean, integer, primaryKey, pgEnum, serial, jsonb } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 
@@ -539,5 +539,106 @@ export const roomAllocationsRelations = relations(roomAllocations, ({ one }) => 
     references: [users.id],
   }),
 }));
+
+// --- ANVISA Medications Catalog ---
+export const medicineLaboratories = pgTable("medicine_laboratories", {
+  id: uuid().primaryKey().default(sql`gen_random_uuid()`).notNull(),
+  cnpj: text().notNull(),
+  corporateName: text("corporate_name").notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  uniqueIndex("medicine_laboratories_cnpj_key").on(table.cnpj),
+  index("medicine_laboratories_name_idx").on(table.corporateName),
+]);
+
+export const medicineSubstances = pgTable("medicine_substances", {
+  id: uuid().primaryKey().default(sql`gen_random_uuid()`).notNull(),
+  name: text().notNull(),
+  code: text(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  uniqueIndex("medicine_substances_name_key").on(table.name),
+  index("medicine_substances_code_idx").on(table.code),
+]);
+
+export const medications = pgTable("medications", {
+  id: uuid().primaryKey().default(sql`gen_random_uuid()`).notNull(),
+  name: text().notNull(),
+  processNumber: text("process_number"),
+  registrationNumber: text("registration_number"),
+  laboratoryId: uuid("laboratory_id"),
+  category: text(),
+  referenceMedicine: text("reference_medicine"),
+  stripe: text(),
+  status: text().default('Ativo').notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  substanceDescription: text("substance_description"),
+  dosage: text(),
+  substanceWithDosage: text("substance_with_dosage"),
+  complement: text(),
+  atcCode: text("atc_code"),
+  searchText: text("search_text"),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  index("medications_name_idx").on(table.name),
+  index("medications_is_active_idx").on(table.isActive),
+  index("medications_lab_id_idx").on(table.laboratoryId),
+  index("medications_reg_num_idx").on(table.registrationNumber),
+  foreignKey({
+    columns: [table.laboratoryId],
+    foreignColumns: [medicineLaboratories.id],
+    name: "medications_laboratory_id_fkey",
+  }).onUpdate("cascade").onDelete("set null"),
+]);
+
+export const medicationSubstances = pgTable("medication_substances", {
+  medicationId: uuid("medication_id").notNull(),
+  substanceId: uuid("substance_id").notNull(),
+  dosage: text(),
+}, (table) => [
+  primaryKey({ columns: [table.medicationId, table.substanceId], name: "medication_substances_pkey" }),
+  index("medication_substances_substance_id_idx").on(table.substanceId),
+  foreignKey({
+    columns: [table.medicationId],
+    foreignColumns: [medications.id],
+    name: "medication_substances_medication_id_fkey",
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.substanceId],
+    foreignColumns: [medicineSubstances.id],
+    name: "medication_substances_substance_id_fkey",
+  }).onUpdate("cascade").onDelete("cascade"),
+]);
+
+export const medicineLaboratoriesRelations = relations(medicineLaboratories, ({ many }) => ({
+  medications: many(medications),
+}));
+
+export const medicationsRelations = relations(medications, ({ one, many }) => ({
+  laboratory: one(medicineLaboratories, {
+    fields: [medications.laboratoryId],
+    references: [medicineLaboratories.id],
+  }),
+  medicationSubstances: many(medicationSubstances),
+}));
+
+export const medicineSubstancesRelations = relations(medicineSubstances, ({ many }) => ({
+  medicationSubstances: many(medicationSubstances),
+}));
+
+export const medicationSubstancesRelations = relations(medicationSubstances, ({ one }) => ({
+  medication: one(medications, {
+    fields: [medicationSubstances.medicationId],
+    references: [medications.id],
+  }),
+  substance: one(medicineSubstances, {
+    fields: [medicationSubstances.substanceId],
+    references: [medicineSubstances.id],
+  }),
+}));
+
 
 

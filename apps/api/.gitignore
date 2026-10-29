@@ -4,7 +4,9 @@ node_modules
 .env
 
 /generated/prisma
-scripts/
+scripts/*
+!scripts/seed-anvisa-medications.ts
+!scripts/migrate-medications.ts
 node_modules/
 dist/
 .agents/
