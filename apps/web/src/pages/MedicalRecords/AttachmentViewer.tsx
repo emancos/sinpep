@@ -20,13 +20,13 @@ export const AttachmentViewer: React.FC<Props> = ({ file, onClose }) => {
           <a 
             href={blobUrl} 
             download={file.name}
-            className="bg-slate-800 hover:bg-slate-700 text-white p-3 rounded-full transition-colors flex items-center gap-2 cursor-pointer"
+            className="bg-slate-800 hover:bg-slate-700 text-white p-3 rounded-full transition-colors flex items-center gap-2 cursor-pointer shadow-lg"
           >
             <ExternalLink className="w-5 h-5" />
             <span className="text-sm font-medium hidden sm:inline">Baixar Anexo</span>
           </a>
         )}
-        <button onClick={onClose} className="bg-slate-800 hover:bg-red-600 text-white p-3 rounded-full transition-colors cursor-pointer">
+        <button onClick={onClose} className="bg-slate-800 hover:bg-red-600 text-white p-3 rounded-full transition-colors cursor-pointer shadow-lg">
           <X className="w-6 h-6" />
         </button>
       </div>
