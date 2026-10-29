@@ -37,6 +37,49 @@ function parseCSVLine(text: string): string[] {
 
 const dosageRegex = /\b(\d+(?:[.,]\d+)?\s*(?:mg(?:\/ml|\/g)?|mcg(?:\/ml)?|g(?:\/env)?|ui(?:\/ml)?|ml|%))\b/i;
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ',
+  deg: '°', ordm: 'º', ordf: 'ª',
+  Aacute: 'Á', á: 'á', Agrave: 'À', agrave: 'à', Acirc: 'Â', acirc: 'â',
+  Atilde: 'Ã', atilde: 'ã', Eacute: 'É', eacute: 'é', Ecirc: 'Ê', ecirc: 'ê',
+  Iacute: 'Í', iacute: 'í', Oacute: 'Ó', oacute: 'ó', Ocirc: 'Ô', ocirc: 'ô',
+  Otilde: 'Õ', otilde: 'õ', Uacute: 'Ú', uacute: 'ú', Uuml: 'Ü', uuml: 'ü',
+  Ccedil: 'Ç', ccedil: 'ç',
+};
+
+function decodeHtmlEntities(str?: string | null): string {
+  if (!str) return '';
+  let decoded = str
+    .replace(/&#(\d+);/g, (_, dec) => {
+      const code = parseInt(dec, 10);
+      return !isNaN(code) ? String.fromCharCode(code) : _;
+    })
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+      const code = parseInt(hex, 16);
+      return !isNaN(code) ? String.fromCharCode(code) : _;
+    })
+    .replace(/&([a-zA-Z]+);/g, (match, entity) => {
+      return NAMED_ENTITIES[entity] ?? match;
+    });
+
+  if (decoded.includes('&#') || decoded.includes('&amp;')) {
+    decoded = decoded
+      .replace(/&#(\d+);/g, (_, dec) => {
+        const code = parseInt(dec, 10);
+        return !isNaN(code) ? String.fromCharCode(code) : _;
+      })
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+        const code = parseInt(hex, 16);
+        return !isNaN(code) ? String.fromCharCode(code) : _;
+      })
+      .replace(/&([a-zA-Z]+);/g, (match, entity) => {
+        return NAMED_ENTITIES[entity] ?? match;
+      });
+  }
+
+  return decoded;
+}
+
 async function main() {
   const csvPath = 'd:\\Projetos\\sinpep\\scratch\\DADOS_ABERTOS_MEDICAMENTOS.csv';
   if (!fs.existsSync(csvPath)) {
@@ -87,8 +130,8 @@ async function main() {
     if (!inQuotes) {
       const f = parseCSVLine(multilineBuffer);
       const cnpj = (f[5] || '').trim();
-      const labName = (f[2] || '').trim();
-      const subs = (f[40] || '').trim();
+      const labName = decodeHtmlEntities((f[2] || '').trim());
+      const subs = decodeHtmlEntities((f[40] || '').trim());
       const subCode = (f[30] || '').trim();
 
       if (cnpj && labName) {
@@ -290,16 +333,16 @@ async function main() {
     if (!inQuotes) {
       const f = parseCSVLine(multilineBuffer);
       const processNumber = (f[0] || '').trim() || null;
-      const labName = (f[2] || '').trim();
+      const labName = decodeHtmlEntities((f[2] || '').trim());
       const cnpj = (f[5] || '').trim();
-      const name = (f[6] || '').trim();
+      const name = decodeHtmlEntities((f[6] || '').trim());
       const registrationNumber = (f[8] || '').trim() || null;
-      const category = (f[16] || '').trim() || null;
-      const referenceMedicine = (f[17] || '').trim() || null;
-      const notifiedProduct = (f[20] || '').trim();
-      const stripe = (f[34] || '').trim() || null;
-      const complement = (f[37] || '').trim() || null;
-      const substanceDescription = (f[40] || '').trim() || null;
+      const category = (f[16] || '').trim() ? decodeHtmlEntities((f[16] || '').trim()) : null;
+      const referenceMedicine = (f[17] || '').trim() ? decodeHtmlEntities((f[17] || '').trim()) : null;
+      const notifiedProduct = decodeHtmlEntities((f[20] || '').trim());
+      const stripe = (f[34] || '').trim() ? decodeHtmlEntities((f[34] || '').trim()) : null;
+      const complement = (f[37] || '').trim() ? decodeHtmlEntities((f[37] || '').trim()) : null;
+      const substanceDescription = (f[40] || '').trim() ? decodeHtmlEntities((f[40] || '').trim()) : null;
       const status = (f[41] || '').trim() || 'Ativo';
       const atcCode = (f[29] || '').trim() || null;
 

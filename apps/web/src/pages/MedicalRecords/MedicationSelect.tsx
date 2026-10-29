@@ -3,6 +3,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import axios from 'axios';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Search, X, Loader2, Pill, Building2, Trash2, CheckCircle2 } from 'lucide-react';
+import { decodeHtmlEntities } from '../../utils/text';
 
 export interface MedicationValue {
   name: string;
@@ -98,9 +99,10 @@ export const MedicationSelect: React.FC<MedicationSelectProps> = ({
   });
 
   const handleSelectMedication = (med: any) => {
+    const medName = decodeHtmlEntities(med.name);
     // Fill medication name
-    onChange('name', med.name);
-    setSearchTerm(med.name);
+    onChange('name', medName);
+    setSearchTerm(medName);
     setIsDropdownOpen(false);
     setIsModalOpen(false);
 
@@ -155,7 +157,9 @@ export const MedicationSelect: React.FC<MedicationSelectProps> = ({
               </div>
             ) : suggestions.length > 0 ? (
               suggestions.map((med: any) => {
-                const substanceDisplay = med.substanceWithDosage || med.substanceDescription;
+                const medName = decodeHtmlEntities(med.name);
+                const substanceDisplay = decodeHtmlEntities(med.substanceWithDosage || med.substanceDescription);
+                const labName = decodeHtmlEntities(med.laboratory);
                 return (
                   <button
                     key={med.id}
@@ -165,7 +169,7 @@ export const MedicationSelect: React.FC<MedicationSelectProps> = ({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-sm text-slate-900 dark:text-white">
-                        {med.name}
+                        {medName}
                       </span>
                       {med.category && (
                         <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
@@ -182,10 +186,10 @@ export const MedicationSelect: React.FC<MedicationSelectProps> = ({
                     )}
 
                     <div className="flex items-center justify-between text-[11px] text-slate-400 mt-0.5">
-                      {med.laboratory && (
+                      {labName && (
                         <span className="truncate flex items-center gap-1 max-w-[70%]">
                           <Building2 className="w-3 h-3 shrink-0" />
-                          {med.laboratory}
+                          {labName}
                         </span>
                       )}
                       {med.stripe && (
@@ -286,7 +290,9 @@ export const MedicationSelect: React.FC<MedicationSelectProps> = ({
                 </div>
               ) : modalResults.length > 0 ? (
                 modalResults.map((med: any) => {
-                  const substanceDisplay = med.substanceWithDosage || med.substanceDescription;
+                  const medName = decodeHtmlEntities(med.name);
+                  const substanceDisplay = decodeHtmlEntities(med.substanceWithDosage || med.substanceDescription);
+                  const labName = decodeHtmlEntities(med.laboratory);
                   return (
                     <button
                       key={med.id}
@@ -296,7 +302,7 @@ export const MedicationSelect: React.FC<MedicationSelectProps> = ({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-bold text-sm text-slate-900 dark:text-white">
-                          {med.name}
+                          {medName}
                         </span>
                         <div className="flex items-center gap-2">
                           {med.category && (
@@ -324,15 +330,15 @@ export const MedicationSelect: React.FC<MedicationSelectProps> = ({
                       )}
 
                       <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-[11px] text-slate-400 mt-1">
-                        {med.laboratory && (
+                        {labName && (
                           <span className="flex items-center gap-1">
                             <Building2 className="w-3 h-3 shrink-0" />
-                            {med.laboratory}
+                            {labName}
                           </span>
                         )}
                         {med.complement && (
                           <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[10px]">
-                            {med.complement}
+                            {decodeHtmlEntities(med.complement)}
                           </span>
                         )}
                         {med.stripe && (
