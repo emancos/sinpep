@@ -80,6 +80,9 @@ export const Layout = () => {
       { name: 'Procedimentos', path: '/procedures' }
     ] : []),
     ...(isAdmin ? [
+      { name: 'Medicamentos (ANVISA)', path: '/medications' }
+    ] : []),
+    ...(isAdmin ? [
       { name: 'Gestão de Utilizadores', path: '/users' },
     ] : []),
     ...(permissions.includes('reports:read') || isAdmin ? [

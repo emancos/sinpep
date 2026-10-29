@@ -33,6 +33,7 @@ import { Reports } from './pages/Reports';
 import { Reception } from './pages/Reception';
 import { WaitingList } from './pages/Reception/WaitingList';
 import { RoomsList } from './pages/Rooms';
+import { MedicationsList } from './pages/Medications';
 import './App.css';
 
 function App() {
@@ -65,6 +66,7 @@ function App() {
                     <Route path="/users/:id" element={<UserDetails />} />
                     <Route path="/users/create" element={<CreateOrEditUser />} />
                     <Route path="/users/:id/edit" element={<CreateOrEditUser />} />
+                    <Route path="/medications" element={<MedicationsList />} />
                   </Route>
 
                   <Route element={<ProtectedRoute requiredPermission="health-centers:read" />}>
