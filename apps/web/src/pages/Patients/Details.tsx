@@ -19,8 +19,10 @@ import {
     FileText,
     Pill,
     Calendar,
-    Edit
+    Edit,
+    Printer
 } from 'lucide-react';
+import { PrescriptionPrintModal } from '../../components/PrescriptionPrintModal';
 
 const formatCPF = (cpf?: string) => {
     if (!cpf) return '-';
@@ -85,6 +87,7 @@ export const PatientDetails: React.FC = () => {
     const [showAttentionModal, setShowAttentionModal] = useState(false);
     const [attentionLevel, setAttentionLevel] = useState<number>(1);
     const [attentionNotes, setAttentionNotes] = useState<string>('');
+    const [selectedRecordForPrint, setSelectedRecordForPrint] = useState<any | null>(null);
 
     const openAttentionModal = () => {
         if (!canEditAttention) return;
@@ -457,14 +460,25 @@ export const PatientDetails: React.FC = () => {
                                                         </div>
                                                     </td>
                                                     <td className="px-4 py-3 text-right whitespace-nowrap">
-                                                        <button
-                                                            onClick={() => navigate(`/medical-records/${patient.id}`)}
-                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/10 border border-teal-500/10 hover:border-teal-200 dark:border-teal-500/20 rounded-md transition-all cursor-pointer shadow-sm"
-                                                            title="Ver detalhes no prontuário"
-                                                        >
-                                                            <ExternalLink className="w-3.5 h-3.5" />
-                                                            <span>Ver Prontuário</span>
-                                                        </button>
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSelectedRecordForPrint(record)}
+                                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 rounded-md transition-all cursor-pointer shadow-xs active:scale-95"
+                                                                title="Imprimir Prescrição e Canhoto"
+                                                            >
+                                                                <Printer className="w-3.5 h-3.5" />
+                                                                <span>Imprimir</span>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => navigate(`/medical-records/${patient.id}`)}
+                                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/10 border border-teal-500/10 hover:border-teal-200 dark:border-teal-500/20 rounded-md transition-all cursor-pointer shadow-sm"
+                                                                title="Ver detalhes no prontuário"
+                                                            >
+                                                                <ExternalLink className="w-3.5 h-3.5" />
+                                                                <span>Ver Prontuário</span>
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );
@@ -665,6 +679,14 @@ export const PatientDetails: React.FC = () => {
                         </form>
                     </div>
                 </div>
+            )}
+            {selectedRecordForPrint && (
+                <PrescriptionPrintModal
+                    isOpen={!!selectedRecordForPrint}
+                    onClose={() => setSelectedRecordForPrint(null)}
+                    patient={patient}
+                    record={selectedRecordForPrint}
+                />
             )}
         </div>
     );
