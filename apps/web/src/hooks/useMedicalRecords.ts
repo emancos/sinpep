@@ -44,7 +44,7 @@ export interface MedicalRecord {
   };
 }
 
-export const useMedicalRecords = (patientId: string) => {
+export const useMedicalRecords = (patientId: string, options?: { enabled?: boolean }) => {
   const token = useAuthStore((state) => state.token);
 
   return useQuery<{ data: MedicalRecord[], total: number }>({
@@ -55,7 +55,7 @@ export const useMedicalRecords = (patientId: string) => {
       });
       return response.data;
     },
-    enabled: !!token && !!patientId,
+    enabled: !!token && !!patientId && (options?.enabled !== false),
   });
 };
 

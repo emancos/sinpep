@@ -51,29 +51,29 @@ export const Layout = () => {
   const menuItems: MenuItem[] = [
     { name: t('Dashboard'), path: '/', icon: Home },
     { name: 'Agenda & Recepção', path: '/reception', icon: CalendarCheck },
-    ...(!isDoctor ? [
+    ...((permissions.includes('rooms:read') || isAdmin) && !isDoctor ? [
       { name: 'Ambulatórios', path: '/rooms', icon: Building2 },
     ] : []),
     ...(permissions.includes('patients:read') || isAdmin ? [
       { name: 'Pacientes', path: '/patients', icon: Users },
     ] : []),
 
-    ...(permissions.includes('procedures:read') && !isAdmin ? [
+    ...(permissions.includes('procedures:read') && isDoctor ? [
       { name: 'Procedimentos', path: '/procedures', icon: Stethoscope },
     ] : []),
   ];
 
   const adminSubItems = [
-    ...(permissions.includes('health-centers:read') || isAdmin ? [
+    ...(permissions.includes('health-centers:write') || isAdmin ? [
       { name: 'Unidades de Saúde', path: '/health-centers' }
     ] : []),
-    ...(permissions.includes('doctors:read') || isAdmin ? [
+    ...(permissions.includes('doctors:write') || isAdmin ? [
       { name: 'Médicos', path: '/doctors' }
     ] : []),
     ...(isAdmin ? [
       { name: 'Ambulatórios & Salas', path: '/rooms' }
     ] : []),
-    ...(permissions.includes('procedure-groups:read') || isAdmin ? [
+    ...(permissions.includes('procedure-groups:write') || isAdmin ? [
       { name: 'Tabelas Auxiliares', path: '/auxiliary-tables' }
     ] : []),
     ...(isAdmin ? [

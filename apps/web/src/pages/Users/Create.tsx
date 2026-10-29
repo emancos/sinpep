@@ -50,7 +50,9 @@ const permissionFriendlyNames: Record<string, string> = {
   'requests:write': 'Gerir Solicitações',
   'medical-records:read': 'Visualizar Prontuários',
   'medical-records:write': 'Gerenciar Prontuários',
-  'reports:read': 'Visualizar Relatórios e BI'
+  'reports:read': 'Visualizar Relatórios e BI',
+  'rooms:read': 'Visualizar Ambulatórios/Salas',
+  'rooms:write': 'Gerenciar Ambulatórios/Salas',
 };
 
 const featureFriendlyNames: Record<string, string> = {
@@ -67,6 +69,7 @@ const featureFriendlyNames: Record<string, string> = {
   settings: 'Configurações',
   'medical-records': 'Prontuários',
   reports: 'Relatórios',
+  rooms: 'Ambulatórios & Salas',
 };
 
 export const CreateOrEditUser: React.FC = () => {

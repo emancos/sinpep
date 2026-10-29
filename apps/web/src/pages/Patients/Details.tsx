@@ -74,11 +74,12 @@ export const PatientDetails: React.FC = () => {
     const navigate = useNavigate();
 
     const { data: patient, isLoading, error, refetch } = usePatient(id || '');
-    const { data: recordsData, isLoading: isLoadingRecords } = useMedicalRecords(id || '');
+    const { hasPermission } = usePermission();
+    const canViewMedicalRecords = hasPermission('medical-records:read');
+    const canEditAttention = hasPermission('patients:write_attention');
+    const { data: recordsData, isLoading: isLoadingRecords } = useMedicalRecords(id || '', { enabled: canViewMedicalRecords });
     const medicalRecords = recordsData?.data || [];
     const updatePatientAttentionMutation = useUpdatePatientAttention();
-    const { hasPermission } = usePermission();
-    const canEditAttention = hasPermission('patients:write_attention');
 
     // State for attention level edit modal
     const [showAttentionModal, setShowAttentionModal] = useState(false);
@@ -195,14 +196,16 @@ export const PatientDetails: React.FC = () => {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2.5">
-                    <button
-                        type="button"
-                        onClick={() => navigate(`/medical-records/${patient.id}`)}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-semibold border border-teal-200 dark:border-teal-800 rounded-md text-sm transition-all cursor-pointer shadow-md active:scale-95"
-                    >
-                        <FileText className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                        <span>Ver Prontuário Completo</span>
-                    </button>
+                    {canViewMedicalRecords && (
+                        <button
+                            type="button"
+                            onClick={() => navigate(`/medical-records/${patient.id}`)}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-semibold border border-teal-200 dark:border-teal-800 rounded-md text-sm transition-all cursor-pointer shadow-md active:scale-95"
+                        >
+                            <FileText className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                            <span>Ver Prontuário Completo</span>
+                        </button>
+                    )}
 
                     <button
                         onClick={() => navigate(`/patients/${patient.id}/edit`)}
@@ -341,7 +344,8 @@ export const PatientDetails: React.FC = () => {
                     </div>
 
                     {/* Medical Records History Card */}
-                    <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-4">
+                    {canViewMedicalRecords && (
+                        <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-4">
                         <div className="flex items-center gap-2.5 border-b border-slate-300 dark:border-slate-800/60 pb-3">
                             <Stethoscope className="w-5 h-5 text-teal-600 dark:text-teal-400" />
                             <h2 className="text-base font-bold text-slate-900 dark:text-white">
@@ -476,6 +480,7 @@ export const PatientDetails: React.FC = () => {
                             </table>
                         </div>
                     </div>
+                    )}
                 </div>
 
                 {/* Right column: contacts, UBS and ACS information */}

@@ -58,7 +58,10 @@ function App() {
                   
                   <Route path="/reception" element={<Reception />} />
                   <Route path="/reception/queue" element={<WaitingList />} />
-                  <Route path="/rooms" element={<RoomsList />} />
+
+                  <Route element={<ProtectedRoute requiredPermission="rooms:read" />}>
+                    <Route path="/rooms" element={<RoomsList />} />
+                  </Route>
 
                   {/* Admin Only Routes */}
                   <Route element={<ProtectedRoute requiredPermission="admin:access" />}>
