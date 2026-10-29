@@ -9,6 +9,7 @@ import { useDoctors } from '../../hooks/useDoctors';
 import { X, Loader2, Upload, Plus, Trash2, ArrowLeft, Activity, Search, CheckCircle2, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import imageCompression from 'browser-image-compression';
+import { MedicationSelect } from './MedicationSelect';
 
 export const CreateRecord: React.FC = () => {
   const { id: patientId } = useParams<{ id: string }>();
@@ -763,25 +764,12 @@ export const CreateRecord: React.FC = () => {
                 
                 <div className="space-y-3">
                   {medications.map((med, idx) => (
-                    <div key={idx} className="flex flex-col sm:flex-row gap-3">
-                      <input
-                        type="text"
-                        value={med.name}
-                        onChange={e => updateMed(idx, 'name', e.target.value)}
-                        placeholder="Nome do medicamento"
-                        className="flex-1 px-4 py-2.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                      />
-                      <input
-                        type="text"
-                        value={med.dosage}
-                        onChange={e => updateMed(idx, 'dosage', e.target.value)}
-                        placeholder="Posologia"
-                        className="flex-[1.5] px-4 py-2.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                      />
-                      <button type="button" onClick={() => removeMed(idx)} className="p-3 text-red-500 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md">
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
+                    <MedicationSelect
+                      key={idx}
+                      value={med}
+                      onChange={(field, val) => updateMed(idx, field, val)}
+                      onRemove={() => removeMed(idx)}
+                    />
                   ))}
                 </div>
 
