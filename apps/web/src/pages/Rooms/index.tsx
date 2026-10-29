@@ -1,18 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Building2, 
   Plus, 
   Search, 
-  Edit3, 
+  Edit, 
   Trash2, 
   CheckCircle2, 
-  XCircle, 
-  MapPin, 
-  Layers, 
-  Hash, 
   Loader2,
-  Power
+  Power,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  AlertCircle,
+  ShieldAlert,
+  Hash
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
@@ -42,12 +44,16 @@ export const RoomsList: React.FC = () => {
   const isDoctor = !isAdmin && Boolean(currentDoctor?.id);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [showInactive, setShowInactive] = useState(false);
+  const [sortBy, setSortBy] = useState('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
 
-  const { data: rooms = [], isLoading: isLoadingRooms } = useQuery({
-    queryKey: ['rooms', searchTerm],
-    queryFn: () => getRooms({ search: searchTerm || undefined }, token!),
+  const { data: rooms = [], isLoading: isLoadingRooms, isError, error } = useQuery({
+    queryKey: ['rooms'],
+    queryFn: () => getRooms({}, token!),
     enabled: !!token && !isDoctor,
   });
 
@@ -97,18 +103,14 @@ export const RoomsList: React.FC = () => {
     },
   });
 
-  if (isLoadingDoctor && !isAdmin) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
-
-  // Se o usuário for médico (e não administrador), redireciona para a página inicial
-  if (isDoctor && !isAdmin) {
-    return <Navigate to="/" replace />;
-  }
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  };
 
   const handleOpenCreate = () => {
     setEditingRoom(null);
@@ -122,8 +124,8 @@ export const RoomsList: React.FC = () => {
 
   const handleDelete = async (room: Room) => {
     const confirmed = await confirm({
-      title: 'Excluir Ambulatório',
-      description: `Tem certeza de que deseja remover o ambulatório "${room.name} (${room.number})"? Esta ação não poderá ser desfeita.`,
+      title: 'Excluir Definitivamente',
+      description: `Deseja realmente excluir este ambulatório DEFINITIVAMENTE? Esta ação não pode ser desfeita.`,
       confirmText: 'Excluir',
       cancelText: 'Cancelar',
       variant: 'danger',
@@ -135,7 +137,18 @@ export const RoomsList: React.FC = () => {
   };
 
   const handleToggle = async (room: Room) => {
-    toggleMutation.mutate(room.id);
+    const actionName = room.isActive ? 'Desabilitar' : 'Habilitar';
+    const confirmed = await confirm({
+      title: `${actionName} Ambulatório`,
+      description: `Deseja realmente ${actionName.toLowerCase()} o ambulatório "${room.name} (${room.number})"?`,
+      confirmText: actionName,
+      cancelText: 'Cancelar',
+      variant: room.isActive ? 'danger' : 'info',
+    });
+
+    if (confirmed) {
+      toggleMutation.mutate(room.id);
+    }
   };
 
   const handleFormSubmit = async (data: { name: string; number: string; sector?: string; floor?: string; isActive?: boolean }) => {
@@ -146,210 +159,287 @@ export const RoomsList: React.FC = () => {
     }
   };
 
-  const totalRooms = rooms.length;
-  const activeRooms = rooms.filter(r => r.isActive).length;
-  const inactiveRooms = totalRooms - activeRooms;
+  const renderSortHeader = (label: string, field: string) => {
+    const isSorted = sortBy === field;
+    return (
+      <th
+        onClick={() => handleSort(field)}
+        className="px-6 py-4 cursor-pointer hover:bg-slate-200 dark:bg-slate-800/40 hover:text-slate-900 dark:text-white transition-colors duration-150 select-none group"
+      >
+        <div className="flex items-center gap-1.5">
+          <span>{label}</span>
+          {isSorted ? (
+            sortOrder === 'asc' ? (
+              <ArrowUp className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            ) : (
+              <ArrowDown className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            )
+          ) : (
+            <ArrowUpDown className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-500 dark:text-slate-400 opacity-0 group-hover:opacity-100 transition-all" />
+          )}
+        </div>
+      </th>
+    );
+  };
+
+  // Filter and sort rooms list
+  const filteredRooms = useMemo(() => {
+    let result = rooms.filter(room => {
+      if (!showInactive && !room.isActive) return false;
+      if (!searchTerm) return true;
+      const term = searchTerm.toLowerCase();
+      return (
+        room.name.toLowerCase().includes(term) ||
+        room.number.toLowerCase().includes(term) ||
+        (room.sector && room.sector.toLowerCase().includes(term)) ||
+        (room.floor && room.floor.toLowerCase().includes(term))
+      );
+    });
+
+    result.sort((a, b) => {
+      let aVal = '';
+      let bVal = '';
+
+      if (sortBy === 'name') {
+        aVal = a.name || '';
+        bVal = b.name || '';
+      } else if (sortBy === 'number') {
+        aVal = a.number || '';
+        bVal = b.number || '';
+      } else if (sortBy === 'sector') {
+        aVal = a.sector || '';
+        bVal = b.sector || '';
+      } else if (sortBy === 'isActive') {
+        aVal = a.isActive ? '1' : '0';
+        bVal = b.isActive ? '1' : '0';
+      }
+
+      const cmp = aVal.localeCompare(bVal, undefined, { numeric: true });
+      return sortOrder === 'asc' ? cmp : -cmp;
+    });
+
+    return result;
+  }, [rooms, searchTerm, showInactive, sortBy, sortOrder]);
+
+  if (isLoadingDoctor && !isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+        <Loader2 className="w-10 h-10 text-blue-700 dark:text-blue-500 animate-spin" />
+        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Carregando...</p>
+      </div>
+    );
+  }
+
+  // Se o usuário for médico (e não administrador), redireciona para a página inicial
+  if (isDoctor && !isAdmin) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <Building2 className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-              Gerenciamento de Ambulatórios & Salas
-            </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Cadastre e gerencie as salas para atendimento dos pacientes na recepção
-            </p>
-          </div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+            <Building2 className="w-6 h-6 text-blue-600 dark:text-blue-500" />
+            Gestão de Ambulatórios & Salas
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Cadastre e gerencie as salas para atendimento dos pacientes na recepção.
+          </p>
         </div>
 
         <button
           onClick={handleOpenCreate}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
+          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md text-sm transition-all duration-300 shadow-md active:scale-95 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Novo Ambulatório</span>
         </button>
       </div>
 
-      {/* Metrics & Search Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Metric Cards */}
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total de Salas</p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{totalRooms}</p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 flex items-center justify-center">
-            <Building2 className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Salas Ativas</p>
-            <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{activeRooms}</p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-100/80 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Salas Inativas</p>
-            <p className="text-2xl font-black text-slate-500 dark:text-slate-400 mt-1">{inactiveRooms}</p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700/60 text-slate-400 flex items-center justify-center">
-            <XCircle className="w-5 h-5" />
-          </div>
-        </div>
-
-        {/* Search */}
-        <div className="relative flex items-center">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+      {/* Search Bar matching DoctorsList */}
+      <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-4 backdrop-blur-md flex flex-col sm:flex-row items-center gap-4">
+        <div className="relative w-full sm:max-w-md">
+          <Search className="absolute left-3 top-3 w-5 h-5 text-slate-500" />
           <input
             type="text"
+            placeholder="Buscar por nome, número ou setor..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Pesquisar por nome, número, setor..."
-            className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"
+            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
           />
+        </div>
+
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 cursor-pointer hover:text-slate-700 transition-colors">
+            <div className="relative inline-flex items-center">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+              />
+              <div className="w-9 h-5 bg-slate-200 dark:bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 peer-checked:after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
+            </div>
+            <span>Mostrar desabilitados</span>
+          </label>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 ml-auto">
+          <span>Total: </span>
+          <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-800 rounded-md font-mono text-slate-700 dark:text-slate-200">
+            {filteredRooms.length}
+          </span>
         </div>
       </div>
 
-      {/* Rooms Grid */}
-      {isLoadingRooms ? (
-        <div className="flex items-center justify-center min-h-[300px]">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        </div>
-      ) : rooms.length === 0 ? (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 text-center border border-slate-200/80 dark:border-slate-700 shadow-sm">
-          <Building2 className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Nenhum ambulatório encontrado</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-            {searchTerm ? 'Nenhuma sala corresponde à sua busca.' : 'Comece cadastrando as salas médicas para atendimento.'}
-          </p>
-          {!searchTerm && (
-            <button
-              onClick={handleOpenCreate}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-all shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Cadastrar Primeiro Ambulatório</span>
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {rooms.map((room) => (
-            <div
-              key={room.id}
-              className={`rounded-2xl p-5 border transition-all duration-200 flex flex-col justify-between group bg-white dark:bg-slate-800 ${
-                room.isActive
-                  ? 'border-slate-200/80 dark:border-slate-700 shadow-sm hover:shadow-md'
-                  : 'border-dashed border-slate-300 dark:border-slate-700/60 opacity-70 bg-slate-50/50 dark:bg-slate-900/30'
-              }`}
-            >
-              <div>
-                {/* Header do Card */}
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/60 shadow-sm tracking-wide">
-                      <Hash className="w-3 h-3" />
-                      <span>Sala {room.number}</span>
-                    </span>
-                  </div>
-
-                  <span
-                    className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
-                      room.isActive
-                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60'
-                        : 'bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-400 border-slate-200 dark:border-slate-600'
-                    }`}
-                  >
-                    {room.isActive ? (
-                      <>
-                        <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                        <span>Ativo</span>
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="w-3 h-3 text-slate-400" />
-                        <span>Inativo</span>
-                      </>
-                    )}
-                  </span>
-                </div>
-
-                {/* Nome do Ambulatório */}
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-snug mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                  {room.name}
-                </h3>
-
-                {/* Localização (Setor e Andar) */}
-                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mb-4">
-                  {room.sector && (
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>{room.sector}</span>
-                    </span>
-                  )}
-                  {room.floor && (
-                    <span className="flex items-center gap-1">
-                      <Layers className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>{room.floor}</span>
-                    </span>
-                  )}
-                  {!room.sector && !room.floor && (
-                    <span className="text-slate-400 italic">Setor e andar não especificados</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Card Footer / Ações */}
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                <button
-                  onClick={() => handleToggle(room)}
-                  className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors ${
-                    room.isActive
-                      ? 'text-slate-600 hover:text-amber-600 hover:bg-amber-50 dark:text-slate-300 dark:hover:bg-amber-950/30'
-                      : 'text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30'
-                  }`}
-                  title={room.isActive ? 'Desativar sala' : 'Ativar sala'}
-                >
-                  <Power className="w-3.5 h-3.5" />
-                  <span>{room.isActive ? 'Desativar' : 'Ativar'}</span>
-                </button>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleOpenEdit(room)}
-                    className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors"
-                    title="Editar ambulatório"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(room)}
-                    className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-700 transition-colors"
-                    title="Excluir ambulatório"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+      {/* Loading State */}
+      {isLoadingRooms && (
+        <div className="flex flex-col items-center justify-center py-20 space-y-4">
+          <Loader2 className="w-10 h-10 text-blue-700 dark:text-blue-500 animate-spin" />
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Carregando...</p>
         </div>
       )}
 
-      {/* Modal de Criação / Edição */}
+      {/* Error State */}
+      {isError && (
+        <div className="flex items-center gap-3 p-4 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 rounded-md max-w-xl mx-auto">
+          <AlertCircle className="w-6 h-6 shrink-0" />
+          <div>
+            <h4 className="font-semibold">Erro ao carregar dados</h4>
+            <p className="text-xs text-red-600 dark:text-red-400/80 mt-0.5">
+              {(error as Error | null)?.message || 'Erro de conexão com o servidor.'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Table Section matching DoctorsList */}
+      {!isLoadingRooms && !isError && (
+        <div className="bg-white shadow-md dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-md overflow-hidden backdrop-blur-md">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                  {renderSortHeader('Ambulatório / Sala', 'name')}
+                  {renderSortHeader('Número', 'number')}
+                  {renderSortHeader('Setor / Andar', 'sector')}
+                  {renderSortHeader('Status', 'isActive')}
+                  <th className="px-6 py-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 text-sm">
+                {filteredRooms.length > 0 ? (
+                  filteredRooms.map((room) => (
+                    <tr 
+                      key={room.id} 
+                      className="hover:bg-slate-200 dark:bg-slate-800/20 transition-colors duration-150 group"
+                    >
+                      {/* Name Column */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-md ${room.isActive ? 'bg-blue-100 dark:bg-blue-500/10' : 'bg-slate-200 dark:bg-slate-800/50'} flex items-center justify-center shrink-0`}>
+                            <Building2 className={`w-4 h-4 ${room.isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500'}`} />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className={`font-medium transition-colors duration-200 block ${room.isActive ? 'text-slate-900 dark:text-white group-hover:text-blue-400' : 'text-slate-500 line-through'}`}>
+                              {room.name}
+                            </span>
+                            {!room.isActive && (
+                              <span className="text-[10px] text-rose-600 dark:text-rose-400/80 font-semibold uppercase">
+                                Desabilitado
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Number */}
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-mono">
+                          <Hash className="w-3 h-3 text-slate-400" />
+                          Sala {room.number}
+                        </span>
+                      </td>
+
+                      {/* Sector / Floor */}
+                      <td className="px-6 py-4 text-slate-600 dark:text-slate-300 text-xs">
+                        <div className="flex flex-col gap-0.5">
+                          {room.sector && (
+                            <span className="font-medium">{room.sector}</span>
+                          )}
+                          {room.floor && (
+                            <span className="text-slate-400">{room.floor}</span>
+                          )}
+                          {!room.sector && !room.floor && (
+                            <span className="text-slate-400 italic">Não informado</span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-6 py-4">
+                        {room.isActive ? (
+                          <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-500/20">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Ativo
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-[11px] text-rose-600 dark:text-rose-400/80 font-medium bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-200 dark:border-rose-500/20">
+                            <ShieldAlert className="w-3 h-3" />
+                            Inativo
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actions matching DoctorsList */}
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => handleOpenEdit(room)}
+                            className="p-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-100 dark:bg-blue-500/10 hover:bg-blue-200 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/20 rounded-md transition-all cursor-pointer shadow-md"
+                            title="Editar ambulatório"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            onClick={() => handleToggle(room)}
+                            className={`p-1 border rounded-md transition-all cursor-pointer shadow-md ${room.isActive
+                              ? 'text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 bg-amber-100 dark:bg-amber-500/10 hover:bg-amber-200 dark:hover:bg-amber-500/20 border-amber-200 dark:border-amber-500/20'
+                              : 'text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 bg-teal-100 dark:bg-teal-500/10 hover:bg-teal-200 dark:hover:bg-teal-500/20 border-teal-200 dark:border-teal-500/20'
+                            }`}
+                            title={room.isActive ? "Desabilitar" : "Habilitar"}
+                          >
+                            <Power className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            onClick={() => handleDelete(room)}
+                            className="p-1 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 bg-rose-100 dark:bg-rose-500/10 hover:bg-rose-200 dark:hover:bg-rose-500/20 border border-rose-200 dark:border-rose-500/20 rounded-md transition-all cursor-pointer shadow-md"
+                            title="Excluir Definitivamente"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center text-slate-500 italic">
+                      Nenhum ambulatório encontrado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal */}
       <CreateOrEditRoomModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
