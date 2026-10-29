@@ -19,6 +19,8 @@ export interface MedicalRecord {
   recordDate: string;
   observation: string;
   cid10?: string;
+  cid10Secondary?: string;
+  cid10AssociatedCauses?: string;
   returnRequestedValue?: number;
   returnRequestedUnit?: string;
   isActive?: boolean;
@@ -88,6 +90,8 @@ export interface RecentMedicalRecordItem {
   recordDate: string;
   observation?: string;
   cid10?: string;
+  cid10Secondary?: string;
+  cid10AssociatedCauses?: string;
   createdAt: string;
   patient: {
     id: string;

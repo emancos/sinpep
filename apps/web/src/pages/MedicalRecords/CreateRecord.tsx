@@ -82,13 +82,17 @@ export const CreateRecord: React.FC = () => {
   const [requestedExams, setRequestedExams] = useState<string[]>([]);
   
   const addCid = (cidString: string) => {
-    if (!selectedCids.includes(cidString)) {
-      if (selectedCids.length >= 3) {
-        toast.error('Você pode adicionar no máximo 3 CIDs.');
-        return;
-      }
-      setSelectedCids(prev => [...prev, cidString]);
+    const code = cidString.split(' - ')[0]?.trim().toLowerCase();
+    const isDuplicate = selectedCids.some(c => c.split(' - ')[0]?.trim().toLowerCase() === code);
+    if (isDuplicate) {
+      toast.warning('Este CID já foi adicionado.');
+      return;
     }
+    if (selectedCids.length >= 3) {
+      toast.error('Você pode adicionar no máximo 3 CIDs.');
+      return;
+    }
+    setSelectedCids(prev => [...prev, cidString]);
   };
 
   const removeCid = (index: number) => {
@@ -131,10 +135,8 @@ export const CreateRecord: React.FC = () => {
           );
           if (exactMatch) {
             const formatted = `${exactMatch.code} - ${exactMatch.name}`;
-            if (!requestedExams.includes(formatted)) {
-              setRequestedExams(prev => [...prev, formatted]);
-              setProcSearchTerm(''); // clear to allow new searches
-            }
+            addExam(formatted);
+            setProcSearchTerm(''); // clear to allow new searches
           }
         } catch (err) {
           console.error(err);
@@ -205,9 +207,13 @@ export const CreateRecord: React.FC = () => {
   };
 
   const addExam = (examName: string) => {
-    if (!requestedExams.includes(examName)) {
-      setRequestedExams([...requestedExams, examName]);
+    const code = examName.split(' - ')[0]?.trim().toLowerCase();
+    const isDuplicate = requestedExams.some(e => e.split(' - ')[0]?.trim().toLowerCase() === code);
+    if (isDuplicate) {
+      toast.warning('Este procedimento já foi adicionado.');
+      return;
     }
+    setRequestedExams(prev => [...prev, examName]);
   };
   const removeExam = (index: number) => setRequestedExams(requestedExams.filter((_, i) => i !== index));
 
@@ -256,7 +262,7 @@ export const CreateRecord: React.FC = () => {
       return false;
     }
     if (selectedCids.length === 0) {
-      toast.error('O CID-10 Principal é obrigatório.');
+      toast.error('O CID Primário é obrigatório.');
       return false;
     }
     const validMeds = medications.filter(m => m.name.trim() !== '');
@@ -653,14 +659,21 @@ export const CreateRecord: React.FC = () => {
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-900/60 p-5 rounded-md border border-slate-200 dark:border-slate-700">
-                <h3 className="font-bold text-slate-800 dark:text-white mb-4">Classificação Internacional de Doenças (CIDs) <span className="text-red-500">*</span></h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-slate-800 dark:text-white">
+                    Classificação Internacional de Doenças (CIDs) <span className="text-red-500">*</span>
+                  </h3>
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    {selectedCids.length}/3 selecionados
+                  </span>
+                </div>
                 <div className="relative mb-4">
                   <input
                     type="text"
                     value={cidSearchTerm}
                     onChange={e => setCidSearchTerm(e.target.value)}
-                    className="w-full pl-4 pr-12 py-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                    placeholder="Digite o código exato ou busque na lupa..."
+                    className="w-full pl-4 pr-12 py-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                    placeholder={selectedCids.length >= 3 ? "Limite máximo de 3 CIDs atingido" : "Digite o código exato ou busque na lupa..."}
                     disabled={selectedCids.length >= 3}
                   />
                   <button
@@ -669,7 +682,7 @@ export const CreateRecord: React.FC = () => {
                       setModalCidSearchTerm(cidSearchTerm);
                       setIsCidDropdownOpen(true);
                     }}
-                    className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-blue-500 transition-colors disabled:opacity-50"
+                    className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={selectedCids.length >= 3}
                   >
                     <Search className="w-5 h-5" />
@@ -709,21 +722,36 @@ export const CreateRecord: React.FC = () => {
                               )}
                               {cidResults?.length > 0 ? (
                                 <div className="space-y-1 mt-1">
-                                  {cidResults.map((item: any) => (
-                                    <button
-                                      key={item.code}
-                                      type="button"
-                                      onClick={() => {
-                                        addCid(`${item.code} - ${item.description}`);
-                                        setCidSearchTerm('');
-                                        setIsCidDropdownOpen(false);
-                                      }}
-                                      className="w-full text-left p-3 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-700 dark:text-slate-300 transition-colors border border-transparent hover:border-blue-200 dark:hover:border-blue-800"
-                                    >
-                                      <div className="font-bold text-blue-700 dark:text-blue-400">{item.code}</div>
-                                      <div className="text-sm mt-1">{item.description}</div>
-                                    </button>
-                                  ))}
+                                  {cidResults.map((item: any) => {
+                                    const isAlreadySelected = selectedCids.some(c => c.split(' - ')[0]?.trim().toLowerCase() === item.code.trim().toLowerCase());
+                                    return (
+                                      <button
+                                        key={item.code}
+                                        type="button"
+                                        disabled={isAlreadySelected}
+                                        onClick={() => {
+                                          addCid(`${item.code} - ${item.description}`);
+                                          setCidSearchTerm('');
+                                          setIsCidDropdownOpen(false);
+                                        }}
+                                        className={`w-full text-left p-3 rounded-md transition-colors border ${
+                                          isAlreadySelected
+                                            ? 'bg-slate-100 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-800 cursor-not-allowed opacity-60'
+                                            : 'hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-700 dark:text-slate-300 border-transparent hover:border-blue-200 dark:hover:border-blue-800'
+                                        }`}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <span className="font-bold text-blue-700 dark:text-blue-400">{item.code}</span>
+                                          {isAlreadySelected && (
+                                            <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                              Já selecionado
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="text-sm mt-1">{item.description}</div>
+                                      </button>
+                                    );
+                                  })}
                                 </div>
                               ) : (
                                 <div className="p-8 text-center text-slate-500 dark:text-slate-400">Nenhum resultado encontrado.</div>
@@ -737,19 +765,33 @@ export const CreateRecord: React.FC = () => {
                 </div>
                 {selectedCids.length > 0 && (
                   <div className="space-y-2">
-                    {selectedCids.map((cidItem, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-sm">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">
-                            {index === 0 ? 'CID-10 Principal (Obrigatório)' : index === 1 ? 'CID-10 Secundário (Opcional)' : 'Causas Associadas (Opcional)'}
-                          </span>
-                          <span className="text-sm text-slate-700 dark:text-slate-200 font-medium">{cidItem}</span>
+                    {selectedCids.map((cidItem, index) => {
+                      const badgeLabel = index === 0 ? 'CID Primário' : index === 1 ? 'CID Secundário' : 'CID Causas Associadas';
+                      const badgeColor = index === 0
+                        ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'
+                        : index === 1
+                        ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800'
+                        : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800';
+
+                      return (
+                        <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-sm">
+                          <div className="flex flex-col">
+                            <span className={`text-xs font-bold w-fit px-2 py-0.5 rounded border mb-1.5 ${badgeColor}`}>
+                              {badgeLabel} {index === 0 ? '(Obrigatório)' : '(Opcional)'}
+                            </span>
+                            <span className="text-sm text-slate-700 dark:text-slate-200 font-medium">{cidItem}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeCid(index)}
+                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                            title={`Remover ${badgeLabel}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                        <button type="button" onClick={() => removeCid(index)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -788,7 +830,14 @@ export const CreateRecord: React.FC = () => {
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-900/60 p-5 rounded-md border border-slate-200 dark:border-slate-700">
-                <h3 className="font-bold text-slate-800 dark:text-white mb-4">Exames e Procedimentos (Opcional)</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-slate-800 dark:text-white">Exames e Procedimentos (Opcional)</h3>
+                  {requestedExams.length > 0 && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                      {requestedExams.length} selecionado{requestedExams.length > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
                 <div className="relative mb-4">
                   <input
                     type="text"
@@ -842,21 +891,37 @@ export const CreateRecord: React.FC = () => {
                               )}
                               {procResults?.length > 0 ? (
                                 <div className="space-y-1 mt-1">
-                                  {procResults.map((item: any) => (
-                                    <button
-                                      key={item.id}
-                                      type="button"
-                                      onClick={() => {
-                                        addExam(`${item.code} - ${item.name}`);
-                                        setProcSearchTerm('');
-                                        setIsProcDropdownOpen(false);
-                                      }}
-                                      className="w-full text-left p-3 rounded-md hover:bg-blue-50 text-slate-700 dark:text-slate-300 border border-transparent hover:border-blue-200"
-                                    >
-                                      <div className="font-bold text-blue-700 dark:text-blue-400">{item.code}</div>
-                                      <div className="text-sm mt-1">{item.name}</div>
-                                    </button>
-                                  ))}
+                                  {procResults.map((item: any) => {
+                                    const formatted = `${item.code} - ${item.name}`;
+                                    const isAlreadySelected = requestedExams.some(e => e.split(' - ')[0]?.trim().toLowerCase() === item.code.trim().toLowerCase());
+                                    return (
+                                      <button
+                                        key={item.id}
+                                        type="button"
+                                        disabled={isAlreadySelected}
+                                        onClick={() => {
+                                          addExam(formatted);
+                                          setProcSearchTerm('');
+                                          setIsProcDropdownOpen(false);
+                                        }}
+                                        className={`w-full text-left p-3 rounded-md transition-colors border ${
+                                          isAlreadySelected
+                                            ? 'bg-slate-100 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-800 cursor-not-allowed opacity-60'
+                                            : 'hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-700 dark:text-slate-300 border-transparent hover:border-blue-200 dark:hover:border-blue-800'
+                                        }`}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <span className="font-bold text-blue-700 dark:text-blue-400">{item.code}</span>
+                                          {isAlreadySelected && (
+                                            <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                              Já selecionado
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="text-sm mt-1">{item.name}</div>
+                                      </button>
+                                    );
+                                  })}
                                 </div>
                               ) : (
                                 <div className="p-8 text-center text-slate-500">Nenhum resultado encontrado.</div>
@@ -870,14 +935,52 @@ export const CreateRecord: React.FC = () => {
                 </div>
                 {requestedExams.length > 0 && (
                   <div className="space-y-2">
-                    {requestedExams.map((exam, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md">
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{exam}</span>
-                        <button type="button" onClick={() => removeExam(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md">
-                          <Trash2 className="w-4 h-4" />
+                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1">
+                      <span className="font-medium">Lista de procedimentos adicionados:</span>
+                      {requestedExams.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setRequestedExams([])}
+                          className="text-red-600 hover:text-red-700 dark:text-red-400 hover:underline cursor-pointer"
+                        >
+                          Limpar todos
                         </button>
+                      )}
+                    </div>
+                    <div className="max-h-56 overflow-y-auto pr-1 space-y-1.5 rounded-md border border-slate-200 dark:border-slate-700/80 p-2 bg-slate-100/60 dark:bg-slate-950/40">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {requestedExams.map((exam, index) => {
+                          const [code, ...rest] = exam.split(' - ');
+                          const name = rest.join(' - ');
+                          return (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between gap-2 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-xs text-xs"
+                            >
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="font-mono font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded shrink-0">
+                                  {code}
+                                </span>
+                                <span
+                                  className="text-slate-700 dark:text-slate-200 font-medium truncate"
+                                  title={name || exam}
+                                >
+                                  {name || exam}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeExam(index)}
+                                className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded shrink-0 transition-colors cursor-pointer"
+                                title="Remover procedimento"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
+                    </div>
                   </div>
                 )}
                 {requestedExams.length > 0 && (
@@ -986,12 +1089,22 @@ export const CreateRecord: React.FC = () => {
                   <div>
                     <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">CIDs Diagnosticados</h4>
                     <ul className="space-y-2">
-                      {selectedCids.map((cid, i) => (
-                        <li key={i} className="flex flex-col p-2 bg-blue-50 dark:bg-blue-900/10 rounded-md">
-                          <span className="text-[10px] font-bold text-blue-600 uppercase">{i === 0 ? 'Principal' : i === 1 ? 'Secundário' : 'Causa Assoc.'}</span>
-                          <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{cid}</span>
-                        </li>
-                      ))}
+                      {selectedCids.map((cid, i) => {
+                        const badgeLabel = i === 0 ? 'CID Primário' : i === 1 ? 'CID Secundário' : 'CID Causas Associadas';
+                        const badgeColor = i === 0
+                          ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'
+                          : i === 1
+                          ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800'
+                          : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800';
+                        return (
+                          <li key={i} className="flex flex-col p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-md border border-slate-200 dark:border-slate-700">
+                            <span className={`text-[10px] font-bold uppercase w-fit px-1.5 py-0.5 rounded border mb-1 ${badgeColor}`}>
+                              {badgeLabel}
+                            </span>
+                            <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{cid}</span>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                   <div>
@@ -1022,13 +1135,28 @@ export const CreateRecord: React.FC = () => {
                     )}
                     {requestedExams.length > 0 && (
                       <div>
-                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Exames/Procedimentos</h4>
-                        <ul className="space-y-2 mb-3">
-                          {requestedExams.filter(e=>e).map((e, i) => (
-                            <li key={i} className="text-sm bg-slate-50 dark:bg-slate-900/50 p-2 rounded-md border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200">{e}</li>
-                          ))}
-                        </ul>
-                        <div className="text-xs bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400 p-2 rounded-md">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            Exames e Procedimentos Solicitados ({requestedExams.length})
+                          </h4>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto pr-1 space-y-1.5 mb-3 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-md border border-slate-200 dark:border-slate-700">
+                          {requestedExams.filter(e => e).map((e, i) => {
+                            const [code, ...rest] = e.split(' - ');
+                            const name = rest.join(' - ');
+                            return (
+                              <div key={i} className="flex items-center gap-2 p-1.5 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 text-xs">
+                                <span className="font-mono font-bold text-blue-700 dark:text-blue-400 shrink-0">
+                                  {code}
+                                </span>
+                                <span className="text-slate-700 dark:text-slate-200 font-medium truncate" title={name || e}>
+                                  {name || e}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="text-xs bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400 p-2.5 rounded-md border border-amber-200 dark:border-amber-800">
                           <strong>Justificativa:</strong> {examsJustification}
                         </div>
                       </div>
