@@ -6,11 +6,13 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import axios from 'axios';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useDoctors } from '../../hooks/useDoctors';
-import { X, Loader2, Upload, Plus, Trash2, ArrowLeft, Activity, Search, CheckCircle2, ChevronRight, Printer } from 'lucide-react';
+import { X, Loader2, Upload, Plus, Trash2, ArrowLeft, Activity, Search, CheckCircle2, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import imageCompression from 'browser-image-compression';
 import { MedicationSelect } from './MedicationSelect';
 import { PrescriptionPrintModal } from '../../components/PrescriptionPrintModal';
+import { MedicalCertificateModal } from '../../components/MedicalCertificateModal';
+import { MedicalDocumentDropdown } from '../../components/MedicalDocumentDropdown';
 
 export const CreateRecord: React.FC = () => {
   const { id: patientId } = useParams<{ id: string }>();
@@ -30,6 +32,8 @@ export const CreateRecord: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isAnamnesisEditing, setIsAnamnesisEditing] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
+  const [certificateDocType, setCertificateDocType] = useState<'atestado' | 'declaracao'>('atestado');
 
   const [observation, setObservation] = useState('');
   const [selectedCids, setSelectedCids] = useState<string[]>([]);
@@ -1186,15 +1190,19 @@ export const CreateRecord: React.FC = () => {
                 Voltar e Editar
               </button>
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsPrintModalOpen(true)}
-                  className="px-5 py-2.5 rounded-md font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
-                  title="Visualizar e Imprimir Prescrição Médica e Canhoto"
-                >
-                  <Printer className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  Imprimir Prescrição
-                </button>
+                <MedicalDocumentDropdown
+                  label="Emitir Documentos"
+                  buttonClassName="px-5 py-2.5 rounded-md font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 transition-colors flex items-center gap-2 cursor-pointer shadow-sm text-sm"
+                  onSelectPrescription={() => setIsPrintModalOpen(true)}
+                  onSelectCertificate={() => {
+                    setCertificateDocType('atestado');
+                    setIsCertificateModalOpen(true);
+                  }}
+                  onSelectAttendanceDeclaration={() => {
+                    setCertificateDocType('declaracao');
+                    setIsCertificateModalOpen(true);
+                  }}
+                />
                 <button 
                   type="submit" 
                   disabled={createMutation.isPending}
@@ -1225,6 +1233,23 @@ export const CreateRecord: React.FC = () => {
             hasReturn,
             returnRequestedValue: returnValue,
             returnRequestedUnit: returnUnit,
+            doctor: currentDoctor
+          }}
+        />
+      )}
+
+      {isCertificateModalOpen && (
+        <MedicalCertificateModal
+          isOpen={isCertificateModalOpen}
+          onClose={() => setIsCertificateModalOpen(false)}
+          initialDocType={certificateDocType}
+          patient={patient}
+          currentDoctor={currentDoctor}
+          record={{
+            cid10: selectedCids[0]?.split(' - ')[0],
+            cid10Secondary: selectedCids[1]?.split(' - ')[0],
+            cid10AssociatedCauses: selectedCids[2]?.split(' - ')[0],
+            selectedCids,
             doctor: currentDoctor
           }}
         />

@@ -97,7 +97,7 @@ body {
   }
 }
 
-/* Print styles for Medical Prescription & Return Slip */
+/* Print styles for Medical Prescription, Certificates & Declarations */
 @media print {
   @page {
     size: A4 portrait;
@@ -113,11 +113,12 @@ body {
     print-color-adjust: exact !important;
   }
 
-  body > *:not(#prescription-print-modal-portal) {
+  body > *:not(#prescription-print-modal-portal):not(#certificate-print-modal-portal) {
     display: none !important;
   }
 
-  #prescription-print-modal-portal {
+  #prescription-print-modal-portal,
+  #certificate-print-modal-portal {
     display: block !important;
     position: static !important;
     margin: 0 !important;
@@ -131,7 +132,8 @@ body {
     display: none !important;
   }
 
-  #prescription-print-document {
+  #prescription-print-document,
+  #certificate-print-document {
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;

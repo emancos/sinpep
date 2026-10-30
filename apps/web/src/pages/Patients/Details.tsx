@@ -19,10 +19,11 @@ import {
     FileText,
     Pill,
     Calendar,
-    Edit,
-    Printer
+    Edit
 } from 'lucide-react';
 import { PrescriptionPrintModal } from '../../components/PrescriptionPrintModal';
+import { MedicalCertificateModal } from '../../components/MedicalCertificateModal';
+import { MedicalDocumentDropdown } from '../../components/MedicalDocumentDropdown';
 
 const formatCPF = (cpf?: string) => {
     if (!cpf) return '-';
@@ -88,6 +89,8 @@ export const PatientDetails: React.FC = () => {
     const [attentionLevel, setAttentionLevel] = useState<number>(1);
     const [attentionNotes, setAttentionNotes] = useState<string>('');
     const [selectedRecordForPrint, setSelectedRecordForPrint] = useState<any | null>(null);
+    const [selectedRecordForCertificate, setSelectedRecordForCertificate] = useState<any | null>(null);
+    const [certificateDocType, setCertificateDocType] = useState<'atestado' | 'declaracao'>('atestado');
 
     const openAttentionModal = () => {
         if (!canEditAttention) return;
@@ -461,15 +464,18 @@ export const PatientDetails: React.FC = () => {
                                                     </td>
                                                     <td className="px-4 py-3 text-right whitespace-nowrap">
                                                         <div className="flex items-center justify-end gap-2">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setSelectedRecordForPrint(record)}
-                                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 rounded-md transition-all cursor-pointer shadow-xs active:scale-95"
-                                                                title="Imprimir Prescrição e Canhoto"
-                                                            >
-                                                                <Printer className="w-3.5 h-3.5" />
-                                                                <span>Imprimir</span>
-                                                            </button>
+                                                            <MedicalDocumentDropdown
+                                                                label="Documentos"
+                                                                onSelectPrescription={() => setSelectedRecordForPrint(record)}
+                                                                onSelectCertificate={() => {
+                                                                    setCertificateDocType('atestado');
+                                                                    setSelectedRecordForCertificate(record);
+                                                                }}
+                                                                onSelectAttendanceDeclaration={() => {
+                                                                    setCertificateDocType('declaracao');
+                                                                    setSelectedRecordForCertificate(record);
+                                                                }}
+                                                            />
                                                             <button
                                                                 onClick={() => navigate(`/medical-records/${patient.id}`)}
                                                                 className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/10 border border-teal-500/10 hover:border-teal-200 dark:border-teal-500/20 rounded-md transition-all cursor-pointer shadow-sm"
@@ -686,6 +692,15 @@ export const PatientDetails: React.FC = () => {
                     onClose={() => setSelectedRecordForPrint(null)}
                     patient={patient}
                     record={selectedRecordForPrint}
+                />
+            )}
+            {selectedRecordForCertificate && (
+                <MedicalCertificateModal
+                    isOpen={!!selectedRecordForCertificate}
+                    onClose={() => setSelectedRecordForCertificate(null)}
+                    initialDocType={certificateDocType}
+                    patient={patient}
+                    record={selectedRecordForCertificate}
                 />
             )}
         </div>

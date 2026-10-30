@@ -6,12 +6,14 @@ import { toast } from 'sonner';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useMedicalRecords } from '../../hooks/useMedicalRecords';
 import type { MedicalRecord } from '../../hooks/useMedicalRecords';
-import { Loader2, ArrowLeft, Plus, Calendar, FileText, Pill, Paperclip, Stethoscope, Clock, Activity, Search, Printer } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, Calendar, FileText, Pill, Paperclip, Stethoscope, Clock, Activity, Search } from 'lucide-react';
 import { AttachmentViewer } from './AttachmentViewer';
 import { ExportRecordModal } from './ExportRecordModal';
 import { AuthThumbnail } from '../../components/AuthThumbnail';
 import { FileDown } from 'lucide-react';
 import { PrescriptionPrintModal } from '../../components/PrescriptionPrintModal';
+import { MedicalCertificateModal } from '../../components/MedicalCertificateModal';
+import { MedicalDocumentDropdown } from '../../components/MedicalDocumentDropdown';
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -28,6 +30,8 @@ export const MedicalHistory: React.FC = () => {
   const [expandedRecords, setExpandedRecords] = useState<Record<string, boolean>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [recordForPrint, setRecordForPrint] = useState<MedicalRecord | null>(null);
+  const [recordForCertificate, setRecordForCertificate] = useState<MedicalRecord | null>(null);
+  const [certificateModalDocType, setCertificateModalDocType] = useState<'atestado' | 'declaracao'>('atestado');
 
   const toggleRecord = (recordId: string) => {
     setExpandedRecords(prev => ({ ...prev, [recordId]: !prev[recordId] }));
@@ -228,18 +232,18 @@ export const MedicalHistory: React.FC = () => {
                             )}
                           </div>
                         )}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setRecordForPrint(record);
+                        <MedicalDocumentDropdown
+                          label="Emitir Documentos"
+                          onSelectPrescription={() => setRecordForPrint(record)}
+                          onSelectCertificate={() => {
+                            setCertificateModalDocType('atestado');
+                            setRecordForCertificate(record);
                           }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 rounded-md transition-all cursor-pointer shadow-xs active:scale-95"
-                          title="Imprimir Prescrição e Canhoto de Retorno"
-                        >
-                          <Printer className="w-3.5 h-3.5" />
-                          <span>Imprimir Prescrição</span>
-                        </button>
+                          onSelectAttendanceDeclaration={() => {
+                            setCertificateModalDocType('declaracao');
+                            setRecordForCertificate(record);
+                          }}
+                        />
                       </div>
                     </div>
                     
@@ -390,6 +394,16 @@ export const MedicalHistory: React.FC = () => {
           onClose={() => setRecordForPrint(null)}
           patient={patient}
           record={recordForPrint}
+        />
+      )}
+
+      {recordForCertificate && (
+        <MedicalCertificateModal
+          isOpen={!!recordForCertificate}
+          onClose={() => setRecordForCertificate(null)}
+          initialDocType={certificateModalDocType}
+          patient={patient}
+          record={recordForCertificate}
         />
       )}
     </div>
