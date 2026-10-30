@@ -25,21 +25,7 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async validateUser(
-    email: string,
-    pass: string,
-  ): Promise<ValidatedUser | null> {
-    const user: any = await this.usersService.findByEmail(email);
-    if (!user) {
-      return null;
-    }
-
-    const isMatch = await bcrypt.compare(pass, user.passwordHash);
-    if (!isMatch) {
-      return null;
-    }
-
-    // Consolidate permissions
+  consolidatePermissions(user: any): string[] {
     const permissionMap = new Map<string, boolean>();
 
     // 1. Add profile permissions
@@ -61,9 +47,30 @@ export class AuthService {
     }
 
     // 3. Filter only allowed permissions
-    const consolidatedPermissions = Array.from(permissionMap.entries())
+    return Array.from(permissionMap.entries())
       .filter((entry) => entry[1])
       .map((entry) => entry[0]);
+  }
+
+  async validateUser(
+    email: string,
+    pass: string,
+  ): Promise<ValidatedUser | null> {
+    const user: any = await this.usersService.findByEmail(email);
+    if (!user) {
+      return null;
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Usuário inativo. Entre em contato com o administrador.');
+    }
+
+    const isMatch = await bcrypt.compare(pass, user.passwordHash);
+    if (!isMatch) {
+      return null;
+    }
+
+    const consolidatedPermissions = this.consolidatePermissions(user);
 
     return {
       id: user.id,
@@ -75,6 +82,31 @@ export class AuthService {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       permissions: consolidatedPermissions,
+    };
+  }
+
+  async getProfile(userId: string) {
+    const user: any = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Usuário não encontrado');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Sessão expirada ou usuário inativo');
+    }
+
+    const permissions = this.consolidatePermissions(user);
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone || undefined,
+      avatar: user.avatar || undefined,
+      profileId: user.profileId,
+      profileName: user.profile?.name,
+      healthCenterId: user.healthCenterId,
+      permissions,
     };
   }
 
