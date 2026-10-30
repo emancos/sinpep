@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTheme } from '../contexts/ThemeContext';
+import { isTokenExpired } from '../utils/token';
 
 export const Login: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -25,8 +26,19 @@ export const Login: React.FC = () => {
     const [loading, setLoading] = useState(false);
 
     const login = useAuthStore((state) => state.login);
+    const token = useAuthStore((state) => state.token);
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const navigate = useNavigate();
     const { theme, setTheme } = useTheme();
+
+    // Se já estiver autenticado com token válido, redireciona diretamente
+    useEffect(() => {
+        if (isAuthenticated && token && !isTokenExpired(token)) {
+            const redirectUrl = sessionStorage.getItem('redirect_after_login') || '/';
+            sessionStorage.removeItem('redirect_after_login');
+            navigate(redirectUrl, { replace: true });
+        }
+    }, [isAuthenticated, token, navigate]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -42,7 +54,11 @@ export const Login: React.FC = () => {
 
             const { accessToken, user } = response.data;
             login(accessToken, user, user.permissions);
-            navigate('/');
+
+            // Redireciona para a página que o usuário tentou acessar anteriormente ou para a home
+            const redirectUrl = sessionStorage.getItem('redirect_after_login') || '/';
+            sessionStorage.removeItem('redirect_after_login');
+            navigate(redirectUrl, { replace: true });
         } catch (err) {
             const error = err as { response?: { data?: { message?: string } } };
             if (error.response?.data?.message) {
