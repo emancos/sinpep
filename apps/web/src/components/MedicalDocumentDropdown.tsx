@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FileText, ChevronDown, Printer, Activity, Clock } from 'lucide-react';
+import { FileText, ChevronDown, Printer, Activity, Clock, ClipboardList } from 'lucide-react';
 
 export interface MedicalDocumentDropdownProps {
   onSelectPrescription: () => void;
   onSelectCertificate: () => void;
   onSelectAttendanceDeclaration: () => void;
+  onSelectApacReport?: () => void;
   buttonClassName?: string;
   label?: string;
   align?: 'left' | 'right';
@@ -14,6 +15,7 @@ export const MedicalDocumentDropdown: React.FC<MedicalDocumentDropdownProps> = (
   onSelectPrescription,
   onSelectCertificate,
   onSelectAttendanceDeclaration,
+  onSelectApacReport,
   buttonClassName,
   label = 'Emitir Documentos',
   align = 'right',
@@ -116,6 +118,25 @@ export const MedicalDocumentDropdown: React.FC<MedicalDocumentDropdownProps> = (
               <div className="text-[10px] text-slate-500 dark:text-slate-400">Comprovação de presença/horário</div>
             </div>
           </button>
+
+          {onSelectApacReport && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onSelectApacReport();
+              }}
+              className="w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors cursor-pointer group border-t border-slate-100 dark:border-slate-700/60"
+            >
+              <div className="w-6 h-6 rounded flex items-center justify-center bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 group-hover:scale-105 transition-transform">
+                <ClipboardList className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <div className="font-semibold text-slate-900 dark:text-white leading-tight">Laudo APAC</div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400">Solicitação de Procedimento (SUS)</div>
+              </div>
+            </button>
+          )}
         </div>
       )}
     </div>
