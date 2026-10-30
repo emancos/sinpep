@@ -113,12 +113,13 @@ body {
     print-color-adjust: exact !important;
   }
 
-  body > *:not(#prescription-print-modal-portal):not(#certificate-print-modal-portal) {
+  body > *:not(#prescription-print-modal-portal):not(#certificate-print-modal-portal):not(#apac-print-modal-portal) {
     display: none !important;
   }
 
   #prescription-print-modal-portal,
-  #certificate-print-modal-portal {
+  #certificate-print-modal-portal,
+  #apac-print-modal-portal {
     display: block !important;
     position: static !important;
     margin: 0 !important;
@@ -133,13 +134,14 @@ body {
   }
 
   #prescription-print-document,
-  #certificate-print-document {
+  #certificate-print-document,
+  #apac-print-document {
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;
     width: 100% !important;
-    height: 275mm !important;
-    max-height: 275mm !important;
+    height: 280mm !important;
+    max-height: 280mm !important;
     margin: 0 !important;
     padding: 0 !important;
     border: none !important;
