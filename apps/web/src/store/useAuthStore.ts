@@ -1,11 +1,15 @@
 import { create } from 'zustand';
+import { isTokenExpired } from '../utils/token';
 
-interface User {
+export interface User {
     id: string;
     name: string;
     email: string;
     phone?: string;
     avatar?: string;
+    profileId?: string;
+    profileName?: string;
+    healthCenterId?: string;
     sisregUsername?: string;
 }
 
@@ -17,6 +21,7 @@ interface AuthState {
     login: (token: string, user: User, permissions: string[]) => void;
     logout: () => void;
     updateUser: (user: Partial<User>) => void;
+    syncSession: (user: Partial<User>, permissions?: string[]) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => {
@@ -30,8 +35,22 @@ export const useAuthStore = create<AuthState>((set) => {
     };
 
     const savedToken = getSavedItem('app_base_token');
-    const savedUser = getSavedItem('app_base_user');
-    const savedPermissions = getSavedItem('app_base_permissions');
+    const isExpired = isTokenExpired(savedToken);
+
+    // Se o token já estiver expirado na inicialização, limpa o estado residual
+    if (savedToken && isExpired) {
+        try {
+            localStorage.removeItem('app_base_token');
+            localStorage.removeItem('app_base_user');
+            localStorage.removeItem('app_base_permissions');
+        } catch {
+            // Ignora erro de storage
+        }
+    }
+
+    const validToken = !isExpired ? savedToken : null;
+    const savedUser = validToken ? getSavedItem('app_base_user') : null;
+    const savedPermissions = validToken ? getSavedItem('app_base_permissions') : null;
 
     let parsedUser: User | null = null;
     if (savedUser) {
@@ -52,10 +71,10 @@ export const useAuthStore = create<AuthState>((set) => {
     }
 
     return {
-        token: savedToken || null,
+        token: validToken,
         user: parsedUser,
         permissions: parsedPermissions,
-        isAuthenticated: !!savedToken,
+        isAuthenticated: !!validToken,
 
         login: (token, user, permissions) => {
             try {
@@ -90,6 +109,20 @@ export const useAuthStore = create<AuthState>((set) => {
                     }
                 }
                 return { user: newUser };
+            });
+        },
+
+        syncSession: (userData, newPermissions) => {
+            set((state) => {
+                const updatedUser = state.user ? { ...state.user, ...userData } : (userData as User);
+                const updatedPermissions = newPermissions ?? state.permissions;
+                try {
+                    localStorage.setItem('app_base_user', JSON.stringify(updatedUser));
+                    localStorage.setItem('app_base_permissions', JSON.stringify(updatedPermissions));
+                } catch (e) {
+                    console.error('Failed to sync session to localStorage:', e);
+                }
+                return { user: updatedUser, permissions: updatedPermissions };
             });
         },
     };
