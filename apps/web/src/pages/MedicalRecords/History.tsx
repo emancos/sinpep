@@ -13,6 +13,7 @@ import { AuthThumbnail } from '../../components/AuthThumbnail';
 import { FileDown } from 'lucide-react';
 import { PrescriptionPrintModal } from '../../components/PrescriptionPrintModal';
 import { MedicalCertificateModal } from '../../components/MedicalCertificateModal';
+import { ApacReportModal } from '../../components/ApacReportModal';
 import { MedicalDocumentDropdown } from '../../components/MedicalDocumentDropdown';
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -31,6 +32,7 @@ export const MedicalHistory: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [recordForPrint, setRecordForPrint] = useState<MedicalRecord | null>(null);
   const [recordForCertificate, setRecordForCertificate] = useState<MedicalRecord | null>(null);
+  const [recordForApac, setRecordForApac] = useState<MedicalRecord | null>(null);
   const [certificateModalDocType, setCertificateModalDocType] = useState<'atestado' | 'declaracao'>('atestado');
 
   const toggleRecord = (recordId: string) => {
@@ -243,6 +245,7 @@ export const MedicalHistory: React.FC = () => {
                             setCertificateModalDocType('declaracao');
                             setRecordForCertificate(record);
                           }}
+                          onSelectApacReport={() => setRecordForApac(record)}
                         />
                       </div>
                     </div>
@@ -404,6 +407,15 @@ export const MedicalHistory: React.FC = () => {
           initialDocType={certificateModalDocType}
           patient={patient}
           record={recordForCertificate}
+        />
+      )}
+
+      {recordForApac && (
+        <ApacReportModal
+          isOpen={!!recordForApac}
+          onClose={() => setRecordForApac(null)}
+          patient={patient}
+          record={recordForApac}
         />
       )}
     </div>

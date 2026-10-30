@@ -12,6 +12,7 @@ import imageCompression from 'browser-image-compression';
 import { MedicationSelect } from './MedicationSelect';
 import { PrescriptionPrintModal } from '../../components/PrescriptionPrintModal';
 import { MedicalCertificateModal } from '../../components/MedicalCertificateModal';
+import { ApacReportModal } from '../../components/ApacReportModal';
 import { MedicalDocumentDropdown } from '../../components/MedicalDocumentDropdown';
 
 export const CreateRecord: React.FC = () => {
@@ -33,6 +34,7 @@ export const CreateRecord: React.FC = () => {
   const [isAnamnesisEditing, setIsAnamnesisEditing] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
+  const [isApacModalOpen, setIsApacModalOpen] = useState(false);
   const [certificateDocType, setCertificateDocType] = useState<'atestado' | 'declaracao'>('atestado');
 
   const [observation, setObservation] = useState('');
@@ -1202,6 +1204,7 @@ export const CreateRecord: React.FC = () => {
                     setCertificateDocType('declaracao');
                     setIsCertificateModalOpen(true);
                   }}
+                  onSelectApacReport={() => setIsApacModalOpen(true)}
                 />
                 <button 
                   type="submit" 
@@ -1250,6 +1253,25 @@ export const CreateRecord: React.FC = () => {
             cid10Secondary: selectedCids[1]?.split(' - ')[0],
             cid10AssociatedCauses: selectedCids[2]?.split(' - ')[0],
             selectedCids,
+            doctor: currentDoctor
+          }}
+        />
+      )}
+
+      {isApacModalOpen && (
+        <ApacReportModal
+          isOpen={isApacModalOpen}
+          onClose={() => setIsApacModalOpen(false)}
+          patient={patient}
+          currentDoctor={currentDoctor}
+          record={{
+            cid10: selectedCids[0]?.split(' - ')[0],
+            cid10Secondary: selectedCids[1]?.split(' - ')[0],
+            cid10AssociatedCauses: selectedCids[2]?.split(' - ')[0],
+            selectedCids,
+            requestedExams: requestedExams.filter(e => e.trim()),
+            examsJustification,
+            observation,
             doctor: currentDoctor
           }}
         />

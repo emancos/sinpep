@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { PrescriptionPrintModal } from '../../components/PrescriptionPrintModal';
 import { MedicalCertificateModal } from '../../components/MedicalCertificateModal';
+import { ApacReportModal } from '../../components/ApacReportModal';
 import { MedicalDocumentDropdown } from '../../components/MedicalDocumentDropdown';
 
 const formatCPF = (cpf?: string) => {
@@ -90,6 +91,7 @@ export const PatientDetails: React.FC = () => {
     const [attentionNotes, setAttentionNotes] = useState<string>('');
     const [selectedRecordForPrint, setSelectedRecordForPrint] = useState<any | null>(null);
     const [selectedRecordForCertificate, setSelectedRecordForCertificate] = useState<any | null>(null);
+    const [selectedRecordForApac, setSelectedRecordForApac] = useState<any | null>(null);
     const [certificateDocType, setCertificateDocType] = useState<'atestado' | 'declaracao'>('atestado');
 
     const openAttentionModal = () => {
@@ -475,6 +477,7 @@ export const PatientDetails: React.FC = () => {
                                                                     setCertificateDocType('declaracao');
                                                                     setSelectedRecordForCertificate(record);
                                                                 }}
+                                                                onSelectApacReport={() => setSelectedRecordForApac(record)}
                                                             />
                                                             <button
                                                                 onClick={() => navigate(`/medical-records/${patient.id}`)}
@@ -701,6 +704,14 @@ export const PatientDetails: React.FC = () => {
                     initialDocType={certificateDocType}
                     patient={patient}
                     record={selectedRecordForCertificate}
+                />
+            )}
+            {selectedRecordForApac && (
+                <ApacReportModal
+                    isOpen={!!selectedRecordForApac}
+                    onClose={() => setSelectedRecordForApac(null)}
+                    patient={patient}
+                    record={selectedRecordForApac}
                 />
             )}
         </div>
