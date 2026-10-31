@@ -11,6 +11,7 @@ export interface ValidatedUser {
   phone?: string | null;
   avatar?: string | null;
   profileId: string;
+  healthCenterId?: string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
   permissions: string[];
@@ -79,6 +80,7 @@ export class AuthService {
       phone: user.phone,
       avatar: user.avatar,
       profileId: user.profileId,
+      healthCenterId: user.healthCenterId,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       permissions: consolidatedPermissions,
@@ -130,6 +132,7 @@ export class AuthService {
         email: user.email,
         phone: user.phone || undefined,
         avatar: user.avatar || undefined,
+        healthCenterId: user.healthCenterId,
         permissions: user.permissions,
       },
     };
