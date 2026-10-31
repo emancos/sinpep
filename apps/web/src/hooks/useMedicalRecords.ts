@@ -28,6 +28,8 @@ export interface MedicalRecord {
   medicationsJustification?: string;
   requestedExams: any[];
   examsJustification?: string;
+  executingUnitName?: string;
+  executingUnitCnes?: string;
   attachments: MedicalRecordAttachment[];
   doctor: {
     id: string;

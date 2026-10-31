@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X, FileText } from 'lucide-react';
+import { resolveExecutingUnit } from '../utils/executingUnit';
 
 export interface ApacRecord {
   recordDate?: string;
@@ -11,6 +12,8 @@ export interface ApacRecord {
   selectedCids?: string[];
   requestedExams?: string[];
   examsJustification?: string;
+  executingUnitName?: string;
+  executingUnitCnes?: string;
   doctor?: any;
 }
 
@@ -20,6 +23,11 @@ export interface ApacReportModalProps {
   patient?: any;
   record?: ApacRecord | null;
   currentDoctor?: any;
+  appointment?: any;
+  executingUnit?: {
+    name?: string;
+    cnes?: string;
+  };
   unitInfo?: {
     name?: string;
     cnes?: string;
@@ -28,6 +36,10 @@ export interface ApacReportModalProps {
     ibgeCode?: string;
     address?: string;
     phone?: string;
+    executingUnit?: {
+      name?: string;
+      cnes?: string;
+    };
   };
 }
 
@@ -127,6 +139,8 @@ export const ApacReportModal: React.FC<ApacReportModalProps> = ({
   patient,
   record,
   currentDoctor,
+  appointment,
+  executingUnit,
   unitInfo,
 }) => {
   if (!isOpen || !record) return null;
@@ -139,12 +153,22 @@ export const ApacReportModal: React.FC<ApacReportModalProps> = ({
   // Procedimento principal selecionado
   const [selectedMainExamIdx, setSelectedMainExamIdx] = useState(0);
 
+  // Unidade Executante (obtida a partir do agendamento / e-SUS 'noEstabelecimentoExecutante')
+  const resolvedExecuting = resolveExecutingUnit([
+    executingUnit,
+    unitInfo?.executingUnit,
+    record,
+    (record as any)?.appointment,
+    appointment,
+    unitInfo,
+  ]);
+  const executingUnitName = resolvedExecuting.name;
+  const executingUnitCnes = resolvedExecuting.cnes;
+
   // Campos complementares do formulário
   const motherName = patient?.motherName || '';
   const responsibleName = patient?.responsibleName || '';
   const patientRace = patient?.race || '';
-  const executingUnitName = unitInfo?.name || patient?.healthCenter?.name || '';
-  const executingUnitCnes = unitInfo?.cnes || patient?.healthCenter?.cnes || '';
   const authorizerOrgCode = 'SMS';
 
   // Procedimento Principal
@@ -174,13 +198,13 @@ export const ApacReportModal: React.FC<ApacReportModalProps> = ({
   const phoneNumber = patientPhone.length >= 10 ? patientPhone.slice(2) : patientPhone;
   const patientAddress = patient?.address || '';
 
-  // Estabelecimento Solicitante
-  const solicitingUnitName = unitInfo?.name || patient?.healthCenter?.name || 'CENTRO DE SAÚDE';
-  const solicitingUnitCnes = unitInfo?.cnes || patient?.healthCenter?.cnes || '';
-  const city = unitInfo?.city || patient?.healthCenter?.noMunicipio || '';
-  const ibgeCode = unitInfo?.ibgeCode || patient?.healthCenter?.coMunicipioIbge || '';
-  const state = unitInfo?.state || patient?.healthCenter?.sgUf || 'CE';
-  const cep = (unitInfo as any)?.coCep || patient?.healthCenter?.coCep || '';
+  // Estabelecimento Solicitante (Unidade Básica de Saúde / PSF do Paciente)
+  const solicitingUnitName = patient?.healthCenter?.name || 'CENTRO DE SAÚDE';
+  const solicitingUnitCnes = patient?.healthCenter?.cnes || '';
+  const city = patient?.healthCenter?.noMunicipio || unitInfo?.city || '';
+  const ibgeCode = patient?.healthCenter?.coMunicipioIbge || unitInfo?.ibgeCode || '';
+  const state = patient?.healthCenter?.sgUf || unitInfo?.state || 'PB';
+  const cep = patient?.healthCenter?.coCep || (unitInfo as any)?.coCep || '';
 
   // Data do atendimento
   const recordDateObj = record.recordDate ? new Date(record.recordDate) : new Date();

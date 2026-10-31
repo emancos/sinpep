@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X, Activity, Clock, User, Users } from 'lucide-react';
+import { resolveExecutingUnit } from '../utils/executingUnit';
 
 export interface MedicalCertificateRecord {
   recordDate?: string;
@@ -8,6 +9,8 @@ export interface MedicalCertificateRecord {
   cid10Secondary?: string;
   cid10AssociatedCauses?: string;
   selectedCids?: string[];
+  executingUnitName?: string;
+  executingUnitCnes?: string;
   doctor?: any;
 }
 
@@ -18,6 +21,10 @@ export interface MedicalCertificateModalProps {
   patient?: any;
   record?: MedicalCertificateRecord | null;
   currentDoctor?: any;
+  executingUnit?: {
+    name?: string;
+    cnes?: string;
+  };
   unitInfo?: {
     name?: string;
     cnes?: string;
@@ -60,6 +67,7 @@ export const MedicalCertificateModal: React.FC<MedicalCertificateModalProps> = (
   patient,
   record,
   currentDoctor,
+  executingUnit,
   unitInfo,
 }) => {
   const [docType, setDocType] = useState<'atestado' | 'declaracao'>(initialDocType);
@@ -142,11 +150,18 @@ export const MedicalCertificateModal: React.FC<MedicalCertificateModalProps> = (
   // CID
   const primaryCid = record.cid10 || record.selectedCids?.[0] || '';
 
-  // Unidade de Saúde
-  const unitName = unitInfo?.name || patient?.healthCenter?.name || 'CENTRO DE SAÚDE / AMBULATÓRIO DE ESPECIALIDADES';
-  const unitCnes = unitInfo?.cnes || patient?.healthCenter?.cnes || '0000000';
-  const unitCity = unitInfo?.city || 'Município';
-  const unitState = unitInfo?.state || 'UF';
+  // Unidade Executante onde a consulta é realizada e o documento emitido
+  const resolvedUnit = resolveExecutingUnit([
+    executingUnit,
+    record,
+    (record as any)?.appointment,
+    unitInfo,
+    patient?.healthCenter,
+  ]);
+  const unitName = resolvedUnit.name || 'POLICLINICA REGIONAL';
+  const unitCnes = resolvedUnit.cnes || '2606712';
+  const unitCity = unitInfo?.city || patient?.healthCenter?.noMunicipio || 'SAO BENTO';
+  const unitState = unitInfo?.state || patient?.healthCenter?.sgUf || 'PB';
 
   const handlePrint = () => {
     window.print();

@@ -1,6 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X, Scissors, Activity, Pill, Stethoscope } from 'lucide-react';
+import { resolveExecutingUnit } from '../utils/executingUnit';
 
 export interface PrescriptionPrintRecord {
   recordDate?: string;
@@ -16,6 +17,8 @@ export interface PrescriptionPrintRecord {
   hasReturn?: boolean;
   returnRequestedValue?: number | string;
   returnRequestedUnit?: string;
+  executingUnitName?: string;
+  executingUnitCnes?: string;
   doctor?: any;
 }
 
@@ -25,6 +28,10 @@ export interface PrescriptionPrintModalProps {
   patient?: any;
   record?: PrescriptionPrintRecord | null;
   currentDoctor?: any;
+  executingUnit?: {
+    name?: string;
+    cnes?: string;
+  };
   unitInfo?: {
     name?: string;
     cnes?: string;
@@ -39,6 +46,7 @@ export const PrescriptionPrintModal: React.FC<PrescriptionPrintModalProps> = ({
   patient,
   record,
   currentDoctor,
+  executingUnit,
   unitInfo,
 }) => {
   if (!isOpen || !record) return null;
@@ -123,9 +131,16 @@ export const PrescriptionPrintModal: React.FC<PrescriptionPrintModalProps> = ({
   };
   const estimatedReturnDate = calculateReturnDate(recordDateObj, returnVal, returnUnit);
 
-  // Unidade de Saúde
-  const unitName = unitInfo?.name || patient?.healthCenter?.name || 'CENTRO DE SAÚDE / AMBULATÓRIO DE ESPECIALIDADES';
-  const unitCnes = unitInfo?.cnes || patient?.healthCenter?.cnes || '0000000';
+  // Unidade Executante onde a consulta e prescrição ocorrem
+  const resolvedUnit = resolveExecutingUnit([
+    executingUnit,
+    record,
+    (record as any)?.appointment,
+    unitInfo,
+    patient?.healthCenter,
+  ]);
+  const unitName = resolvedUnit.name || 'POLICLINICA REGIONAL';
+  const unitCnes = resolvedUnit.cnes || '2606712';
 
   const handlePrint = () => {
     window.print();
