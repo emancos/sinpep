@@ -27,13 +27,15 @@ import {
   LogOut, 
   AlertCircle, 
   Layers,
-  Building2
+  Building2,
+  Key
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreatePatientModal } from './CreatePatientModal';
 import { EnqueuePriorityModal } from './EnqueuePriorityModal';
 import { PriorityRuleSelector } from './PriorityRuleSelector';
 import { SelectRoomModal } from './SelectRoomModal';
+import { ValidateConfirmationTokenModal } from './ValidateConfirmationTokenModal';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSocket } from '../../contexts/SocketContext';
 import { setStoredExecutingUnit } from '../../utils/executingUnit';
@@ -61,6 +63,7 @@ export const Reception: React.FC = () => {
   // Controle do modal de vinculação/troca de ambulatório
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
   const [isMandatoryRoomModal, setIsMandatoryRoomModal] = useState(false);
+  const [isValidateTokenModalOpen, setIsValidateTokenModalOpen] = useState(false);
 
   useEffect(() => {
     const currentUrlDate = searchParams.get('date');
@@ -564,6 +567,15 @@ export const Reception: React.FC = () => {
         <div className="flex flex-wrap items-center gap-3">
           {/* Seletor de regra de prioridade disponível apenas para a recepção/administração */}
           {!isDoctor && <PriorityRuleSelector />}
+          {!isDoctor && (
+            <button
+              onClick={() => setIsValidateTokenModalOpen(true)}
+              className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5 shadow-sm shadow-emerald-500/20"
+            >
+              <Key className="w-4 h-4" />
+              <span>Validar Chave SINPeP</span>
+            </button>
+          )}
           <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
             <Calendar className="w-5 h-5 text-slate-500 ml-1" />
             <input 
@@ -891,6 +903,15 @@ export const Reception: React.FC = () => {
           }}
         />
       )}
+
+      <ValidateConfirmationTokenModal
+        isOpen={isValidateTokenModalOpen}
+        onClose={() => setIsValidateTokenModalOpen(false)}
+        executingHealthCenterId={executingUnit?.cnes || undefined}
+        onPatientValidated={() => {
+          queryClient.invalidateQueries({ queryKey: ['reception-schedule'] });
+        }}
+      />
     </div>
   );
 };
