@@ -407,6 +407,9 @@ export const medicalRecords = pgTable("medical_records", {
   requestedExams: jsonb("requested_exams").default([]),
   examsJustification: text("exams_justification"),
   
+  executingUnitName: text("executing_unit_name"),
+  executingUnitCnes: text("executing_unit_cnes"),
+
   isActive: boolean("is_active").default(true).notNull(),
 
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),

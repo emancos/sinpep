@@ -181,6 +181,8 @@ export class MedicalRecordsService {
       isOci: String(data.isOci) === 'true',
       medicationsJustification: data.medicationsJustification || null,
       examsJustification: data.examsJustification || null,
+      executingUnitName: data.executingUnitName || null,
+      executingUnitCnes: data.executingUnitCnes || null,
       medications,
       requestedExams,
       createdAt: new Date().toISOString(),
