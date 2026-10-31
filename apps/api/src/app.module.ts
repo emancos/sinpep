@@ -20,6 +20,7 @@ import { ReportsModule } from './reports/reports.module';
 import { ReceptionModule } from './reception/reception.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { MedicationsModule } from './medications/medications.module';
+import { RegulationModule } from './regulation/regulation.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { MedicationsModule } from './medications/medications.module';
     ReceptionModule,
     RoomsModule,
     MedicationsModule,
+    RegulationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
