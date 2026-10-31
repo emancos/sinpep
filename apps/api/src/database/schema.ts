@@ -643,5 +643,239 @@ export const medicationSubstancesRelations = relations(medicationSubstances, ({ 
   }),
 }));
 
+// ==========================================
+// REGULAÇÃO MUNICIPAL (SINPeP REGULAÇÃO)
+// ==========================================
+
+export const regulationRequestTypeEnum = pgEnum("regulation_request_type", ["CONSULTA", "EXAME", "PROCEDIMENTO"]);
+export const regulationRequestPriorityEnum = pgEnum("regulation_request_priority", ["ELETIVO", "PRIORITARIO", "URGENTE"]);
+export const regulationRequestStatusEnum = pgEnum("regulation_request_status", [
+  "PENDENTE_REGULACAO",
+  "PENDENTE_AGENDAMENTO",
+  "AGENDADA",
+  "DEVOLVIDA",
+  "NEGADA",
+  "AGENDAMENTO_CANCELADO",
+  "CANCELADA"
+]);
+
+export const regulationRequests = pgTable("regulation_requests", {
+  id: uuid().primaryKey().notNull(),
+  protocolNumber: text("protocol_number").notNull(),
+  patientId: uuid("patient_id").notNull(),
+  requestingHealthCenterId: uuid("requesting_health_center_id").notNull(),
+  requestingUserId: uuid("requesting_user_id").notNull(),
+  attendingDoctorId: uuid("attending_doctor_id"),
+
+  type: regulationRequestTypeEnum("type").notNull(),
+  specialtyId: uuid("specialty_id"),
+  procedureId: uuid("procedure_id"),
+  procedureGroupId: uuid("procedure_group_id"),
+
+  cid10: text().notNull(),
+  clinicalJustification: text("clinical_justification").notNull(),
+  clinicalHistory: text("clinical_history"),
+  priority: regulationRequestPriorityEnum("priority").default("ELETIVO").notNull(),
+  status: regulationRequestStatusEnum("status").default("PENDENTE_REGULACAO").notNull(),
+
+  executingHealthCenterId: uuid("executing_health_center_id"),
+  scheduledDate: text("scheduled_date"),
+  scheduledTime: text("scheduled_time"),
+  confirmationToken: text("confirmation_token"),
+  scheduledByUserId: uuid("scheduled_by_user_id"),
+  tokenValidatedAt: timestamp("token_validated_at", { precision: 3, mode: 'string' }),
+  tokenValidatedByUserId: uuid("token_validated_by_user_id"),
+
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+  uniqueIndex("regulation_requests_protocol_key").using("btree", table.protocolNumber.asc().nullsLast().op("text_ops")),
+  foreignKey({
+    columns: [table.patientId],
+    foreignColumns: [patients.id],
+    name: "regulation_requests_patient_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.requestingHealthCenterId],
+    foreignColumns: [healthCenters.id],
+    name: "regulation_requests_requesting_health_center_id_fkey"
+  }).onUpdate("cascade").onDelete("restrict"),
+  foreignKey({
+    columns: [table.requestingUserId],
+    foreignColumns: [users.id],
+    name: "regulation_requests_requesting_user_id_fkey"
+  }).onUpdate("cascade").onDelete("restrict"),
+  foreignKey({
+    columns: [table.attendingDoctorId],
+    foreignColumns: [users.id],
+    name: "regulation_requests_attending_doctor_id_fkey"
+  }).onUpdate("cascade").onDelete("set null"),
+  foreignKey({
+    columns: [table.specialtyId],
+    foreignColumns: [specialties.id],
+    name: "regulation_requests_specialty_id_fkey"
+  }).onUpdate("cascade").onDelete("set null"),
+  foreignKey({
+    columns: [table.procedureId],
+    foreignColumns: [procedures.id],
+    name: "regulation_requests_procedure_id_fkey"
+  }).onUpdate("cascade").onDelete("set null"),
+  foreignKey({
+    columns: [table.procedureGroupId],
+    foreignColumns: [procedureGroups.id],
+    name: "regulation_requests_procedure_group_id_fkey"
+  }).onUpdate("cascade").onDelete("set null"),
+  foreignKey({
+    columns: [table.executingHealthCenterId],
+    foreignColumns: [healthCenters.id],
+    name: "regulation_requests_executing_health_center_id_fkey"
+  }).onUpdate("cascade").onDelete("set null"),
+]);
+
+export const regulationRequestAttachments = pgTable("regulation_request_attachments", {
+  id: uuid().primaryKey().notNull(),
+  requestId: uuid("request_id").notNull(),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(),
+  fileUrl: text("file_url").notNull(),
+  fileSize: integer("file_size"),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  foreignKey({
+    columns: [table.requestId],
+    foreignColumns: [regulationRequests.id],
+    name: "regulation_request_attachments_request_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade")
+]);
+
+export const regulationStatusHistory = pgTable("regulation_status_history", {
+  id: uuid().primaryKey().notNull(),
+  requestId: uuid("request_id").notNull(),
+  previousStatus: regulationRequestStatusEnum("previous_status"),
+  newStatus: regulationRequestStatusEnum("new_status").notNull(),
+  justification: text().notNull(),
+  actionByUserId: uuid("action_by_user_id").notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  foreignKey({
+    columns: [table.requestId],
+    foreignColumns: [regulationRequests.id],
+    name: "regulation_status_history_request_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.actionByUserId],
+    foreignColumns: [users.id],
+    name: "regulation_status_history_action_by_user_id_fkey"
+  }).onUpdate("cascade").onDelete("restrict")
+]);
+
+export const regulationQuotas = pgTable("regulation_quotas", {
+  id: uuid().primaryKey().notNull(),
+  executingHealthCenterId: uuid("executing_health_center_id").notNull(),
+  type: regulationRequestTypeEnum("type").notNull(),
+  specialtyId: uuid("specialty_id"),
+  procedureId: uuid("procedure_id"),
+  doctorId: uuid("doctor_id"),
+
+  targetDate: text("target_date").notNull(),
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time"),
+  intervalMinutes: integer("interval_minutes").default(20),
+
+  totalSlots: integer("total_slots").default(10).notNull(),
+  reservedSlots: integer("reserved_slots").default(0).notNull(),
+
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  foreignKey({
+    columns: [table.executingHealthCenterId],
+    foreignColumns: [healthCenters.id],
+    name: "regulation_quotas_executing_health_center_id_fkey"
+  }).onUpdate("cascade").onDelete("restrict")
+]);
+
+export const regulationRequestsRelations = relations(regulationRequests, ({ one, many }) => ({
+  patient: one(patients, {
+    fields: [regulationRequests.patientId],
+    references: [patients.id],
+  }),
+  requestingHealthCenter: one(healthCenters, {
+    fields: [regulationRequests.requestingHealthCenterId],
+    references: [healthCenters.id],
+  }),
+  requestingUser: one(users, {
+    fields: [regulationRequests.requestingUserId],
+    references: [users.id],
+  }),
+  attendingDoctor: one(users, {
+    fields: [regulationRequests.attendingDoctorId],
+    references: [users.id],
+  }),
+  specialty: one(specialties, {
+    fields: [regulationRequests.specialtyId],
+    references: [specialties.id],
+  }),
+  procedure: one(procedures, {
+    fields: [regulationRequests.procedureId],
+    references: [procedures.id],
+  }),
+  procedureGroup: one(procedureGroups, {
+    fields: [regulationRequests.procedureGroupId],
+    references: [procedureGroups.id],
+  }),
+  executingHealthCenter: one(healthCenters, {
+    fields: [regulationRequests.executingHealthCenterId],
+    references: [healthCenters.id],
+  }),
+  scheduledByUser: one(users, {
+    fields: [regulationRequests.scheduledByUserId],
+    references: [users.id],
+  }),
+  tokenValidatedByUser: one(users, {
+    fields: [regulationRequests.tokenValidatedByUserId],
+    references: [users.id],
+  }),
+  attachments: many(regulationRequestAttachments),
+  statusHistory: many(regulationStatusHistory),
+}));
+
+export const regulationRequestAttachmentsRelations = relations(regulationRequestAttachments, ({ one }) => ({
+  request: one(regulationRequests, {
+    fields: [regulationRequestAttachments.requestId],
+    references: [regulationRequests.id],
+  }),
+}));
+
+export const regulationStatusHistoryRelations = relations(regulationStatusHistory, ({ one }) => ({
+  request: one(regulationRequests, {
+    fields: [regulationStatusHistory.requestId],
+    references: [regulationRequests.id],
+  }),
+  actionByUser: one(users, {
+    fields: [regulationStatusHistory.actionByUserId],
+    references: [users.id],
+  }),
+}));
+
+export const regulationQuotasRelations = relations(regulationQuotas, ({ one }) => ({
+  executingHealthCenter: one(healthCenters, {
+    fields: [regulationQuotas.executingHealthCenterId],
+    references: [healthCenters.id],
+  }),
+  specialty: one(specialties, {
+    fields: [regulationQuotas.specialtyId],
+    references: [specialties.id],
+  }),
+  procedure: one(procedures, {
+    fields: [regulationQuotas.procedureId],
+    references: [procedures.id],
+  }),
+  doctor: one(users, {
+    fields: [regulationQuotas.doctorId],
+    references: [users.id],
+  }),
+}));
+
 
 
