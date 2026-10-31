@@ -18,6 +18,9 @@ export class ProceduresService {
     if (includeInactive !== 'true') {
       conditions.push(eq(schema.procedures.isActive, true));
     }
+    if (params.procedureGroupId) {
+      conditions.push(eq(schema.procedures.procedureGroupId, params.procedureGroupId));
+    }
     if (search) {
       const cleanSearch = search.trim();
       const formattedSearch = cleanSearch.replace(/\./g, '');
