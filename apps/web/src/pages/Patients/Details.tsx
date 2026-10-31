@@ -19,7 +19,8 @@ import {
     FileText,
     Pill,
     Calendar,
-    Edit
+    Edit,
+    Building2
 } from 'lucide-react';
 import { PrescriptionPrintModal } from '../../components/PrescriptionPrintModal';
 import { MedicalCertificateModal } from '../../components/MedicalCertificateModal';
@@ -421,6 +422,15 @@ export const PatientDetails: React.FC = () => {
                                                             {crmFormatted && (
                                                                 <span>{crmFormatted}</span>
                                                             )}
+                                                            {record.executingUnitName && (
+                                                                <div className="text-[11px] text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1 mt-0.5">
+                                                                    <Building2 className="w-3 h-3 shrink-0" />
+                                                                    <span>{record.executingUnitName}</span>
+                                                                    {record.executingUnitCnes && (
+                                                                        <span className="font-mono text-[10px] text-slate-400">({record.executingUnitCnes})</span>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap">
@@ -695,6 +705,10 @@ export const PatientDetails: React.FC = () => {
                     onClose={() => setSelectedRecordForPrint(null)}
                     patient={patient}
                     record={selectedRecordForPrint}
+                    executingUnit={{
+                        name: selectedRecordForPrint.executingUnitName,
+                        cnes: selectedRecordForPrint.executingUnitCnes
+                    }}
                 />
             )}
             {selectedRecordForCertificate && (
@@ -704,6 +718,10 @@ export const PatientDetails: React.FC = () => {
                     initialDocType={certificateDocType}
                     patient={patient}
                     record={selectedRecordForCertificate}
+                    executingUnit={{
+                        name: selectedRecordForCertificate.executingUnitName,
+                        cnes: selectedRecordForCertificate.executingUnitCnes
+                    }}
                 />
             )}
             {selectedRecordForApac && (
@@ -712,6 +730,10 @@ export const PatientDetails: React.FC = () => {
                     onClose={() => setSelectedRecordForApac(null)}
                     patient={patient}
                     record={selectedRecordForApac}
+                    executingUnit={{
+                        name: selectedRecordForApac.executingUnitName,
+                        cnes: selectedRecordForApac.executingUnitCnes
+                    }}
                 />
             )}
         </div>

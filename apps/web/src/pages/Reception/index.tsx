@@ -26,7 +26,8 @@ import {
   ArrowLeftRight, 
   LogOut, 
   AlertCircle, 
-  Layers 
+  Layers,
+  Building2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreatePatientModal } from './CreatePatientModal';
@@ -35,6 +36,7 @@ import { PriorityRuleSelector } from './PriorityRuleSelector';
 import { SelectRoomModal } from './SelectRoomModal';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSocket } from '../../contexts/SocketContext';
+import { setStoredExecutingUnit } from '../../utils/executingUnit';
 
 export const Reception: React.FC = () => {
   const navigate = useNavigate();
@@ -99,6 +101,30 @@ export const Reception: React.FC = () => {
     refetchInterval: 3000,
     refetchIntervalInBackground: true,
   });
+
+  // Obtém o nome e CNES da unidade executante vinculada nos agendamentos (e-SUS)
+  const executingUnit = useMemo(() => {
+    if (!schedule) return null;
+    for (const list of Object.values(schedule)) {
+      if (Array.isArray(list) && list.length > 0) {
+        const itemWithUnit = list.find((item: any) => item.noEstabelecimentoExecutante || item.coCnesEstabelecimentoExecutante);
+        if (itemWithUnit) {
+          return {
+            name: itemWithUnit.noEstabelecimentoExecutante || '',
+            cnes: itemWithUnit.coCnesEstabelecimentoExecutante || '',
+          };
+        }
+      }
+    }
+    return null;
+  }, [schedule]);
+
+  // Sincroniza a unidade executante no armazenamento para documentos clínicos
+  useEffect(() => {
+    if (executingUnit && (executingUnit.name || executingUnit.cnes)) {
+      setStoredExecutingUnit(executingUnit);
+    }
+  }, [executingUnit]);
 
   // Busca as alocações de salas/ambulatórios na data
   const { data: allAllocations = [], isLoading: isLoadingAllocations } = useQuery({
@@ -409,7 +435,15 @@ export const Reception: React.FC = () => {
             {/* Atalho de atendimento à frente do nome do paciente - EXCLUSIVO PARA O MÉDICO (OCULTO SE ATENDIDO) */}
             {isDoctor && p.patientId && !isAttended && (
               <button
-                onClick={() => navigate(`/medical-records/${p.patientId}/new`)}
+                onClick={() => navigate(`/medical-records/${p.patientId}/new`, {
+                  state: {
+                    appointment: p,
+                    executingUnit: {
+                      name: p.noEstabelecimentoExecutante || executingUnit?.name || '',
+                      cnes: p.coCnesEstabelecimentoExecutante || executingUnit?.cnes || '',
+                    }
+                  }
+                })}
                 className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition-all"
                 title="Iniciar Atendimento Clínico"
               >
@@ -432,6 +466,15 @@ export const Reception: React.FC = () => {
             <span>CPF: {p.pacienteNuCpf || 'N/A'}</span>
             <span>CNS: {p.pacienteNuCns || 'N/A'}</span>
             <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/> {p.pacienteNoMunicipioResidencia || 'Desconhecido'}</span>
+            {(p.noEstabelecimentoExecutante || executingUnit?.name) && (
+              <span className="flex items-center gap-1 text-slate-700 dark:text-slate-300 font-medium" title={p.coCnesEstabelecimentoExecutante || executingUnit?.cnes ? `CNES: ${p.coCnesEstabelecimentoExecutante || executingUnit?.cnes}` : undefined}>
+                <Building2 className="w-3.5 h-3.5 text-blue-500 shrink-0"/> 
+                <span>{p.noEstabelecimentoExecutante || executingUnit?.name}</span>
+                {(p.coCnesEstabelecimentoExecutante || executingUnit?.cnes) && (
+                  <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">({p.coCnesEstabelecimentoExecutante || executingUnit?.cnes})</span>
+                )}
+              </span>
+            )}
           </div>
         </div>
         
@@ -505,6 +548,17 @@ export const Reception: React.FC = () => {
               ? 'Acompanhe a sua fila de atendimentos ordenados pela ordem de prioridade.'
               : 'Gerencie os atendimentos agendados via Central de Regulação.'}
           </p>
+          {executingUnit?.name && (
+            <div className="inline-flex items-center gap-2 mt-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-xs font-semibold shadow-2xs">
+              <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+              <span>Unidade Executante: <strong>{executingUnit.name}</strong></span>
+              {executingUnit.cnes && (
+                <span className="text-blue-600 dark:text-blue-300 font-mono text-[11px] bg-blue-100/70 dark:bg-blue-800/60 px-1.5 py-0.5 rounded">
+                  CNES: {executingUnit.cnes}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         
         <div className="flex flex-wrap items-center gap-3">

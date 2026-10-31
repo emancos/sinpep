@@ -93,6 +93,15 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({ data, on
               <div><strong className="text-slate-800 dark:text-slate-300">CPF:</strong> {p.pacienteNuCpf}</div>
               <div><strong className="text-slate-800 dark:text-slate-300">Nascimento:</strong> {formatBirthDate(p.pacienteDtNascimento)}</div>
               <div><strong className="text-slate-800 dark:text-slate-300">Mãe:</strong> {p.pacienteNoMae}</div>
+              {p.noEstabelecimentoExecutante && (
+                <div className="col-span-2 pt-2 border-t border-slate-200 dark:border-slate-700/60">
+                  <strong className="text-slate-800 dark:text-slate-300">Unidade Executante (Agendamento):</strong>{' '}
+                  <span className="font-semibold text-blue-600 dark:text-blue-400">{p.noEstabelecimentoExecutante}</span>
+                  {p.coCnesEstabelecimentoExecutante && (
+                    <span className="text-xs font-mono text-slate-500 ml-1">(CNES: {p.coCnesEstabelecimentoExecutante})</span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

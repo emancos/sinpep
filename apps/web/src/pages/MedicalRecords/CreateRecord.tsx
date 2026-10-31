@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useMemo } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useCreateMedicalRecord } from '../../hooks/useMedicalRecords';
 import { usePatient } from '../../hooks/usePatients';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import axios from 'axios';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useDoctors } from '../../hooks/useDoctors';
-import { X, Loader2, Upload, Plus, Trash2, ArrowLeft, Activity, Search, CheckCircle2, ChevronRight } from 'lucide-react';
+import { X, Loader2, Upload, Plus, Trash2, ArrowLeft, Activity, Search, CheckCircle2, ChevronRight, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import imageCompression from 'browser-image-compression';
 import { MedicationSelect } from './MedicationSelect';
@@ -14,15 +14,27 @@ import { PrescriptionPrintModal } from '../../components/PrescriptionPrintModal'
 import { MedicalCertificateModal } from '../../components/MedicalCertificateModal';
 import { ApacReportModal } from '../../components/ApacReportModal';
 import { MedicalDocumentDropdown } from '../../components/MedicalDocumentDropdown';
+import { resolveExecutingUnit } from '../../utils/executingUnit';
 
 export const CreateRecord: React.FC = () => {
   const { id: patientId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const locationState = location.state as { appointment?: any; executingUnit?: { name: string; cnes: string } } | undefined;
   const createMutation = useCreateMedicalRecord();
   const { token, user, permissions } = useAuthStore();
   const isAdmin = permissions.includes('admin:access');
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
   const { data: patient } = usePatient(patientId!);
+
+  // Unidade Executante vinculada no agendamento (e-SUS) ou armazenamento
+  const executingUnit = useMemo(() => {
+    return resolveExecutingUnit([
+      locationState?.executingUnit,
+      locationState?.appointment,
+      patient?.healthCenter,
+    ]);
+  }, [locationState, patient]);
   
   const { data: doctorsData } = useDoctors(isAdmin ? { limit: 1000 } : { userId: user?.id });
   const doctors = doctorsData?.data || [];
@@ -330,6 +342,13 @@ export const CreateRecord: React.FC = () => {
       formData.append('examsJustification', examsJustification);
     }
 
+    if (executingUnit.name) {
+      formData.append('executingUnitName', executingUnit.name);
+    }
+    if (executingUnit.cnes) {
+      formData.append('executingUnitCnes', executingUnit.cnes);
+    }
+
     files.forEach(file => {
       formData.append('attachments', file);
     });
@@ -377,9 +396,20 @@ export const CreateRecord: React.FC = () => {
               <Activity className="w-6 h-6 text-blue-500" /> Novo Atendimento
             </h1>
           </div>
-          <p className="text-slate-600 dark:text-slate-400 pl-11">
-            Paciente: <span className="font-semibold text-slate-800 dark:text-slate-200">{patient.name}</span>
-          </p>
+          <div className="text-slate-600 dark:text-slate-400 pl-11 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>
+              Paciente: <strong className="text-slate-800 dark:text-slate-200">{patient.name}</strong>
+            </span>
+            {executingUnit.name && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                <Building2 className="w-3.5 h-3.5" />
+                <span>{executingUnit.name}</span>
+                {executingUnit.cnes && (
+                  <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400">({executingUnit.cnes})</span>
+                )}
+              </span>
+            )}
+          </div>
         </div>
         
         {/* Stepper */}
@@ -1226,6 +1256,7 @@ export const CreateRecord: React.FC = () => {
           onClose={() => setIsPrintModalOpen(false)}
           patient={patient}
           currentDoctor={currentDoctor}
+          executingUnit={executingUnit}
           record={{
             observation,
             selectedCids,
@@ -1236,6 +1267,8 @@ export const CreateRecord: React.FC = () => {
             hasReturn,
             returnRequestedValue: returnValue,
             returnRequestedUnit: returnUnit,
+            executingUnitName: executingUnit.name,
+            executingUnitCnes: executingUnit.cnes,
             doctor: currentDoctor
           }}
         />
@@ -1248,11 +1281,14 @@ export const CreateRecord: React.FC = () => {
           initialDocType={certificateDocType}
           patient={patient}
           currentDoctor={currentDoctor}
+          executingUnit={executingUnit}
           record={{
             cid10: selectedCids[0]?.split(' - ')[0],
             cid10Secondary: selectedCids[1]?.split(' - ')[0],
             cid10AssociatedCauses: selectedCids[2]?.split(' - ')[0],
             selectedCids,
+            executingUnitName: executingUnit.name,
+            executingUnitCnes: executingUnit.cnes,
             doctor: currentDoctor
           }}
         />
@@ -1264,6 +1300,7 @@ export const CreateRecord: React.FC = () => {
           onClose={() => setIsApacModalOpen(false)}
           patient={patient}
           currentDoctor={currentDoctor}
+          executingUnit={executingUnit}
           record={{
             cid10: selectedCids[0]?.split(' - ')[0],
             cid10Secondary: selectedCids[1]?.split(' - ')[0],
@@ -1272,6 +1309,8 @@ export const CreateRecord: React.FC = () => {
             requestedExams: requestedExams.filter(e => e.trim()),
             examsJustification,
             observation,
+            executingUnitName: executingUnit.name,
+            executingUnitCnes: executingUnit.cnes,
             doctor: currentDoctor
           }}
         />

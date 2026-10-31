@@ -14,7 +14,8 @@ import {
   CheckCircle2, 
   DoorOpen, 
   MapPin, 
-  Layers 
+  Layers,
+  Building2 
 } from 'lucide-react';
 import { getReceptionSchedule } from '../../services/reception';
 import { getRoomAllocations } from '../../services/rooms';
@@ -23,6 +24,7 @@ import { useCurrentDoctor } from '../../hooks/useDoctors';
 import { isProcedureAuthorizedForDoctor } from '../../utils/doctorProcedures';
 import { PriorityRuleSelector } from './PriorityRuleSelector';
 import { useSocket } from '../../contexts/SocketContext';
+import { setStoredExecutingUnit } from '../../utils/executingUnit';
 
 export const WaitingList: React.FC = () => {
   const navigate = useNavigate();
@@ -71,6 +73,30 @@ export const WaitingList: React.FC = () => {
     refetchInterval: 3000,
     refetchIntervalInBackground: true,
   });
+
+  // Obtém o nome e CNES da unidade executante vinculada nos agendamentos (e-SUS)
+  const executingUnit = useMemo(() => {
+    if (!schedule) return null;
+    for (const list of Object.values(schedule)) {
+      if (Array.isArray(list) && list.length > 0) {
+        const itemWithUnit = list.find((item: any) => item.noEstabelecimentoExecutante || item.coCnesEstabelecimentoExecutante);
+        if (itemWithUnit) {
+          return {
+            name: itemWithUnit.noEstabelecimentoExecutante || '',
+            cnes: itemWithUnit.coCnesEstabelecimentoExecutante || '',
+          };
+        }
+      }
+    }
+    return null;
+  }, [schedule]);
+
+  // Sincroniza a unidade executante no armazenamento para documentos clínicos
+  useEffect(() => {
+    if (executingUnit && (executingUnit.name || executingUnit.cnes)) {
+      setStoredExecutingUnit(executingUnit);
+    }
+  }, [executingUnit]);
 
   // Busca alocações de salas para exibir no topo da lista de espera
   const { data: allAllocations = [] } = useQuery({
@@ -161,6 +187,17 @@ export const WaitingList: React.FC = () => {
             <p className="text-slate-500 dark:text-slate-400">
               Pacientes aguardando atendimento ordenados pela regra de prioridade ativa.
             </p>
+            {executingUnit?.name && (
+              <div className="inline-flex items-center gap-2 mt-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-xs font-semibold shadow-2xs">
+                <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                <span>Unidade Executante: <strong>{executingUnit.name}</strong></span>
+                {executingUnit.cnes && (
+                  <span className="text-blue-600 dark:text-blue-300 font-mono text-[11px] bg-blue-100/70 dark:bg-blue-800/60 px-1.5 py-0.5 rounded">
+                    CNES: {executingUnit.cnes}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
         
@@ -337,7 +374,15 @@ export const WaitingList: React.FC = () => {
                     {/* Botão de atendimento: exibido exclusivamente para o médico e OCULTO se já atendido */}
                     {isDoctor && p.patientId && !isAttended && (
                       <button
-                        onClick={() => navigate(`/medical-records/${p.patientId}/new`)}
+                        onClick={() => navigate(`/medical-records/${p.patientId}/new`, {
+                          state: {
+                            appointment: p,
+                            executingUnit: {
+                              name: p.noEstabelecimentoExecutante || executingUnit?.name || '',
+                              cnes: p.coCnesEstabelecimentoExecutante || executingUnit?.cnes || '',
+                            }
+                          }
+                        })}
                         className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition-all"
                         title="Iniciar Atendimento Clínico"
                       >
@@ -370,6 +415,23 @@ export const WaitingList: React.FC = () => {
                       <div>
                         <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Profissional / Médico</p>
                         <p className="font-semibold text-slate-700 dark:text-slate-300 line-clamp-1">{p.noProfissionalExecutante}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {(p.noEstabelecimentoExecutante || executingUnit?.name) && (
+                    <div className="flex items-start gap-2 text-sm pt-1">
+                      <Building2 className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Unidade Executante</p>
+                        <p className="font-semibold text-slate-700 dark:text-slate-300 line-clamp-1">
+                          {p.noEstabelecimentoExecutante || executingUnit?.name}
+                          {(p.coCnesEstabelecimentoExecutante || executingUnit?.cnes) && (
+                            <span className="text-xs font-mono text-slate-400 dark:text-slate-500 ml-1">
+                              ({p.coCnesEstabelecimentoExecutante || executingUnit?.cnes})
+                            </span>
+                          )}
+                        </p>
                       </div>
                     </div>
                   )}

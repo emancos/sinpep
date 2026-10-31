@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useMedicalRecords } from '../../hooks/useMedicalRecords';
 import type { MedicalRecord } from '../../hooks/useMedicalRecords';
-import { Loader2, ArrowLeft, Plus, Calendar, FileText, Pill, Paperclip, Stethoscope, Clock, Activity, Search } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, Calendar, FileText, Pill, Paperclip, Stethoscope, Clock, Activity, Search, Building2 } from 'lucide-react';
 import { AttachmentViewer } from './AttachmentViewer';
 import { ExportRecordModal } from './ExportRecordModal';
 import { AuthThumbnail } from '../../components/AuthThumbnail';
@@ -214,6 +214,15 @@ export const MedicalHistory: React.FC = () => {
                               }
                             </p>
                           )}
+                          {record.executingUnitName && (
+                            <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-1 flex items-center gap-1">
+                              <Building2 className="w-3.5 h-3.5 shrink-0" />
+                              <span>Unidade Executante: {record.executingUnitName}</span>
+                              {record.executingUnitCnes && (
+                                <span className="text-[11px] font-mono text-slate-400">({record.executingUnitCnes})</span>
+                              )}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="self-start flex flex-col items-end gap-1.5 shrink-0">
@@ -397,6 +406,10 @@ export const MedicalHistory: React.FC = () => {
           onClose={() => setRecordForPrint(null)}
           patient={patient}
           record={recordForPrint}
+          executingUnit={{
+            name: recordForPrint.executingUnitName,
+            cnes: recordForPrint.executingUnitCnes
+          }}
         />
       )}
 
@@ -407,6 +420,10 @@ export const MedicalHistory: React.FC = () => {
           initialDocType={certificateModalDocType}
           patient={patient}
           record={recordForCertificate}
+          executingUnit={{
+            name: recordForCertificate.executingUnitName,
+            cnes: recordForCertificate.executingUnitCnes
+          }}
         />
       )}
 
@@ -416,6 +433,10 @@ export const MedicalHistory: React.FC = () => {
           onClose={() => setRecordForApac(null)}
           patient={patient}
           record={recordForApac}
+          executingUnit={{
+            name: recordForApac.executingUnitName,
+            cnes: recordForApac.executingUnitCnes
+          }}
         />
       )}
     </div>
