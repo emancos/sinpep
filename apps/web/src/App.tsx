@@ -34,6 +34,8 @@ import { Reception } from './pages/Reception';
 import { WaitingList } from './pages/Reception/WaitingList';
 import { RoomsList } from './pages/Rooms';
 import { MedicationsList } from './pages/Medications';
+import { SolicitorInbox } from './pages/Regulation/SolicitorInbox';
+import { OperatorInbox } from './pages/Regulation/OperatorInbox';
 import './App.css';
 
 function App() {
@@ -58,6 +60,13 @@ function App() {
                   
                   <Route path="/reception" element={<Reception />} />
                   <Route path="/reception/queue" element={<WaitingList />} />
+
+                  <Route element={<ProtectedRoute requiredPermission="regulation-solicitor:read" />}>
+                    <Route path="/regulation/solicitor" element={<SolicitorInbox />} />
+                  </Route>
+                  <Route element={<ProtectedRoute requiredPermission="regulation-operator:read" />}>
+                    <Route path="/regulation/inbox" element={<OperatorInbox />} />
+                  </Route>
 
                   <Route element={<ProtectedRoute requiredPermission="rooms:read" />}>
                     <Route path="/rooms" element={<RoomsList />} />

@@ -53,6 +53,14 @@ const permissionFriendlyNames: Record<string, string> = {
   'reports:read': 'Visualizar Relatórios e BI',
   'rooms:read': 'Visualizar Ambulatórios/Salas',
   'rooms:write': 'Gerenciar Ambulatórios/Salas',
+  'regulation-solicitor:create': 'UBS: Criar Solicitações de Regulação',
+  'regulation-solicitor:read': 'UBS: Visualizar Solicitações de Regulação',
+  'regulation-solicitor:edit_returned': 'UBS: Reenviar Solicitações Devolvidas',
+  'regulation-solicitor:cancel': 'UBS: Cancelar Solicitações',
+  'regulation-operator:read': 'Regulação: Visualizar Fila Geral',
+  'regulation-operator:evaluate': 'Regulação: Avaliar, Autorizar ou Devolver',
+  'regulation-operator:schedule': 'Regulação: Agendar e Gerar Chave',
+  'regulation-operator:cancel': 'Regulação: Cancelar Agendamento',
 };
 
 const featureFriendlyNames: Record<string, string> = {
@@ -70,6 +78,8 @@ const featureFriendlyNames: Record<string, string> = {
   'medical-records': 'Prontuários',
   reports: 'Relatórios',
   rooms: 'Ambulatórios & Salas',
+  'regulation-solicitor': 'Regulação - UBS Solicitante',
+  'regulation-operator': 'Regulação - Central Municipal',
 };
 
 export const CreateOrEditUser: React.FC = () => {

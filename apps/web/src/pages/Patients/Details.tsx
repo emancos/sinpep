@@ -20,12 +20,14 @@ import {
     Pill,
     Calendar,
     Edit,
-    Building2
+    Building2,
+    Send
 } from 'lucide-react';
 import { PrescriptionPrintModal } from '../../components/PrescriptionPrintModal';
 import { MedicalCertificateModal } from '../../components/MedicalCertificateModal';
 import { ApacReportModal } from '../../components/ApacReportModal';
 import { MedicalDocumentDropdown } from '../../components/MedicalDocumentDropdown';
+import { CreateRegulationRequestModal } from '../Regulation/CreateRegulationRequestModal';
 
 const formatCPF = (cpf?: string) => {
     if (!cpf) return '-';
@@ -82,12 +84,14 @@ export const PatientDetails: React.FC = () => {
     const { hasPermission } = usePermission();
     const canViewMedicalRecords = hasPermission('medical-records:read');
     const canEditAttention = hasPermission('patients:write_attention');
+    const canSolicitRegulation = hasPermission('regulation-solicitor:create') || hasPermission('admin:access');
     const { data: recordsData, isLoading: isLoadingRecords } = useMedicalRecords(id || '', { enabled: canViewMedicalRecords });
     const medicalRecords = recordsData?.data || [];
     const updatePatientAttentionMutation = useUpdatePatientAttention();
 
     // State for attention level edit modal
     const [showAttentionModal, setShowAttentionModal] = useState(false);
+    const [isRegulationModalOpen, setIsRegulationModalOpen] = useState(false);
     const [attentionLevel, setAttentionLevel] = useState<number>(1);
     const [attentionNotes, setAttentionNotes] = useState<string>('');
     const [selectedRecordForPrint, setSelectedRecordForPrint] = useState<any | null>(null);
@@ -213,6 +217,17 @@ export const PatientDetails: React.FC = () => {
                         >
                             <FileText className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                             <span>Ver Prontuário Completo</span>
+                        </button>
+                    )}
+
+                    {canSolicitRegulation && (
+                        <button
+                            type="button"
+                            onClick={() => setIsRegulationModalOpen(true)}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold border border-blue-200 dark:border-blue-800 rounded-md text-sm transition-all cursor-pointer shadow-md active:scale-95"
+                        >
+                            <Send className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                            <span>Solicitar Regulação</span>
                         </button>
                     )}
 
@@ -736,6 +751,11 @@ export const PatientDetails: React.FC = () => {
                     }}
                 />
             )}
+            <CreateRegulationRequestModal
+                isOpen={isRegulationModalOpen}
+                onClose={() => setIsRegulationModalOpen(false)}
+                defaultPatient={patient}
+            />
         </div>
     );
 };

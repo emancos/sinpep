@@ -15,7 +15,9 @@ import {
   Settings,
   CalendarCheck,
   Stethoscope,
-  Building2
+  Building2,
+  Send,
+  Layers
 } from 'lucide-react';
 import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
@@ -51,6 +53,12 @@ export const Layout = () => {
   const menuItems: MenuItem[] = [
     { name: t('Dashboard'), path: '/', icon: Home },
     { name: 'Agenda & Recepção', path: '/reception', icon: CalendarCheck },
+    ...((permissions.includes('regulation-solicitor:read') || isAdmin) ? [
+      { name: 'Regulação (UBS)', path: '/regulation/solicitor', icon: Send },
+    ] : []),
+    ...((permissions.includes('regulation-operator:read') || isAdmin) ? [
+      { name: 'Central de Regulação', path: '/regulation/inbox', icon: Layers },
+    ] : []),
     ...((permissions.includes('rooms:read') || isAdmin) && !isDoctor ? [
       { name: 'Ambulatórios', path: '/rooms', icon: Building2 },
     ] : []),

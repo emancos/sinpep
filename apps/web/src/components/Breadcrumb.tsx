@@ -31,6 +31,9 @@ const routeNameMap: Record<string, string> = {
   'queue': 'Fila',
   'rooms': 'Ambulatórios',
   'medications': 'Medicamentos',
+  'regulation': 'Regulação',
+  'solicitor': 'UBS Solicitante',
+  'inbox': 'Central de Regulação',
 };
 
 const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
