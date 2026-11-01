@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -16,6 +16,7 @@ import {
   Check,
   Clock,
   Loader,
+  X,
 } from 'lucide-react';
 import { usePatients } from '../../hooks/usePatients';
 import { useSpecialties } from '../../hooks/useSpecialties';
@@ -36,6 +37,33 @@ export const CreateRegulationRequest: React.FC = () => {
   const [selectedPatient, setSelectedPatient] = useState<any>(defaultPatientFromState || null);
   const [patientSearch, setPatientSearch] = useState('');
   const [patientDropdownOpen, setPatientDropdownOpen] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const patientSearchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Debounce da busca de pacientes
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(patientSearch.trim());
+    }, 250);
+    return () => clearTimeout(handler);
+  }, [patientSearch]);
+
+  // Fecha o dropdown ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        patientSearchContainerRef.current &&
+        !patientSearchContainerRef.current.contains(event.target as Node)
+      ) {
+        setPatientDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const [requestType, setRequestType] = useState<'CONSULTA' | 'EXAME' | 'PROCEDIMENTO'>('CONSULTA');
   const [specialtyId, setSpecialtyId] = useState('');
@@ -62,9 +90,12 @@ export const CreateRegulationRequest: React.FC = () => {
   // Queries
   const { data: patientsData, isLoading: isSearchingPatients } = usePatients({
     page: 1,
-    limit: 10,
-    search: patientSearch,
+    limit: 25,
+    search: debouncedSearch,
   });
+
+  const patientList: any[] = (patientsData as any)?.data ?? [];
+  const totalPatients: number = (patientsData as any)?.total ?? patientList.length;
 
   const { data: specialtiesData } = useSpecialties({ page: 1, limit: 100 });
   const { data: procedureGroups } = useProcedureGroups();
@@ -249,8 +280,8 @@ export const CreateRegulationRequest: React.FC = () => {
 
       <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-6">
         {/* SEÇÃO 1: Identificação do Paciente (Azul / Turquesa) */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden shadow-sm">
-          <div className="px-4 py-3 bg-blue-50/70 dark:bg-blue-950/30 border-b border-blue-100 dark:border-blue-900/40 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm relative z-30">
+          <div className="px-4 py-3 bg-blue-50/70 dark:bg-blue-950/30 border-b border-blue-100 dark:border-blue-900/40 rounded-t-lg flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 bg-blue-600 text-white rounded-md">
                 <User className="w-4 h-4" />
@@ -302,7 +333,7 @@ export const CreateRegulationRequest: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div className="relative">
+              <div className="relative" ref={patientSearchContainerRef}>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Buscar paciente cadastrado por Nome, CPF ou Cartão SUS:
                 </label>
@@ -316,45 +347,84 @@ export const CreateRegulationRequest: React.FC = () => {
                       setPatientDropdownOpen(true);
                     }}
                     onFocus={() => setPatientDropdownOpen(true)}
-                    placeholder="Digite para pesquisar paciente..."
-                    className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                    placeholder="Clique para ver os pacientes ou digite Nome, CPF ou CNS..."
+                    className="w-full pl-9 pr-10 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
                   />
+                  {isSearchingPatients && (
+                    <div className="absolute right-3 top-2.5">
+                      <Loader className="w-4 h-4 text-blue-500 animate-spin" />
+                    </div>
+                  )}
+                  {patientSearch && !isSearchingPatients && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPatientSearch('');
+                        setPatientDropdownOpen(true);
+                      }}
+                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Dropdown de pacientes */}
-                {patientDropdownOpen && patientSearch.trim().length > 1 && (
-                  <div className="absolute z-20 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-xl divide-y divide-slate-100 dark:divide-slate-800">
-                    {isSearchingPatients ? (
-                      <div className="p-3 text-center text-xs text-slate-500">Buscando pacientes...</div>
-                    ) : (patientsData?.data || []).length === 0 ? (
-                      <div className="p-3 text-center text-xs text-slate-500">
-                        Nenhum paciente encontrado com o termo informado.
+                {patientDropdownOpen && (
+                  <div className="absolute z-50 left-0 right-0 mt-1 max-h-72 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md shadow-2xl divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in zoom-in-95 duration-150">
+                    {isSearchingPatients && patientList.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                        <Loader className="w-4 h-4 animate-spin text-blue-500" />
+                        <span>Carregando pacientes...</span>
+                      </div>
+                    ) : patientList.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-500">
+                        {patientSearch.trim().length > 0
+                          ? `Nenhum paciente encontrado para "${patientSearch}".`
+                          : 'Nenhum paciente cadastrado.'}
                       </div>
                     ) : (
-                      (patientsData?.data || []).map((p: any) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedPatient(p);
-                            setPatientDropdownOpen(false);
-                            setPatientSearch('');
-                          }}
-                          className="w-full text-left p-3 hover:bg-blue-50/60 dark:hover:bg-slate-800/80 transition flex items-center justify-between"
-                        >
-                          <div>
-                            <div className="font-semibold text-slate-800 dark:text-slate-100 text-xs">
-                              {p.name}
-                            </div>
-                            <div className="text-[11px] text-slate-500">
-                              CPF: {p.cpf || 'S/N'} • CNS: {p.cns || 'S/N'} • Nasc: {p.birthDate ? new Date(p.birthDate).toLocaleDateString('pt-BR') : 'S/N'}
-                            </div>
-                          </div>
-                          <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold">
-                            Selecionar
+                      <>
+                        <div className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800/60 text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between">
+                          <span>
+                            {patientSearch.trim().length > 0
+                              ? `Resultados para "${patientSearch}" (${patientList.length}):`
+                              : 'Pacientes cadastrados (selecione ou digite para filtrar):'}
                           </span>
-                        </button>
-                      ))
+                          <span className="text-[10px] text-slate-400">Total: {totalPatients}</span>
+                        </div>
+                        {patientList.map((p: any) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedPatient(p);
+                              setPatientDropdownOpen(false);
+                              setPatientSearch('');
+                            }}
+                            className="w-full text-left p-3 hover:bg-blue-50/70 dark:hover:bg-slate-800/80 transition flex items-center justify-between group cursor-pointer"
+                          >
+                            <div className="min-w-0 pr-3">
+                              <div className="font-semibold text-slate-800 dark:text-slate-100 text-xs truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                                {p.name}
+                              </div>
+                              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                                <span>CPF: <strong className="font-medium text-slate-700 dark:text-slate-300">{p.cpf || 'S/N'}</strong></span>
+                                {p.cns && <span>CNS: <strong className="font-medium text-slate-700 dark:text-slate-300">{p.cns}</strong></span>}
+                                {p.birthDate && (
+                                  <span>Nasc: {new Date(p.birthDate).toLocaleDateString('pt-BR')}</span>
+                                )}
+                                {p.healthCenter?.name && (
+                                  <span className="text-slate-400 truncate">UBS: {p.healthCenter.name}</span>
+                                )}
+                              </div>
+                            </div>
+                            <span className="px-2.5 py-1 text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 rounded-md font-semibold shrink-0 group-hover:bg-blue-600 group-hover:text-white transition">
+                              Selecionar
+                            </span>
+                          </button>
+                        ))}
+                      </>
                     )}
                   </div>
                 )}
@@ -364,8 +434,8 @@ export const CreateRegulationRequest: React.FC = () => {
         </div>
 
         {/* SEÇÃO 2: Tipo de Encaminhamento & Procedimento (Cores Vivas: Ciano, Esmeralda e Roxo) */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden shadow-sm">
-          <div className="px-4 py-3 bg-emerald-50/70 dark:bg-emerald-950/30 border-b border-emerald-100 dark:border-emerald-900/40 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm relative z-20">
+          <div className="px-4 py-3 bg-emerald-50/70 dark:bg-emerald-950/30 border-b border-emerald-100 dark:border-emerald-900/40 rounded-t-lg flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 bg-emerald-600 text-white rounded-md">
                 <Activity className="w-4 h-4" />
@@ -556,8 +626,8 @@ export const CreateRegulationRequest: React.FC = () => {
         </div>
 
         {/* SEÇÃO 3: Classificação de Risco e Prioridade Clínica (Semáforo SUS) */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden shadow-sm">
-          <div className="px-4 py-3 bg-amber-50/70 dark:bg-amber-950/30 border-b border-amber-100 dark:border-amber-900/40 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm relative z-10">
+          <div className="px-4 py-3 bg-amber-50/70 dark:bg-amber-950/30 border-b border-amber-100 dark:border-amber-900/40 rounded-t-lg flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 bg-amber-600 text-white rounded-md">
                 <Clock className="w-4 h-4" />
@@ -637,8 +707,8 @@ export const CreateRegulationRequest: React.FC = () => {
         </div>
 
         {/* SEÇÃO 4: Diagnóstico CID-10 e Justificativa Clínica (Roxo / Lavanda) */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden shadow-sm">
-          <div className="px-4 py-3 bg-purple-50/70 dark:bg-purple-950/30 border-b border-purple-100 dark:border-purple-900/40 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm relative z-20">
+          <div className="px-4 py-3 bg-purple-50/70 dark:bg-purple-950/30 border-b border-purple-100 dark:border-purple-900/40 rounded-t-lg flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 bg-purple-600 text-white rounded-md">
                 <FileText className="w-4 h-4" />
@@ -692,7 +762,7 @@ export const CreateRegulationRequest: React.FC = () => {
                   )}
 
                   {cidResults.length > 0 && (
-                    <div className="absolute z-20 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-xl divide-y divide-slate-100 dark:divide-slate-800">
+                    <div className="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md shadow-2xl divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in zoom-in-95 duration-150">
                       {cidResults.map((c) => (
                         <button
                           key={c.code}
@@ -760,8 +830,8 @@ export const CreateRegulationRequest: React.FC = () => {
         </div>
 
         {/* SEÇÃO 5: Documentos, Laudos e Anexos (Índigo) */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden shadow-sm">
-          <div className="px-4 py-3 bg-indigo-50/70 dark:bg-indigo-950/30 border-b border-indigo-100 dark:border-indigo-900/40 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm relative z-10">
+          <div className="px-4 py-3 bg-indigo-50/70 dark:bg-indigo-950/30 border-b border-indigo-100 dark:border-indigo-900/40 rounded-t-lg flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 bg-indigo-600 text-white rounded-md">
                 <Paperclip className="w-4 h-4" />

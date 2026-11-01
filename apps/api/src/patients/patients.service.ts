@@ -118,13 +118,21 @@ export class PatientsService {
     }
 
     if (search) {
-      conditions.push(
-        or(
-          ilike(schema.patients.name, `%${search}%`),
-          ilike(schema.patients.cpf, `%${search}%`),
-          ilike(schema.patients.cns, `%${search}%`)
-        )
-      );
+      const trimmedSearch = search.trim();
+      const cleanDigits = trimmedSearch.replace(/\D/g, '');
+
+      const searchConditions = [
+        ilike(schema.patients.name, `%${trimmedSearch}%`),
+        ilike(schema.patients.cpf, `%${trimmedSearch}%`),
+        ilike(schema.patients.cns, `%${trimmedSearch}%`),
+      ];
+
+      if (cleanDigits.length > 0) {
+        searchConditions.push(ilike(schema.patients.cpf, `%${cleanDigits}%`));
+        searchConditions.push(ilike(schema.patients.cns, `%${cleanDigits}%`));
+      }
+
+      conditions.push(or(...searchConditions));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
