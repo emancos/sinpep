@@ -1,4 +1,4 @@
-import { pgTable, uniqueIndex, index, uuid, text, timestamp, foreignKey, boolean, integer, primaryKey, pgEnum, serial, jsonb } from "drizzle-orm/pg-core"
+import { pgTable, uniqueIndex, index, uuid, text, timestamp, foreignKey, boolean, integer, primaryKey, pgEnum, serial, jsonb, numeric } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 
@@ -360,12 +360,106 @@ export const procedures = pgTable("procedures", {
   genderAllowed: text("gender_allowed").default('AMBOS').notNull(),
   maxAge: integer("max_age").default(130).notNull(),
   minAge: integer("min_age").default(0).notNull(),
+
+  // Regulação e Parâmetros Clínicos
+  requiresRegulation: boolean("requires_regulation").default(true).notNull(),
+  maxReturns: integer("max_returns").default(1).notNull(),
+  requestIntervalDays: integer("request_interval_days").default(30).notNull(),
+  consumptionType: text("consumption_type").default('POR_PACIENTE').notNull(),
+  sigtapValue: numeric("sigtap_value", { precision: 10, scale: 2 }).default('0.00'),
+  regulatorRespectsQuota: boolean("regulator_respects_quota").default(true).notNull(),
+
+  // Período de visualização das agendas (em dias)
+  viewScheduleFirstTimeDays: integer("view_schedule_first_time_days").default(10).notNull(),
+  viewScheduleReturnDays: integer("view_schedule_return_days").default(15).notNull(),
+  viewScheduleRegulatorDays: integer("view_schedule_regulator_days").default(60).notNull(),
+  viewScheduleAutoDays: integer("view_schedule_auto_days").default(30).notNull(),
+
+  // Disponibilização das agendas (a partir de quantos dias)
+  releaseScheduleFirstTimeDays: integer("release_schedule_first_time_days").default(1).notNull(),
+  releaseScheduleReturnDays: integer("release_schedule_return_days").default(10).notNull(),
+  releaseScheduleRegulatorDays: integer("release_schedule_regulator_days").default(0).notNull(),
+  releaseScheduleAutoDays: integer("release_schedule_auto_days").default(15).notNull(),
+
   isActive: boolean("is_active").default(true).notNull(),
 }, (table) => [
   foreignKey({
     columns: [table.procedureGroupId],
     foreignColumns: [procedureGroups.id],
     name: "procedures_procedure_group_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade")
+]);
+
+export const procedurePreparations = pgTable("procedure_preparations", {
+  id: uuid().primaryKey().notNull(),
+  procedureId: uuid("procedure_id").notNull().unique(),
+  title: text().notNull(),
+  contentHtml: text("content_html").notNull(),
+  fastingHours: integer("fasting_hours").default(0),
+  requiresCompanion: boolean("requires_companion").default(false).notNull(),
+  medicationInstructions: text("medication_instructions"),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+  foreignKey({
+    columns: [table.procedureId],
+    foreignColumns: [procedures.id],
+    name: "procedure_preparations_procedure_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade")
+]);
+
+export const healthCenterProcedures = pgTable("health_center_procedures", {
+  id: uuid().primaryKey().notNull(),
+  healthCenterId: uuid("health_center_id").notNull(),
+  procedureId: uuid("procedure_id").notNull(),
+  monthlyQuantity: integer("monthly_quantity").default(0).notNull(),
+  isOffered: boolean("is_offered").default(true).notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+  uniqueIndex("health_center_procedures_unique").on(table.healthCenterId, table.procedureId),
+  foreignKey({
+    columns: [table.healthCenterId],
+    foreignColumns: [healthCenters.id],
+    name: "health_center_procedures_health_center_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.procedureId],
+    foreignColumns: [procedures.id],
+    name: "health_center_procedures_procedure_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade")
+]);
+
+export const procedureSolicitorQuotas = pgTable("procedure_solicitor_quotas", {
+  id: uuid().primaryKey().notNull(),
+  executingHealthCenterId: uuid("executing_health_center_id").notNull(),
+  solicitingHealthCenterId: uuid("soliciting_health_center_id").notNull(),
+  procedureId: uuid("procedure_id").notNull(),
+  monthlyQuota: integer("monthly_quota").default(0).notNull(),
+  usedQuota: integer("used_quota").default(0).notNull(),
+  isManualAdjustment: boolean("is_manual_adjustment").default(false).notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+  uniqueIndex("procedure_solicitor_quotas_unique").on(
+    table.executingHealthCenterId,
+    table.solicitingHealthCenterId,
+    table.procedureId
+  ),
+  foreignKey({
+    columns: [table.executingHealthCenterId],
+    foreignColumns: [healthCenters.id],
+    name: "procedure_solicitor_quotas_executing_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.solicitingHealthCenterId],
+    foreignColumns: [healthCenters.id],
+    name: "procedure_solicitor_quotas_soliciting_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.procedureId],
+    foreignColumns: [procedures.id],
+    name: "procedure_solicitor_quotas_procedure_fkey"
   }).onUpdate("cascade").onDelete("cascade")
 ]);
 
@@ -395,6 +489,42 @@ export const proceduresRelations = relations(procedures, ({ one, many }) => ({
     references: [procedureGroups.id],
   }),
   variants: many(procedureVariants),
+  preparation: one(procedurePreparations),
+  healthCenterProcedures: many(healthCenterProcedures),
+  solicitorQuotas: many(procedureSolicitorQuotas),
+}));
+
+export const procedurePreparationsRelations = relations(procedurePreparations, ({ one }) => ({
+  procedure: one(procedures, {
+    fields: [procedurePreparations.procedureId],
+    references: [procedures.id],
+  }),
+}));
+
+export const healthCenterProceduresRelations = relations(healthCenterProcedures, ({ one }) => ({
+  healthCenter: one(healthCenters, {
+    fields: [healthCenterProcedures.healthCenterId],
+    references: [healthCenters.id],
+  }),
+  procedure: one(procedures, {
+    fields: [healthCenterProcedures.procedureId],
+    references: [procedures.id],
+  }),
+}));
+
+export const procedureSolicitorQuotasRelations = relations(procedureSolicitorQuotas, ({ one }) => ({
+  executingHealthCenter: one(healthCenters, {
+    fields: [procedureSolicitorQuotas.executingHealthCenterId],
+    references: [healthCenters.id],
+  }),
+  solicitingHealthCenter: one(healthCenters, {
+    fields: [procedureSolicitorQuotas.solicitingHealthCenterId],
+    references: [healthCenters.id],
+  }),
+  procedure: one(procedures, {
+    fields: [procedureSolicitorQuotas.procedureId],
+    references: [procedures.id],
+  }),
 }));
 
 export const procedureVariantsRelations = relations(procedureVariants, ({ one }) => ({

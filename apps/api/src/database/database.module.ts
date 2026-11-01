@@ -4,9 +4,11 @@ import pkg from 'pg';
 const { Pool } = pkg;
 import * as dbSchema from './index';
 import * as dotenv from 'dotenv';
+import { DatabaseMigrationService } from './database-migration.service';
 dotenv.config();
 
-export const DATABASE_CONNECTION = 'DATABASE_CONNECTION';
+import { DATABASE_CONNECTION } from './database.constants';
+export { DATABASE_CONNECTION } from './database.constants';
 
 @Global()
 @Module({
@@ -20,7 +22,8 @@ export const DATABASE_CONNECTION = 'DATABASE_CONNECTION';
         return drizzle(pool, { schema: dbSchema });
       },
     },
+    DatabaseMigrationService,
   ],
-  exports: [DATABASE_CONNECTION],
+  exports: [DATABASE_CONNECTION, DatabaseMigrationService],
 })
 export class DatabaseModule {}
