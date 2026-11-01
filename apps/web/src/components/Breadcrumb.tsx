@@ -1,4 +1,3 @@
-
 import { useLocation, Link } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
 
@@ -61,7 +60,9 @@ export const Breadcrumb = () => {
           const to = `/${pathnames.slice(0, index + 1).join('/')}`;
 
           let name = routeNameMap[value.toLowerCase()];
-          if (!name) {
+          if (value.toLowerCase() === 'new' && pathnames.includes('regulation')) {
+            name = 'Nova Solicitação';
+          } else if (!name) {
             if (uuidRegex.test(value)) {
               name = 'Detalhes';
             } else if (isSisregCode(value)) {
