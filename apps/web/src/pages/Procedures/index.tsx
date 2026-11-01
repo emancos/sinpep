@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useProcedures, useDeleteProcedure, useToggleProcedureActive } from '../../hooks/useProcedures';
-
+import {
+    useProcedures,
+    useProcedureGroups,
+    useCreateProcedureGroup,
+    useUpdateProcedureGroup,
+    useDeleteProcedureGroup,
+    useToggleProcedureGroupActive,
+    useDeleteProcedure,
+    useToggleProcedureActive
+} from '../../hooks/useProcedures';
 import { useConfirm } from '../../contexts/ConfirmContext';
-import { useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
     Search,
@@ -11,29 +19,49 @@ import {
     AlertCircle,
     Activity,
     Layers,
-    ArrowUp,
-    ArrowDown,
-    ArrowUpDown,
     Trash2,
-    Power
+    Power,
+    Edit2,
+    FileText,
+    Divide,
+    Database,
+    ChevronRight,
+    X,
+    FolderKanban
 } from 'lucide-react';
 import { TablePagination } from '../../components/TablePagination';
 import { useAuthStore } from '../../store/useAuthStore';
+import { ProcedureIntegraSusForm } from './ProcedureIntegraSusForm';
+import { ProcedureQuotasManager } from './ProcedureQuotasManager';
+import { PreparationEditor } from './PreparationEditor';
+import { GroupProceduresView } from './GroupProceduresView';
+
+type TabType = 'procedures' | 'groups' | 'integra-sus' | 'quotas' | 'preparation' | 'group-view';
 
 export const ProceduresList: React.FC = () => {
-
     const confirm = useConfirm();
-    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const userPermissions = useAuthStore(state => state.permissions);
-    const deleteProcedureMutation = useDeleteProcedure();
-    const toggleActiveMutation = useToggleProcedureActive();
+    const canWrite = userPermissions.includes('procedures:write') || userPermissions.includes('admin:access');
+
+    // Tab state from URL query or default
+    const initialTab = (searchParams.get('tab') as TabType) || 'procedures';
+    const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+
+    // Selected items for context switching
+    const [selectedProcedureId, setSelectedProcedureId] = useState<string>(searchParams.get('procId') || '');
+    const [selectedGroupId, setSelectedGroupId] = useState<string>(searchParams.get('groupId') || '');
+    const [selectedGroupName, setSelectedGroupName] = useState<string>('');
+
+    // --- State for Procedures Tab ---
     const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(100);
-    const [sortBy, setSortBy] = useState('code');
+    const [limit, setLimit] = useState(50);
+    const [sortBy, setSortBy] = useState('name');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [showInactive, setShowInactive] = useState(false);
+    const [selectedFilterGroup, setSelectedFilterGroup] = useState<string>('');
 
     useEffect(() => {
         const handler = setTimeout(() => {
@@ -43,14 +71,32 @@ export const ProceduresList: React.FC = () => {
         return () => clearTimeout(handler);
     }, [searchTerm]);
 
-    const { data, isLoading, isError, error } = useProcedures({
+    // Queries
+    const { data: proceduresData, isLoading: loadingProcedures, isError: errProcedures } = useProcedures({
         page,
         limit,
         sortBy,
         sortOrder,
         search: debouncedSearch,
         includeInactive: showInactive,
+        procedureGroupId: selectedFilterGroup || undefined,
     });
+
+    const { data: groups } = useProcedureGroups(true);
+
+    // Mutations
+    const deleteProcedureMutation = useDeleteProcedure();
+    const toggleActiveMutation = useToggleProcedureActive();
+    const createGroupMutation = useCreateProcedureGroup();
+    const updateGroupMutation = useUpdateProcedureGroup();
+    const deleteGroupMutation = useDeleteProcedureGroup();
+    const toggleGroupActiveMutation = useToggleProcedureGroupActive();
+
+    // Group Modal states
+    const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+    const [editingGroupId, setEditingGroupId] = useState('');
+    const [groupNameInput, setGroupNameInput] = useState('');
+    const [showOnlyActiveGroups, setShowOnlyActiveGroups] = useState(false);
 
     const handleSort = (field: string) => {
         if (sortBy === field) {
@@ -62,10 +108,10 @@ export const ProceduresList: React.FC = () => {
         setPage(1);
     };
 
-    const handleDeleteProcedure = async (id: string) => {
+    const handleDeleteProcedure = async (id: string, name: string) => {
         const isConfirmed = await confirm({
-            title: 'Excluir Definitivamente',
-            description: 'Deseja realmente excluir este procedimento DEFINITIVAMENTE? Esta ação não pode ser desfeita.',
+            title: 'Excluir Procedimento',
+            description: `Deseja realmente excluir definitivamente o procedimento "${name}"?`,
             confirmText: 'Excluir',
             cancelText: 'Cancelar',
             variant: 'danger'
@@ -73,268 +119,615 @@ export const ProceduresList: React.FC = () => {
 
         if (isConfirmed) {
             deleteProcedureMutation.mutate(id, {
-                onSuccess: () => {
-                    toast.success('Procedimento excluído com sucesso!');
-                },
-                onError: () => {
-                    toast.error('Ocorreu um erro ao excluir o procedimento.');
-                }
+                onSuccess: () => toast.success('Procedimento excluído com sucesso!'),
+                onError: () => toast.error('Erro ao excluir procedimento.')
             });
         }
     };
 
-    const handleToggleActive = async (id: string, currentActive: boolean) => {
-        const actionName = currentActive ? 'Desabilitar' : 'Habilitar';
+    const handleToggleActiveProcedure = async (id: string, currentActive: boolean, name: string) => {
+        const action = currentActive ? 'desativar' : 'ativar';
         const isConfirmed = await confirm({
-            title: `${actionName} Procedimento`,
-            description: `Deseja realmente ${actionName.toLowerCase()} este procedimento?`,
-            confirmText: actionName,
+            title: `${currentActive ? 'Desativar' : 'Ativar'} Procedimento`,
+            description: `Deseja realmente ${action} o procedimento "${name}"?`,
+            confirmText: currentActive ? 'Desativar' : 'Ativar',
             cancelText: 'Cancelar',
             variant: currentActive ? 'danger' : 'info'
         });
 
         if (isConfirmed) {
             toggleActiveMutation.mutate(id, {
-                onSuccess: () => {
-                    toast.success(`Procedimento ${currentActive ? 'desabilitado' : 'habilitado'} com sucesso!`);
-                },
-                onError: () => {
-                    toast.error(`Erro ao ${actionName.toLowerCase()} procedimento.`);
-                }
+                onSuccess: () => toast.success(`Procedimento ${currentActive ? 'desativado' : 'ativado'} com sucesso!`),
+                onError: () => toast.error(`Erro ao ${action} procedimento.`)
             });
         }
     };
 
-    const renderSortHeader = (label: string, field: string) => {
-        const isSorted = sortBy === field;
-        return (
-            <th
-                onClick={() => handleSort(field)}
-                className="px-6 py-4 cursor-pointer hover:bg-slate-200 dark:bg-slate-800/40 hover:text-slate-900 dark:text-white transition-colors duration-150 select-none group"
-            >
-                <div className="flex items-center gap-1.5">
-                    <span>{label}</span>
-                    {isSorted ? (
-                        sortOrder === 'asc' ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                        ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                        )
-                    ) : (
-                        <ArrowUpDown className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-500 dark:text-slate-400 opacity-0 group-hover:opacity-100 transition-all" />
-                    )}
-                </div>
-            </th>
-        );
+    // Group Actions
+    const handleOpenCreateGroup = () => {
+        setEditingGroupId('');
+        setGroupNameInput('');
+        setIsGroupModalOpen(true);
     };
 
-    const proceduresList = data?.data || [];
-    const total = data?.total || 0;
+    const handleOpenEditGroup = (g: { id: string; name: string }) => {
+        setEditingGroupId(g.id);
+        setGroupNameInput(g.name);
+        setIsGroupModalOpen(true);
+    };
+
+    const handleSaveGroup = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const name = groupNameInput.trim().toUpperCase();
+        if (!name) {
+            toast.error('Informe o nome do grupo.');
+            return;
+        }
+
+        if (editingGroupId) {
+            updateGroupMutation.mutate({ id: editingGroupId, data: { name } }, {
+                onSuccess: () => {
+                    toast.success('Grupo atualizado com sucesso!');
+                    setIsGroupModalOpen(false);
+                },
+                onError: () => toast.error('Erro ao atualizar grupo.')
+            });
+        } else {
+            createGroupMutation.mutate({ name }, {
+                onSuccess: () => {
+                    toast.success('Grupo criado com sucesso!');
+                    setIsGroupModalOpen(false);
+                },
+                onError: () => toast.error('Erro ao criar grupo.')
+            });
+        }
+    };
+
+    const handleDeleteGroup = async (id: string, name: string) => {
+        const confirmed = await confirm({
+            title: 'Excluir Grupo de Procedimentos',
+            description: `Deseja realmente excluir o grupo "${name}"? Esta ação removerá a classificação dos procedimentos vinculados.`,
+            confirmText: 'Excluir',
+            cancelText: 'Cancelar',
+            variant: 'danger'
+        });
+        if (confirmed) {
+            deleteGroupMutation.mutate(id, {
+                onSuccess: () => toast.success('Grupo excluído com sucesso!'),
+                onError: () => toast.error('Erro ao excluir grupo.')
+            });
+        }
+    };
+
+    const handleToggleActiveGroup = async (id: string, name: string, currentActive: boolean) => {
+        const action = currentActive ? 'desativar' : 'ativar';
+        const description = currentActive
+            ? `Deseja realmente desativar o grupo "${name}"? Todos os procedimentos vinculados a este grupo serão desativados automaticamente.`
+            : `Deseja realmente ativar o grupo "${name}"?`;
+
+        const confirmed = await confirm({
+            title: `${currentActive ? 'Desativar' : 'Ativar'} Grupo de Procedimentos`,
+            description,
+            confirmText: currentActive ? 'Desativar Grupo e Procedimentos' : 'Ativar Grupo',
+            cancelText: 'Cancelar',
+            variant: currentActive ? 'danger' : 'info'
+        });
+        if (confirmed) {
+            toggleGroupActiveMutation.mutate(id, {
+                onSuccess: () => {
+                    toast.success(
+                        currentActive
+                            ? `Grupo "${name}" e todos os procedimentos vinculados foram desativados!`
+                            : `Grupo "${name}" ativado com sucesso!`
+                    );
+                },
+                onError: () => toast.error(`Erro ao ${action} grupo.`)
+            });
+        }
+    };
+
+    const handleOpenGroupView = (grp: { id: string; name: string }) => {
+        setSelectedGroupId(grp.id);
+        setSelectedGroupName(grp.name);
+        setActiveTab('group-view');
+    };
+
+    const handleOpenPreparation = (procId: string) => {
+        setSelectedProcedureId(procId);
+        setActiveTab('preparation');
+    };
+
+    const handleOpenQuotas = (procId: string) => {
+        setSelectedProcedureId(procId);
+        setActiveTab('quotas');
+    };
+
+    const handleOpenEditProcedure = (procId: string) => {
+        setSelectedProcedureId(procId);
+        setActiveTab('integra-sus');
+    };
 
     return (
         <div className="space-y-6">
-            {/* Page Header */}
+            {/* Header Geral do Hub */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Procedimentos</h1>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Gerenciamento da tabela de procedimentos e exames regulados</p>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <FolderKanban className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+                        Central de Procedimentos & Cotas
+                    </h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                        Gerenciamento unificado de procedimentos, grupos, integração SIGTAP, matriz de cotas e preparos clínicos
+                    </p>
                 </div>
 
-                <div className="flex gap-3">
-                    {((userPermissions.includes('procedures:write') || userPermissions.includes('admin:access'))) && (
-                        <button
-                            onClick={() => navigate('/procedures/create')}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md text-sm transition-all duration-300 shadow-md active:scale-95 cursor-pointer"
-                        >
-                            <Plus className="w-4 h-4" />
-                            <span>Novo Procedimento</span>
-                        </button>
-                    )}
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setSelectedProcedureId('');
+                            setActiveTab('integra-sus');
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Novo Procedimento
+                    </button>
                 </div>
             </div>
 
-            {/* Search Bar */}
-            <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-4 backdrop-blur-md flex flex-col sm:flex-row items-center gap-4">
-                <div className="relative w-full sm:max-w-md">
-                    <Search className="absolute left-3 top-3 w-5 h-5 text-slate-500" />
-                    <input
-                        type="text"
-                        placeholder="Buscar por código, nome ou grupo..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
-                    />
-                </div>
+            {/* Navigation Tabs Bar */}
+            <div className="flex border-b border-slate-200 dark:border-slate-800 gap-1 overflow-x-auto">
+                <button
+                    onClick={() => setActiveTab('procedures')}
+                    className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap cursor-pointer ${activeTab === 'procedures'
+                            ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                            : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                        }`}
+                >
+                    <Activity className="w-4 h-4" />
+                    Procedimentos
+                </button>
 
-                <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 cursor-pointer hover:text-slate-700 dark:text-slate-200 transition-colors">
-                        <div className="relative inline-flex items-center">
+                <button
+                    onClick={() => setActiveTab('groups')}
+                    className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap cursor-pointer ${activeTab === 'groups'
+                            ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                            : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                        }`}
+                >
+                    <Layers className="w-4 h-4" />
+                    Grupos de Procedimentos
+                </button>
+
+                <button
+                    onClick={() => {
+                        setSelectedProcedureId('');
+                        setActiveTab('integra-sus');
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap cursor-pointer ${activeTab === 'integra-sus'
+                            ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                            : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                        }`}
+                >
+                    <Database className="w-4 h-4" />
+                    Importação INTEGRA SUS
+                </button>
+
+                <button
+                    onClick={() => setActiveTab('quotas')}
+                    className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap cursor-pointer ${activeTab === 'quotas'
+                            ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                            : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                        }`}
+                >
+                    <Divide className="w-4 h-4" />
+                    Matriz de Cotas
+                </button>
+
+                {activeTab === 'preparation' && (
+                    <button
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 whitespace-nowrap cursor-pointer"
+                    >
+                        <FileText className="w-4 h-4" />
+                        Editor de Preparo
+                    </button>
+                )}
+
+                {activeTab === 'group-view' && (
+                    <button
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 whitespace-nowrap cursor-pointer"
+                    >
+                        <Layers className="w-4 h-4" />
+                        Visão do Grupo: {selectedGroupName}
+                    </button>
+                )}
+            </div>
+
+            {/* TAB 1: PROCEDIMENTOS */}
+            {activeTab === 'procedures' && (
+                <div className="space-y-4">
+                    {/* Barra de Filtros */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
+                        <div className="flex flex-1 flex-col sm:flex-row gap-3 w-full">
+                            {/* Input de Busca */}
+                            <div className="relative flex-1">
+                                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="Buscar por código ou nome do procedimento..."
+                                    className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                                />
+                            </div>
+
+                            {/* Filtro por Grupo */}
+                            <select
+                                value={selectedFilterGroup}
+                                onChange={(e) => { setSelectedFilterGroup(e.target.value); setPage(1); }}
+                                className="px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 min-w-[200px]"
+                            >
+                                <option value="">Todos os Grupos</option>
+                                {(groups || []).filter(g => g.isActive).map(g => (
+                                    <option key={g.id} value={g.id}>{g.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 cursor-pointer self-start md:self-auto shrink-0">
                             <input
                                 type="checkbox"
-                                className="sr-only peer"
                                 checked={showInactive}
                                 onChange={(e) => setShowInactive(e.target.checked)}
+                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                             />
-                            <div className="w-9 h-5 bg-slate-200 dark:bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 peer-checked:after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
-                        </div>
-                        <span>Mostrar desabilitados</span>
-                    </label>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 ml-auto">
-                    <span>Total: </span>
-                    <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-800 rounded-md font-mono text-slate-700 dark:text-slate-200">
-                        {total}
-                    </span>
-                </div>
-            </div>
-
-            {/* Loading State */}
-            {isLoading && (
-                <div className="flex flex-col items-center justify-center py-20 space-y-4">
-                    <Loader2 className="w-10 h-10 text-blue-700 dark:text-blue-500 animate-spin" />
-                    <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Carregando...</p>
-                </div>
-            )}
-
-            {/* Error State */}
-            {isError && (
-                <div className="flex items-center gap-3 p-4 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 rounded-md max-w-xl mx-auto">
-                    <AlertCircle className="w-6 h-6 shrink-0" />
-                    <div>
-                        <h4 className="font-semibold">Erro ao carregar</h4>
-                        <p className="text-xs text-red-600 dark:text-red-400/80 mt-0.5">{(error as Error | null)?.message || 'Erro de conexão com o servidor.'}</p>
+                            Exibir inativos
+                        </label>
                     </div>
-                </div>
-            )}
 
-            {/* Table Section */}
-            {!isLoading && !isError && (
-                <div className="bg-white shadow-md dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-md overflow-hidden backdrop-blur-md">
-                    <div className="overflow-x-auto">
-                        <table className="w-full border-collapse text-left">
-                            <thead>
-                                <tr className="border-b border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
-                                    {renderSortHeader('Código', 'code')}
-                                    {renderSortHeader('Procedimento', 'name')}
-                                    {renderSortHeader('Grupo', 'procedureGroup')}
-                                    <th className="px-6 py-4">Restrições (Sexo / Idade)</th>
-                                    <th className="px-6 py-4 text-right">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 text-sm">
-                                {proceduresList && proceduresList.length > 0 ? (
-                                    proceduresList.map((proc) => (
-                                        <tr key={proc.id} className="hover:bg-slate-200 dark:bg-slate-800/20 transition-colors duration-150 group">
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`font-mono text-xs px-2.5 py-1 rounded-md whitespace-nowrap ${proc.isActive ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20' : 'text-slate-500 bg-slate-200 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700'}`}>
-                                                    {proc.code}
-                                                </span>
-                                            </td>
-
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-8 h-8 rounded-md ${proc.isActive ? 'bg-indigo-100 dark:bg-indigo-500/10' : 'bg-slate-200 dark:bg-slate-800/50'} flex items-center justify-center shrink-0`}>
-                                                        <Activity className={`w-4.5 h-4.5 ${proc.isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500'}`} />
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span className={`font-medium transition-colors duration-200 ${proc.isActive ? 'text-slate-900 dark:text-white group-hover:text-indigo-400' : 'text-slate-500 line-through'}`}>
-                                                            {proc.name}
+                    {/* Tabela de Procedimentos */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden shadow-sm">
+                        {loadingProcedures ? (
+                            <div className="py-20 flex flex-col items-center justify-center gap-2 text-slate-400">
+                                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                                <span className="text-sm">Carregando procedimentos...</span>
+                            </div>
+                        ) : errProcedures ? (
+                            <div className="py-16 flex flex-col items-center justify-center gap-2 text-rose-500">
+                                <AlertCircle className="w-8 h-8" />
+                                <span className="text-sm">Erro ao carregar procedimentos.</span>
+                            </div>
+                        ) : proceduresData?.data?.length === 0 ? (
+                            <div className="py-16 text-center text-slate-400 text-sm">
+                                Nenhum procedimento encontrado.
+                            </div>
+                        ) : (
+                            <>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                                        <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-200 dark:border-slate-800">
+                                            <tr>
+                                                <th onClick={() => handleSort('code')} className="px-4 py-3 cursor-pointer hover:text-blue-600">
+                                                    Código
+                                                </th>
+                                                <th onClick={() => handleSort('name')} className="px-4 py-3 cursor-pointer hover:text-blue-600">
+                                                    Procedimento
+                                                </th>
+                                                <th className="px-4 py-3">Grupo</th>
+                                                <th className="px-4 py-3 text-center">Regulação</th>
+                                                <th className="px-4 py-3 text-center">Status</th>
+                                                <th className="px-4 py-3 text-right">Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                            {(proceduresData?.data || []).map((proc) => (
+                                                <tr key={proc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/50 transition-colors">
+                                                    <td className="px-4 py-3.5 font-mono text-xs font-bold text-slate-600 dark:text-slate-300">
+                                                        {proc.code || '-'}
+                                                    </td>
+                                                    <td className="px-4 py-3.5 font-semibold text-slate-900 dark:text-white">
+                                                        <span className="block">{proc.name}</span>
+                                                        <span className="block text-[11px] text-slate-400 font-normal">
+                                                            Idade: {proc.minAge} a {proc.maxAge} anos • Sexo: {proc.genderAllowed}
                                                         </span>
-                                                        {!proc.isActive && <span className="text-[10px] text-rose-600 dark:text-rose-400/80 font-semibold uppercase">Desabilitado</span>}
-                                                    </div>
-                                                </div>
-                                            </td>
+                                                    </td>
+                                                    <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-slate-400">
+                                                        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-medium">
+                                                            {proc.procedureGroup?.name || '-'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3.5 text-center">
+                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${proc.requiresRegulation !== false
+                                                                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                                                                : 'bg-slate-100 text-slate-500'
+                                                            }`}>
+                                                            {proc.requiresRegulation !== false ? 'Exige' : 'Dispensada'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3.5 text-center">
+                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${proc.isActive
+                                                                ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
+                                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                                            }`}>
+                                                            {proc.isActive ? 'Ativo' : 'Inativo'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3.5 text-right">
+                                                        <div className="flex items-center justify-end gap-1.5">
+                                                            {/* Atalho Preparo */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenPreparation(proc.id)}
+                                                                className="p-1.5 rounded hover:bg-amber-50 dark:hover:bg-amber-950/50 text-slate-500 hover:text-amber-600 transition-colors"
+                                                                title="Editar Instruções de Preparo"
+                                                            >
+                                                                <FileText className="w-4 h-4" />
+                                                            </button>
 
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 text-xs">
-                                                    <Layers className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                                                    <span>{proc.procedureGroup?.name || 'Sem grupo'}</span>
-                                                </div>
-                                            </td>
+                                                            {/* Atalho Cotas */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenQuotas(proc.id)}
+                                                                className="p-1.5 rounded hover:bg-blue-50 dark:hover:bg-blue-950/50 text-slate-500 hover:text-blue-600 transition-colors"
+                                                                title="Gerenciar Cotas Mensais"
+                                                            >
+                                                                <Divide className="w-4 h-4" />
+                                                            </button>
 
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${proc.genderAllowed === 'AMBOS'
-                                                            ? 'bg-emerald-100 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                                                            : proc.genderAllowed === 'FEMININO'
-                                                                ? 'bg-pink-500/10 border-pink-500/20 text-pink-400'
-                                                                : 'bg-blue-100 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20 text-blue-600 dark:text-blue-400'
-                                                        }`}>
-                                                        {proc.genderAllowed === 'AMBOS' ? 'Ambos' : proc.genderAllowed === 'FEMININO' ? 'Feminino' : 'Masculino'}
-                                                    </span>
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-mono">
-                                                        {proc.minAge}-{proc.maxAge} anos
-                                                    </span>
-                                                </div>
-                                            </td>
+                                                            {/* Editar */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenEditProcedure(proc.id)}
+                                                                className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-blue-600 transition-colors"
+                                                                title="Editar Procedimento"
+                                                            >
+                                                                <Edit2 className="w-4 h-4" />
+                                                            </button>
 
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => navigate(`/procedures/${proc.id}`)}
-                                                        className="px-2.5 py-1 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white bg-slate-200 dark:bg-slate-800/40 hover:bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 rounded-md transition-all cursor-pointer shadow-md"
-                                                    >
-                                                        Visualizar
-                                                    </button>
-                                                    {((userPermissions.includes('procedures:write') || userPermissions.includes('admin:access'))) && (
-                                                        <button
-                                                            onClick={() => navigate(`/procedures/${proc.id}/edit`)}
-                                                            className="px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-100 dark:bg-blue-500/10 hover:bg-blue-200 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/20 rounded-md transition-all cursor-pointer shadow-md"
-                                                        >
-                                                            Editar
-                                                        </button>
-                                                    )}
+                                                            {/* Toggle Ativo */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleToggleActiveProcedure(proc.id, proc.isActive, proc.name)}
+                                                                className={`p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${proc.isActive ? 'text-amber-500 hover:text-amber-600' : 'text-emerald-500 hover:text-emerald-600'
+                                                                    }`}
+                                                                title={proc.isActive ? 'Desativar' : 'Ativar'}
+                                                            >
+                                                                <Power className="w-4 h-4" />
+                                                            </button>
 
-                                                    {(userPermissions.includes('procedures:write') || userPermissions.includes('admin:access')) && (
-                                                        <button
-                                                            onClick={() => handleToggleActive(proc.id, proc.isActive)}
-                                                            className={`p-1 border rounded-md transition-all cursor-pointer ${proc.isActive
-                                                                    ? 'text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 bg-amber-100 dark:bg-amber-500/10 hover:bg-amber-200 dark:hover:bg-amber-500/20 border-amber-200 dark:border-amber-500/20'
-                                                                    : 'text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 bg-teal-100 dark:bg-teal-500/10 hover:bg-teal-200 dark:hover:bg-teal-500/20 border-teal-200 dark:border-teal-500/20'
-                                                                }`}
-                                                            title={proc.isActive ? "Desabilitar" : "Habilitar"}
-                                                        >
-                                                            <Power className="w-4 h-4" />
-                                                        </button>
-                                                    )}
+                                                            {/* Excluir */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeleteProcedure(proc.id, proc.name)}
+                                                                className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-rose-600 transition-colors"
+                                                                title="Excluir"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
 
-                                                    {userPermissions.includes('admin:access') && (
-                                                        <button
-                                                            onClick={() => handleDeleteProcedure(proc.id)}
-                                                            className="p-1 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 bg-rose-100 dark:bg-rose-500/10 hover:bg-rose-200 dark:hover:bg-rose-500/20 border border-rose-200 dark:border-rose-500/20 rounded-md transition-all cursor-pointer shadow-md"
-                                                            title="Excluir Definitivamente"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={5} className="px-6 py-10 text-center text-slate-500 italic">
-                                            Nenhum procedimento cadastrado.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                <div className="p-3 border-t border-slate-200 dark:border-slate-800">
+                                    <TablePagination
+                                        page={page}
+                                        limit={limit}
+                                        total={proceduresData?.total || 0}
+                                        onPageChange={setPage}
+                                        onLimitChange={(newLimit: number) => { setLimit(newLimit); setPage(1); }}
+                                    />
+                                </div>
+                            </>
+                        )}
                     </div>
-                    <TablePagination
-                        page={page}
-                        limit={limit}
-                        total={total}
-                        onPageChange={setPage}
-                        onLimitChange={(newLimit) => {
-                            setLimit(newLimit);
-                            setPage(1);
-                        }}
-                    />
+                </div>
+            )}
+
+            {/* TAB 2: GRUPOS DE PROCEDIMENTOS */}
+            {activeTab === 'groups' && (
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 shadow-sm">
+                        <div>
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                                Grupos de Procedimentos & Exames
+                            </h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                Agrupamentos clínicos para filtros de regulação, cotas e habilitação nos serviços executantes
+                            </p>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            {/* Opção para listar apenas grupos ativos */}
+                            <label className="flex items-center gap-2 cursor-pointer select-none bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={showOnlyActiveGroups}
+                                    onChange={(e) => setShowOnlyActiveGroups(e.target.checked)}
+                                    className="rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                                />
+                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                    Listar apenas grupos ativos
+                                </span>
+                            </label>
+
+                            {canWrite && (
+                                <button
+                                    type="button"
+                                    onClick={handleOpenCreateGroup}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Novo Grupo
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {(groups || []).filter(grp => showOnlyActiveGroups ? grp.isActive : true).map((grp) => (
+                            <div
+                                key={grp.id}
+                                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm space-y-4 hover:border-blue-300 dark:hover:border-blue-700 transition-all"
+                            >
+                                <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center shrink-0">
+                                            <Layers className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-slate-900 dark:text-white text-base">
+                                                {grp.name}
+                                            </h4>
+                                            <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded mt-0.5 ${grp.isActive
+                                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400'
+                                                    : 'bg-slate-100 text-slate-500'
+                                                }`}>
+                                                {grp.isActive ? 'Ativo' : 'Inativo'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {canWrite && (
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleOpenEditGroup(grp)}
+                                                className="p-1 rounded text-slate-400 hover:text-blue-600"
+                                                title="Editar Nome do Grupo"
+                                            >
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleToggleActiveGroup(grp.id, grp.name, grp.isActive)}
+                                                className={`p-1 rounded ${grp.isActive ? 'text-amber-500' : 'text-emerald-500'}`}
+                                                title={grp.isActive ? 'Desativar Grupo' : 'Ativar Grupo'}
+                                            >
+                                                <Power className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteGroup(grp.id, grp.name)}
+                                                className="p-1 rounded text-slate-400 hover:text-rose-600"
+                                                title="Excluir Grupo"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Botão de Ação: Ver Procedimentos Vinculados (Item 5) */}
+                                <button
+                                    type="button"
+                                    onClick={() => handleOpenGroupView(grp)}
+                                    className="w-full flex items-center justify-between px-3.5 py-2.5 bg-slate-50 hover:bg-blue-50 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 hover:text-blue-700 dark:text-slate-300 dark:hover:text-white rounded-lg text-xs font-bold transition-all border border-slate-200 dark:border-slate-700"
+                                >
+                                    <span>Acessar Procedimentos do Grupo</span>
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* TAB 3: IMPORTAÇÃO INTEGRA SUS */}
+            {activeTab === 'integra-sus' && (
+                <ProcedureIntegraSusForm
+                    procedureIdProp={selectedProcedureId}
+                    onSuccessProp={() => setActiveTab('procedures')}
+                    onBackProp={() => setActiveTab('procedures')}
+                />
+            )}
+
+            {/* TAB 4: MATRIZ DE COTAS */}
+            {activeTab === 'quotas' && (
+                <ProcedureQuotasManager
+                    initialProcedureId={selectedProcedureId}
+                />
+            )}
+
+            {/* TAB 5: EDITOR DE PREPARO */}
+            {activeTab === 'preparation' && (
+                <PreparationEditor
+                    procedureIdProp={selectedProcedureId}
+                    onBackProp={() => setActiveTab('procedures')}
+                />
+            )}
+
+            {/* TAB 6: VISÃO DO GRUPO (Item 5) */}
+            {activeTab === 'group-view' && (
+                <GroupProceduresView
+                    groupId={selectedGroupId}
+                    groupName={selectedGroupName}
+                    onBack={() => setActiveTab('groups')}
+                    onOpenPreparation={handleOpenPreparation}
+                    onOpenQuotas={handleOpenQuotas}
+                    onEditProcedure={handleOpenEditProcedure}
+                />
+            )}
+
+            {/* MODAL DE CRIAÇÃO / EDIÇÃO DE GRUPO */}
+            {isGroupModalOpen && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg max-w-md w-full shadow-2xl p-6">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                                {editingGroupId ? 'Editar Grupo de Procedimento' : 'Novo Grupo de Procedimento'}
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => setIsGroupModalOpen(false)}
+                                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSaveGroup} className="space-y-4 mt-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                                    Nome do Grupo *
+                                </label>
+                                <input
+                                    type="text"
+                                    value={groupNameInput}
+                                    onChange={(e) => setGroupNameInput(e.target.value)}
+                                    placeholder="Ex: ULTRASSONOGRAFIAS, ENDOSCOPIA, MAMOGRAFIA..."
+                                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white uppercase focus:outline-none focus:border-blue-500"
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsGroupModalOpen(false)}
+                                    className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-md text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={createGroupMutation.isPending || updateGroupMutation.isPending}
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold transition-colors flex items-center gap-1.5"
+                                >
+                                    {(createGroupMutation.isPending || updateGroupMutation.isPending) && (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    )}
+                                    Salvar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
         </div>
     );
 };
-

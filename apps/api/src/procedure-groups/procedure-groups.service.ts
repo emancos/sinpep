@@ -62,13 +62,26 @@ export class ProcedureGroupsService {
 
   async toggleActive(id: string) {
     const group = await this.findOne(id);
+    const nextStatus = !group.isActive;
+
     const [updated] = await this.db.update(schema.procedureGroups)
       .set({
-        isActive: !group.isActive,
+        isActive: nextStatus,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(schema.procedureGroups.id, id))
       .returning();
+
+    // Regra: Ao desativar um grupo, desativar automaticamente todos os procedimentos vinculados
+    if (!nextStatus) {
+      await this.db.update(schema.procedures)
+        .set({
+          isActive: false,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(schema.procedures.procedureGroupId, id));
+    }
+
     return updated;
   }
 }
