@@ -311,18 +311,18 @@ export const Layout = () => {
           </div>
 
           {/* User profile dropdown and Logout */}
-          <div className="flex items-center gap-2 md:gap-3">
+          <div className="flex items-center gap-2 sm:gap-2.5">
             {/* Active Profile Pill with Quick Switch */}
             {activeProfile && (
               <button
                 type="button"
                 onClick={() => setIsSwitchProfileOpen(true)}
-                className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium border border-white/20 transition-all cursor-pointer shadow-sm group"
+                className="hidden xl:inline-flex items-center gap-2 h-9 px-3 rounded-md bg-white/10 hover:bg-white/15 text-white text-xs font-medium border border-white/20 transition-all cursor-pointer shadow-sm group"
                 title={availableProfiles.length > 1 ? "Clique para alternar perfil de acesso" : `Atuando como ${activeProfile.name}`}
               >
                 <ShieldCheck className="w-4 h-4 text-blue-200 group-hover:scale-110 transition-transform shrink-0" />
                 <div className="flex items-center gap-1.5 text-left">
-                  <span className="text-blue-200/80 hidden lg:inline text-[11px] uppercase tracking-wider">Perfil:</span>
+                  <span className="text-blue-200/80 text-[11px] uppercase tracking-wider">Perfil:</span>
                   <span className="font-semibold text-white tracking-wide">{activeProfile.name}</span>
                 </div>
                 {availableProfiles.length > 1 && (
@@ -336,24 +336,26 @@ export const Layout = () => {
             <ThemeToggle />
             <NotificationBell />
 
-            {/* Desktop View */}
-            <div className="hidden md:flex items-stretch shadow-md rounded-md overflow-hidden border border-slate-300 dark:border-slate-800">
-              <Link to="/profile" className="flex items-center gap-2 px-2.5 py-1 bg-slate-100 dark:bg-slate-900/80 text-[13px] hover:bg-slate-200 dark:bg-slate-800 transition-all duration-300 cursor-pointer">
-                <div className="w-5 h-5 rounded-full bg-blue-500/20 border border-slate-200 dark:border-slate-800/80 flex items-center justify-center overflow-hidden shrink-0">
+            {/* Desktop View: Separated Profile & Logout exactly matching image */}
+            <div className="hidden md:flex items-center gap-2 sm:gap-2.5">
+              <Link
+                to="/profile"
+                className="h-9 px-3 flex items-center gap-2.5 rounded-md border border-white/20 bg-white/10 hover:bg-white/15 text-white transition-all duration-200 cursor-pointer shadow-sm"
+                title="Meu Perfil"
+              >
+                <div className="w-6 h-6 rounded-full border border-white/30 overflow-hidden shrink-0 flex items-center justify-center bg-blue-400/20">
                   <CachedAvatar src={user?.avatar} alt={user?.name} />
                 </div>
-                <span className="text-slate-600 dark:text-slate-300 font-medium max-w-[120px] truncate">{user?.name}</span>
+                <span className="text-white font-bold text-sm max-w-[150px] truncate">{user?.name}</span>
               </Link>
-
-              <div className="w-px bg-slate-300 dark:bg-slate-700" />
 
               <button
                 onClick={logout}
-                className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 dark:bg-red-900 hover:bg-red-100 dark:hover:bg-red-800 text-red-600 dark:text-red-300 text-[13px] transition-all duration-300 cursor-pointer"
+                className="h-9 px-3.5 flex items-center gap-1.5 rounded-md bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold text-sm shadow-sm transition-all duration-200 cursor-pointer active:scale-95 border border-red-500/30"
                 title={t('Logout')}
               >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline font-medium">{t('Logout')}</span>
+                <LogOut className="w-4 h-4" />
+                <span>{t('Logout')}</span>
               </button>
             </div>
 

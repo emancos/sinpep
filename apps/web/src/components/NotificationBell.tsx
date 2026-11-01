@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, Info, Sparkles, CheckCheck } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -27,7 +27,7 @@ export const NotificationBell = () => {
   // Notificações de solicitações do sistema
   const { data } = useRequests({
     page: 1,
-    limit: 20, // increased slightly to allow for more history
+    limit: 20,
     sortBy: 'updatedAt',
     sortOrder: 'desc',
   });
@@ -49,36 +49,24 @@ export const NotificationBell = () => {
     return n.date > new Date(clearedAt);
   });
 
-  // Calcular contagem de não lidos (com base em todos, não apenas visíveis)
-  const totalUnread = allNotifs.filter((n) => {
+  // Count unread notifications
+  const unreadRequests = requests.filter(r => {
     if (!lastChecked) return true;
-    return n.date > new Date(lastChecked);
-  }).length;
+    const reqDate = new Date(r.updatedAt);
+    return reqDate > new Date(lastChecked);
+  });
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        if (isOpen) {
-          const now = new Date().toISOString();
-          localStorage.setItem('lastCheckedNotifications', now);
-          setLastChecked(now);
-        }
-        setIsOpen(false);
-      }
-    };
+  const unreadSysNotifs = systemNotifications.filter(n => {
+    if (!lastChecked) return true;
+    const nDate = new Date(n.createdAt);
+    return nDate > new Date(lastChecked);
+  });
 
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen]);
+  const totalUnread = unreadRequests.length + unreadSysNotifs.length;
 
   const handleToggle = () => {
     const nextState = !isOpen;
     if (!nextState) {
-      // Closing
       const now = new Date().toISOString();
       localStorage.setItem('lastCheckedNotifications', now);
       setLastChecked(now);
@@ -118,7 +106,7 @@ export const NotificationBell = () => {
       case 'RE_REQUESTED': return 'bg-blue-500/10 text-blue-400 border border-blue-500/20';
       case 'CANCELED': return 'bg-rose-500/10 text-rose-450 border border-rose-500/20';
       case 'DENIED': return 'bg-red-500/10 text-red-500 border border-red-500/20 font-bold';
-      default: return 'bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/20';
+      default: return 'bg-slate-500/10 text-slate-400 border border-slate-500/20';
     }
   };
 
@@ -128,16 +116,16 @@ export const NotificationBell = () => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={handleToggle}
-        className={`relative p-1.5 rounded-md border transition-all duration-300 cursor-pointer ${
+        className={`w-9 h-9 flex items-center justify-center rounded-md border transition-all duration-300 cursor-pointer shadow-sm relative shrink-0 ${
           isOpen
-            ? 'bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white shadow-lg shadow-black/20'
-            : 'bg-slate-50 dark:bg-slate-900 border-slate-300 dark:border-slate-800 hover:bg-slate-200 dark:bg-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200'
+            ? 'bg-white/25 border-white/40 text-white shadow-md'
+            : 'bg-white/10 hover:bg-white/15 border-white/20 text-white'
         }`}
         aria-label="Notificações"
       >
-        <Bell className="w-4 h-4" />
+        <Bell className="w-4 h-4 text-white" />
         {totalUnread > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-slate-900 dark:text-white ring-2 ring-slate-950 animate-pulse">
+          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-blue-900 animate-pulse">
             {totalUnread}
           </span>
         )}
@@ -178,7 +166,7 @@ export const NotificationBell = () => {
                   let formattedTime = '';
                   try {
                     formattedTime = formatDistanceToNow(item.date, { addSuffix: true, locale: ptBR });
-                  } catch (e) {
+                  } catch {
                     formattedTime = 'recentemente';
                   }
 
