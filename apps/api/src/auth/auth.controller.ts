@@ -16,7 +16,14 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   async getMe(@Request() req: any) {
-    return this.authService.getProfile(req.user.id);
+    return this.authService.getProfile(req.user.id, req.user.activeProfileId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('select-profile')
+  @HttpCode(HttpStatus.OK)
+  async selectProfile(@Request() req: any, @Body('profileId') profileId: string) {
+    return this.authService.selectProfile(req.user.id, profileId);
   }
 
   @Post('forgot-password')

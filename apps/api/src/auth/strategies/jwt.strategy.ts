@@ -7,6 +7,7 @@ import { AuthService } from '../auth.service';
 interface JwtPayload {
   sub: string;
   email: string;
+  activeProfileId?: string;
   permissions?: string[];
 }
 
@@ -24,18 +25,23 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
-    const user = await this.usersService.findById(payload.sub);
+    const user: any = await this.usersService.findById(payload.sub);
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Sessão expirada ou usuário inativo');
     }
 
-    const permissions = this.authService.consolidatePermissions(user);
+    const { permissions, activeProfile } = await this.authService.consolidatePermissionsForProfile(
+      user,
+      payload.activeProfileId,
+    );
 
     return {
       id: user.id,
       email: user.email,
       name: user.name,
-      profileId: user.profileId,
+      profileId: activeProfile?.id || user.profileId,
+      activeProfileId: activeProfile?.id || user.profileId,
+      activeProfileName: activeProfile?.name || user.profile?.name,
       healthCenterId: user.healthCenterId,
       permissions,
     };

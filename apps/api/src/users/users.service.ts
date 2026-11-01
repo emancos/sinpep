@@ -24,6 +24,17 @@ export class UsersService {
             }
           }
         },
+        userProfiles: {
+          with: {
+            profile: {
+              with: {
+                profilePermissions: {
+                  with: { permission: true }
+                }
+              }
+            }
+          }
+        },
         userCustomPermissions: {
           with: { permission: true }
         }
@@ -39,6 +50,17 @@ export class UsersService {
           with: {
             profilePermissions: {
               with: { permission: true }
+            }
+          }
+        },
+        userProfiles: {
+          with: {
+            profile: {
+              with: {
+                profilePermissions: {
+                  with: { permission: true }
+                }
+              }
             }
           }
         },

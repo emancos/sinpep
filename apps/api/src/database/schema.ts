@@ -71,6 +71,26 @@ export const userCustomPermissions = pgTable("user_custom_permissions", {
 		}).onUpdate("cascade").onDelete("cascade"),
 ]);
 
+export const userProfiles = pgTable("user_profiles", {
+	id: uuid().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	profileId: uuid("profile_id").notNull(),
+	isDefault: boolean("is_default").default(false).notNull(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+	uniqueIndex("user_profiles_user_id_profile_id_key").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.profileId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "user_profiles_user_id_fkey"
+	}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+		columns: [table.profileId],
+		foreignColumns: [profiles.id],
+		name: "user_profiles_profile_id_fkey"
+	}).onUpdate("cascade").onDelete("cascade"),
+]);
+
 export const healthAgents = pgTable("health_agents", {
 	id: uuid().primaryKey().notNull(),
 	name: text().notNull(),

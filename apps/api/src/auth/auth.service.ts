@@ -1,6 +1,10 @@
-import { Injectable, UnauthorizedException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ForbiddenException, Logger, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
+import { DATABASE_CONNECTION } from '../database/database.module';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import * as schema from '../database';
+import { eq, asc } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import * as nodemailer from 'nodemailer';
 
@@ -17,6 +21,13 @@ export interface ValidatedUser {
   permissions: string[];
 }
 
+export interface ProfileSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  isDefault: boolean;
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -24,21 +35,112 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: NodePgDatabase<typeof schema>,
   ) {}
 
-  consolidatePermissions(user: any): string[] {
+  /**
+   * Retorna todos os perfis aos quais o usuário tem acesso.
+   * Administradores possuem acesso a todos os perfis cadastrados no sistema.
+   * Demais utilizadores têm acesso aos perfis atribuídos.
+   */
+  async getAvailableProfiles(user: any): Promise<ProfileSummary[]> {
+    const isAdmin =
+      user.profile?.name === 'Administrador' ||
+      user.profile?.profilePermissions?.some((pp: any) => pp.permission?.name === 'admin:access') ||
+      user.userProfiles?.some(
+        (up: any) =>
+          up.profile?.name === 'Administrador' ||
+          up.profile?.profilePermissions?.some((pp: any) => pp.permission?.name === 'admin:access'),
+      );
+
+    if (isAdmin) {
+      const allProfiles = await this.db.query.profiles.findMany({
+        orderBy: [asc(schema.profiles.name)],
+      });
+      return allProfiles.map((p) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        isDefault: p.id === user.profileId,
+      }));
+    }
+
+    const profileMap = new Map<string, ProfileSummary>();
+
+    if (user.profile) {
+      profileMap.set(user.profile.id, {
+        id: user.profile.id,
+        name: user.profile.name,
+        description: user.profile.description,
+        isDefault: true,
+      });
+    }
+
+    if (user.userProfiles && Array.isArray(user.userProfiles)) {
+      for (const up of user.userProfiles) {
+        if (up.profile) {
+          profileMap.set(up.profile.id, {
+            id: up.profile.id,
+            name: up.profile.name,
+            description: up.profile.description,
+            isDefault: up.isDefault || up.profile.id === user.profileId,
+          });
+        }
+      }
+    }
+
+    return Array.from(profileMap.values());
+  }
+
+  /**
+   * Consolida as permissões estritamente para o perfil ativo selecionado.
+   */
+  async consolidatePermissionsForProfile(
+    user: any,
+    activeProfileId?: string,
+  ): Promise<{ permissions: string[]; activeProfile: ProfileSummary | null }> {
+    const availableProfiles = await this.getAvailableProfiles(user);
+
+    let targetProfile = availableProfiles.find((p) => p.id === activeProfileId);
+    if (!targetProfile) {
+      targetProfile = availableProfiles.find((p) => p.isDefault) || availableProfiles[0] || null;
+    }
+
+    if (!targetProfile) {
+      return { permissions: [], activeProfile: null };
+    }
+
+    // Se o perfil escolhido for Administrador
+    if (targetProfile.name === 'Administrador') {
+      const allPermissions = await this.db.query.permissions.findMany();
+      return {
+        permissions: allPermissions.map((p) => p.name).concat('admin:access'),
+        activeProfile: targetProfile,
+      };
+    }
+
+    // Busca o perfil completo com suas permissões vinculadas
+    const fullProfile = await this.db.query.profiles.findFirst({
+      where: eq(schema.profiles.id, targetProfile.id),
+      with: {
+        profilePermissions: {
+          with: { permission: true },
+        },
+      },
+    });
+
     const permissionMap = new Map<string, boolean>();
 
-    // 1. Add profile permissions
-    if (user.profile && user.profile.profilePermissions) {
-      for (const pp of user.profile.profilePermissions) {
+    if (fullProfile && fullProfile.profilePermissions) {
+      for (const pp of fullProfile.profilePermissions) {
         if (pp.permission && pp.permission.name) {
           permissionMap.set(pp.permission.name, true);
         }
       }
     }
 
-    // 2. Apply custom permission overrides
+    // Aplica eventuais permissões customizadas individuais do usuário
     if (user.userCustomPermissions) {
       for (const cp of user.userCustomPermissions) {
         if (cp.permission && cp.permission.name) {
@@ -47,16 +149,38 @@ export class AuthService {
       }
     }
 
-    // 3. Filter only allowed permissions
+    const permissions = Array.from(permissionMap.entries())
+      .filter((entry) => entry[1])
+      .map((entry) => entry[0]);
+
+    return { permissions, activeProfile: targetProfile };
+  }
+
+  consolidatePermissions(user: any): string[] {
+    const permissionMap = new Map<string, boolean>();
+
+    if (user.profile && user.profile.profilePermissions) {
+      for (const pp of user.profile.profilePermissions) {
+        if (pp.permission && pp.permission.name) {
+          permissionMap.set(pp.permission.name, true);
+        }
+      }
+    }
+
+    if (user.userCustomPermissions) {
+      for (const cp of user.userCustomPermissions) {
+        if (cp.permission && cp.permission.name) {
+          permissionMap.set(cp.permission.name, cp.isAllowed);
+        }
+      }
+    }
+
     return Array.from(permissionMap.entries())
       .filter((entry) => entry[1])
       .map((entry) => entry[0]);
   }
 
-  async validateUser(
-    email: string,
-    pass: string,
-  ): Promise<ValidatedUser | null> {
+  async validateUser(email: string, pass: string): Promise<ValidatedUser | null> {
     const user: any = await this.usersService.findByEmail(email);
     if (!user) {
       return null;
@@ -87,41 +211,33 @@ export class AuthService {
     };
   }
 
-  async getProfile(userId: string) {
-    const user: any = await this.usersService.findById(userId);
-    if (!user) {
-      throw new UnauthorizedException('Usuário não encontrado');
-    }
-
-    if (!user.isActive) {
-      throw new UnauthorizedException('Sessão expirada ou usuário inativo');
-    }
-
-    const permissions = this.consolidatePermissions(user);
-
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone || undefined,
-      avatar: user.avatar || undefined,
-      profileId: user.profileId,
-      profileName: user.profile?.name,
-      healthCenterId: user.healthCenterId,
-      permissions,
-    };
-  }
-
   async login(email: string, pass: string) {
-    const user = await this.validateUser(email, pass);
+    const user: any = await this.usersService.findByEmail(email);
     if (!user) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
+    if (!user.isActive) {
+      throw new UnauthorizedException('Usuário inativo. Entre em contato com o administrador.');
+    }
+
+    const isMatch = await bcrypt.compare(pass, user.passwordHash);
+    if (!isMatch) {
+      throw new UnauthorizedException('Credenciais inválidas');
+    }
+
+    const availableProfiles = await this.getAvailableProfiles(user);
+    const defaultProfile = availableProfiles.find((p) => p.isDefault) || availableProfiles[0];
+    const { permissions, activeProfile } = await this.consolidatePermissionsForProfile(
+      user,
+      defaultProfile?.id,
+    );
+
     const payload = {
       sub: user.id,
       email: user.email,
-      permissions: user.permissions,
+      activeProfileId: activeProfile?.id,
+      permissions,
     };
 
     return {
@@ -133,15 +249,88 @@ export class AuthService {
         phone: user.phone || undefined,
         avatar: user.avatar || undefined,
         healthCenterId: user.healthCenterId,
-        permissions: user.permissions,
+        permissions,
       },
+      activeProfile,
+      availableProfiles,
+      permissions,
+    };
+  }
+
+  async selectProfile(userId: string, profileId: string) {
+    const user: any = await this.usersService.findById(userId);
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Usuário não encontrado ou inativo');
+    }
+
+    const availableProfiles = await this.getAvailableProfiles(user);
+    const chosen = availableProfiles.find((p) => p.id === profileId);
+    if (!chosen) {
+      throw new ForbiddenException('Usuário não possui permissão para acessar este perfil');
+    }
+
+    const { permissions, activeProfile } = await this.consolidatePermissionsForProfile(user, profileId);
+
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      activeProfileId: profileId,
+      permissions,
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+
+    return {
+      accessToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || undefined,
+        avatar: user.avatar || undefined,
+        healthCenterId: user.healthCenterId,
+        permissions,
+      },
+      activeProfile,
+      availableProfiles,
+      permissions,
+    };
+  }
+
+  async getProfile(userId: string, activeProfileId?: string) {
+    const user: any = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Usuário não encontrado');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Sessão expirada ou usuário inativo');
+    }
+
+    const availableProfiles = await this.getAvailableProfiles(user);
+    const { permissions, activeProfile } = await this.consolidatePermissionsForProfile(
+      user,
+      activeProfileId || user.profileId,
+    );
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone || undefined,
+      avatar: user.avatar || undefined,
+      profileId: activeProfile?.id || user.profileId,
+      profileName: activeProfile?.name || user.profile?.name,
+      healthCenterId: user.healthCenterId,
+      activeProfile,
+      availableProfiles,
+      permissions,
     };
   }
 
   async forgotPassword(email: string): Promise<void> {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
-      // Retorna em silêncio para evitar vazamento de contas
       this.logger.log(`Tentativa de recuperação para email inexistente: ${email}`);
       return;
     }
@@ -220,9 +409,6 @@ export class AuthService {
       throw new BadRequestException('Token inválido.');
     }
 
-    // Busca o usuário completo, já que Precisamos do passwordHash
-    // validateUser não retorna o hash. Precisamos chamar Prisma ou criar findByIdComHash
-    // Mas this.usersService tem algo? Vamos checar.
     const user = await this.usersService.findByEmail(decodedPayload.email);
     if (!user) {
       throw new BadRequestException('Usuário não encontrado.');
