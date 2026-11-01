@@ -59,9 +59,6 @@ export class RegulationController {
     @Req() req: any,
   ) {
     const healthCenterId = queryHealthCenterId || req.user.healthCenterId;
-    if (!healthCenterId) {
-      throw new BadRequestException('ID da unidade de saúde solicitante não informado ou não vinculado ao usuário');
-    }
     return this.regulationService.findRequestsByHealthCenter(healthCenterId, query);
   }
 

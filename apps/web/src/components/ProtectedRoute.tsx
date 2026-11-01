@@ -14,7 +14,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ requiredPermission }: ProtectedRouteProps) => {
-  const { token, isAuthenticated, permissions, syncSession } = useAuthStore();
+  const { token, isAuthenticated, permissions, activeProfile, syncSession } = useAuthStore();
   const location = useLocation();
 
   // Ativa o monitoramento contínuo de sessão (retomada de foco e timer periódico)
@@ -35,9 +35,9 @@ export const ProtectedRoute = ({ requiredPermission }: ProtectedRouteProps) => {
     return <Navigate to="/login" replace />;
   }
 
-  // 2. Validação no backend via GET /auth/me
+  // 2. Validação no backend via GET /auth/me vinculada ao token atual
   const { data: profile, isLoading, isError } = useQuery({
-    queryKey: ['auth-me'],
+    queryKey: ['auth-me', token],
     queryFn: async () => {
       const response = await axios.get(`${apiUrl}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -50,10 +50,11 @@ export const ProtectedRoute = ({ requiredPermission }: ProtectedRouteProps) => {
   });
 
   useEffect(() => {
-    if (profile) {
-      syncSession(profile, profile.permissions);
+    // Só sincroniza caso o profile retornado corresponda ao perfil ativo atual da sessão
+    if (profile && (!activeProfile?.id || profile.activeProfile?.id === activeProfile?.id)) {
+      syncSession(profile, profile.permissions, profile.activeProfile, profile.availableProfiles);
     }
-  }, [profile, syncSession]);
+  }, [profile, activeProfile?.id, syncSession]);
 
   if (isError) {
     handleUnauthorizedSession();
@@ -75,7 +76,11 @@ export const ProtectedRoute = ({ requiredPermission }: ProtectedRouteProps) => {
   }
 
   // 3. Verificação de permissões da rota
-  const effectivePermissions = profile?.permissions || permissions;
+  // Se o profile do backend pertencer ao perfil ativo atual, utilizamos suas permissões;
+  // Caso contrário, utilizamos imediatamente as permissões consolidadas do useAuthStore.
+  const isProfileSynchronized = profile && (!activeProfile?.id || profile.activeProfile?.id === activeProfile?.id);
+  const effectivePermissions = isProfileSynchronized ? profile.permissions : permissions;
+
   if (
     requiredPermission &&
     !effectivePermissions.includes(requiredPermission) &&

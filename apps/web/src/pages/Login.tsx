@@ -26,6 +26,7 @@ import { useAuthStore, type ActiveProfile, type User } from '../store/useAuthSto
 import { useTheme } from '../contexts/ThemeContext';
 import { isTokenExpired } from '../utils/token';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface PendingAuth {
     accessToken: string;
@@ -48,6 +49,7 @@ export const Login: React.FC = () => {
     const token = useAuthStore((state) => state.token);
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const { theme, setTheme } = useTheme();
 
     const apiUrl = (import.meta.env.VITE_API_URL as string) || 'http://localhost:3333';
@@ -85,7 +87,22 @@ export const Login: React.FC = () => {
                 });
                 setStep('SELECT_PROFILE');
             } else {
-                // Caso não haja lista de perfis, prossegue diretamente
+                // Caso não haja múltiplos perfis, limpa cache e inicializa sessão
+                queryClient.clear();
+                queryClient.setQueryData(['auth-me', accessToken], {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    phone: user.phone,
+                    avatar: user.avatar,
+                    profileId: activeProfile?.id,
+                    profileName: activeProfile?.name,
+                    healthCenterId: user.healthCenterId,
+                    activeProfile,
+                    availableProfiles,
+                    permissions: permissions || user.permissions || [],
+                });
+
                 login(accessToken, user, permissions || user.permissions || [], activeProfile, availableProfiles);
                 const redirectUrl = sessionStorage.getItem('redirect_after_login') || '/';
                 sessionStorage.removeItem('redirect_after_login');
@@ -130,6 +147,22 @@ export const Login: React.FC = () => {
                 finalActiveProfile = response.data.activeProfile;
             }
 
+            // Limpa queries de sessões anteriores e pré-popula a query auth-me
+            queryClient.clear();
+            queryClient.setQueryData(['auth-me', finalToken], {
+                id: pendingAuth.user.id,
+                name: pendingAuth.user.name,
+                email: pendingAuth.user.email,
+                phone: pendingAuth.user.phone,
+                avatar: pendingAuth.user.avatar,
+                profileId: finalActiveProfile.id,
+                profileName: finalActiveProfile.name,
+                healthCenterId: pendingAuth.user.healthCenterId,
+                activeProfile: finalActiveProfile,
+                availableProfiles: pendingAuth.availableProfiles,
+                permissions: finalPermissions,
+            });
+
             login(
                 finalToken,
                 pendingAuth.user,
@@ -140,9 +173,34 @@ export const Login: React.FC = () => {
 
             toast.success(`Acessando como ${finalActiveProfile.name}...`);
 
-            const redirectUrl = sessionStorage.getItem('redirect_after_login') || '/';
+            const savedRedirect = sessionStorage.getItem('redirect_after_login') || '/';
             sessionStorage.removeItem('redirect_after_login');
-            navigate(redirectUrl, { replace: true });
+
+            // Valida se o redirect salvo é compatível com as novas permissões do perfil
+            let targetRoute = savedRedirect;
+            const isSolicitorPage = savedRedirect.includes('/regulation/solicitor');
+            const isOperatorPage = savedRedirect.includes('/regulation/inbox');
+            const isAdmin = finalPermissions.includes('admin:access');
+
+            if (isSolicitorPage && !finalPermissions.includes('regulation-solicitor:read') && !isAdmin) {
+                targetRoute = '/';
+            } else if (isOperatorPage && !finalPermissions.includes('regulation-operator:read') && !isAdmin) {
+                targetRoute = '/';
+            }
+
+            // Se o destino for '/' ou sem rota explícita, direciona para o módulo natural do perfil
+            if (targetRoute === '/') {
+                const name = finalActiveProfile.name.toLowerCase();
+                if (name.includes('solicitante') || finalPermissions.includes('regulation-solicitor:read')) {
+                    targetRoute = '/regulation/solicitor';
+                } else if (name.includes('regula') || finalPermissions.includes('regulation-operator:read')) {
+                    targetRoute = '/regulation/inbox';
+                } else if (name.includes('recep') || finalPermissions.includes('rooms:read')) {
+                    targetRoute = '/reception';
+                }
+            }
+
+            navigate(targetRoute, { replace: true });
         } catch (err: any) {
             const msg = err.response?.data?.message || 'Erro ao selecionar o perfil de acesso.';
             setError(msg);

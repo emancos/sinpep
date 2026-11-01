@@ -40,7 +40,13 @@ export class RegulationService {
     }
 
     // Health center do solicitante
-    const healthCenterId = data.requestingHealthCenterId || user.healthCenterId;
+    let healthCenterId = data.requestingHealthCenterId || user.healthCenterId;
+    if (!healthCenterId) {
+      const firstCenter = await this.db.query.healthCenters.findFirst();
+      if (firstCenter) {
+        healthCenterId = firstCenter.id;
+      }
+    }
     if (!healthCenterId) {
       throw new BadRequestException('Unidade de Saúde Solicitante não identificada');
     }
@@ -115,8 +121,12 @@ export class RegulationService {
     return this.findOne(requestId);
   }
 
-  async findRequestsByHealthCenter(healthCenterId: string, query: any) {
-    const conditions = [eq(schema.regulationRequests.requestingHealthCenterId, healthCenterId)];
+  async findRequestsByHealthCenter(healthCenterId: string | null | undefined, query: any) {
+    const conditions = [];
+
+    if (healthCenterId) {
+      conditions.push(eq(schema.regulationRequests.requestingHealthCenterId, healthCenterId));
+    }
 
     if (query.status) {
       conditions.push(eq(schema.regulationRequests.status, query.status));
@@ -126,7 +136,7 @@ export class RegulationService {
     }
 
     const items = await this.db.query.regulationRequests.findMany({
-      where: and(...conditions),
+      where: conditions.length > 0 ? and(...conditions) : undefined,
       with: {
         patient: {
           columns: { id: true, name: true, cpf: true, cns: true, birthDate: true, gender: true },

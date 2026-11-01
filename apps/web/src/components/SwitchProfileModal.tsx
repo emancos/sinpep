@@ -13,7 +13,8 @@ import {
 import { useAuthStore, type ActiveProfile } from '../store/useAuthStore';
 import api from '../services/api';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface SwitchProfileModalProps {
   isOpen: boolean;
@@ -22,6 +23,8 @@ interface SwitchProfileModalProps {
 
 export const SwitchProfileModal: React.FC<SwitchProfileModalProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
   const activeProfile = useAuthStore((state) => state.activeProfile);
   const availableProfiles = useAuthStore((state) => state.availableProfiles);
   const selectProfileInStore = useAuthStore((state) => state.selectProfile);
@@ -46,6 +49,39 @@ export const SwitchProfileModal: React.FC<SwitchProfileModalProps> = ({ isOpen, 
     return 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50/50';
   };
 
+  const getTargetRouteForProfile = (profileName: string, perms: string[], currentPath: string): string => {
+    const name = profileName.toLowerCase();
+    const isAdmin = perms.includes('admin:access');
+
+    // Se estiver navegando para Solicitante UBS ou possuir permissão
+    if (name.includes('solicitante') || perms.includes('regulation-solicitor:read')) {
+      if (currentPath.includes('/regulation/inbox') || currentPath === '/') {
+        return '/regulation/solicitor';
+      }
+    }
+
+    // Se estiver navegando para Regulador Central ou possuir permissão
+    if (name.includes('regula') || perms.includes('regulation-operator:read')) {
+      if (currentPath.includes('/regulation/solicitor') || currentPath === '/') {
+        return '/regulation/inbox';
+      }
+    }
+
+    // Se estiver alternando para Recepcionista
+    if (name.includes('recep') || perms.includes('rooms:read')) {
+      if (currentPath.includes('/regulation') || currentPath === '/') {
+        return '/reception';
+      }
+    }
+
+    // Para Administrador ou se a rota atual ainda for permitida
+    if (isAdmin) {
+      return currentPath === '/login' ? '/' : currentPath;
+    }
+
+    return '/';
+  };
+
   const handleSelect = async (profile: ActiveProfile) => {
     if (profile.id === activeProfile?.id) {
       onClose();
@@ -55,14 +91,41 @@ export const SwitchProfileModal: React.FC<SwitchProfileModalProps> = ({ isOpen, 
     setSwitchingId(profile.id);
     try {
       const response = await api.post('/auth/select-profile', { profileId: profile.id });
-      const { accessToken, permissions, activeProfile: newActiveProfile } = response.data;
+      const {
+        accessToken,
+        permissions,
+        activeProfile: newActiveProfile,
+        user,
+        availableProfiles: newAvailableProfiles,
+      } = response.data;
 
+      // 1. Atualiza imediatamente o Zustand store com o novo token, activeProfile e permissões
       selectProfileInStore(newActiveProfile, permissions, accessToken);
+
+      // 2. Limpa o cache do React Query de sessões ou queries anteriores
+      queryClient.clear();
+
+      // 3. Pré-popula a query auth-me vinculada ao novo token para navegação instantânea
+      queryClient.setQueryData(['auth-me', accessToken], {
+        id: user?.id,
+        name: user?.name,
+        email: user?.email,
+        phone: user?.phone,
+        avatar: user?.avatar,
+        profileId: newActiveProfile.id,
+        profileName: newActiveProfile.name,
+        healthCenterId: user?.healthCenterId,
+        activeProfile: newActiveProfile,
+        availableProfiles: newAvailableProfiles || availableProfiles,
+        permissions,
+      });
+
       toast.success(`Perfil alternado para "${profile.name}" com sucesso!`);
       onClose();
 
-      // Redireciona para o dashboard com o novo escopo de permissões
-      navigate('/', { replace: true });
+      // 4. Redireciona inteligentemente de acordo com a função do novo perfil
+      const targetRoute = getTargetRouteForProfile(newActiveProfile.name, permissions, location.pathname);
+      navigate(targetRoute, { replace: true });
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Erro ao alternar perfil';
       toast.error(msg);
