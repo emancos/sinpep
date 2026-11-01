@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
+  ArrowRight,
   Search,
   Upload,
   Paperclip,
   Trash2,
   Stethoscope,
   Activity,
-  Layers,
   User,
   FileText,
   Send,
@@ -17,98 +17,215 @@ import {
   Clock,
   Loader,
   X,
+  Heart,
+  Eye,
+  Plus,
+  RefreshCw,
+  Building2,
 } from 'lucide-react';
-import { usePatients } from '../../hooks/usePatients';
-import { useSpecialties } from '../../hooks/useSpecialties';
-import { useProcedureGroups } from '../../hooks/useProcedures';
+import { useProcedures, useProcedureGroups } from '../../hooks/useProcedures';
 import { useCreateRegulationRequest } from '../../hooks/useRegulation';
 import { useAuthStore } from '../../store/useAuthStore';
 import { apiUrl } from '../../services/api';
 import axios from 'axios';
 import { toast } from 'sonner';
 
+interface AnamnesisState {
+  isHypertensive: boolean;
+  isDiabetic: boolean;
+  isSmoker: boolean;
+  otherDiseases: string;
+  isOncological: boolean;
+  oncologicalStage: string;
+  allergies: string;
+  isPcd: boolean;
+  pcdDescription: string;
+  continuousMedications: string[];
+  bloodPressure: string;
+  glycemia: string;
+  weight: string;
+  height: string;
+}
+
+const initialAnamnesis: AnamnesisState = {
+  isHypertensive: false,
+  isDiabetic: false,
+  isSmoker: false,
+  otherDiseases: '',
+  isOncological: false,
+  oncologicalStage: '',
+  allergies: '',
+  isPcd: false,
+  pcdDescription: '',
+  continuousMedications: [],
+  bloodPressure: '',
+  glycemia: '',
+  weight: '',
+  height: '',
+};
+
 export const CreateRegulationRequest: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
 
-  // Form states
+  // Stepper state (1 a 4)
+  const [currentStep, setCurrentStep] = useState<number>(1);
+
+  // =========================================================================
+  // ETAPA 1: Paciente & Anamnese
+  // =========================================================================
   const defaultPatientFromState = location.state?.defaultPatient;
   const [selectedPatient, setSelectedPatient] = useState<any>(defaultPatientFromState || null);
-  const [patientSearch, setPatientSearch] = useState('');
-  const [patientDropdownOpen, setPatientDropdownOpen] = useState(false);
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const patientSearchContainerRef = useRef<HTMLDivElement>(null);
+  const [patientSearchTerm, setPatientSearchTerm] = useState('');
+  const [isSearchingPatient, setIsSearchingPatient] = useState(false);
+  const [searchExecuted, setSearchExecuted] = useState(false);
+  const [patientSearchResults, setPatientSearchResults] = useState<any[]>([]);
+  const [showPatientDetailsModal, setShowPatientDetailsModal] = useState(false);
 
-  // Debounce da busca de pacientes
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(patientSearch.trim());
-    }, 250);
-    return () => clearTimeout(handler);
-  }, [patientSearch]);
+  // Anamnese State
+  const [anamnesis, setAnamnesis] = useState<AnamnesisState>(initialAnamnesis);
+  const [newMedicationInput, setNewMedicationInput] = useState('');
 
-  // Fecha o dropdown ao clicar fora
+  // Carrega anamnese quando o paciente é selecionado
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        patientSearchContainerRef.current &&
-        !patientSearchContainerRef.current.contains(event.target as Node)
-      ) {
-        setPatientDropdownOpen(false);
+    if (selectedPatient) {
+      if (selectedPatient.patientAnamnesis) {
+        const pa = selectedPatient.patientAnamnesis;
+        setAnamnesis({
+          isHypertensive: pa.isHypertensive || false,
+          isDiabetic: pa.isDiabetic || false,
+          isSmoker: pa.isSmoker || false,
+          otherDiseases: pa.otherDiseases || '',
+          isOncological: pa.isOncological || false,
+          oncologicalStage: pa.oncologicalStage || '',
+          allergies: pa.allergies || '',
+          isPcd: pa.isPcd || false,
+          pcdDescription: pa.pcdDescription || '',
+          continuousMedications: pa.continuousMedications || [],
+          bloodPressure: pa.bloodPressure || '',
+          glycemia: pa.glycemia || '',
+          weight: pa.weight || '',
+          height: pa.height || '',
+        });
       }
-    };
+    }
+  }, [selectedPatient]);
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+  // Função de busca manual de paciente
+  const handleSearchPatient = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const query = patientSearchTerm.trim();
+    if (!query) {
+      toast.warning('Digite o Nome, CPF ou Cartão SUS para buscar.');
+      return;
+    }
 
+    setIsSearchingPatient(true);
+    setSearchExecuted(true);
+    try {
+      const response = await axios.get(`${apiUrl}/patients`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { search: query, limit: 10, page: 1 },
+      });
+      const results = response.data?.data || [];
+      setPatientSearchResults(results);
+
+      if (results.length === 1) {
+        setSelectedPatient(results[0]);
+        toast.success(`Paciente "${results[0].name}" selecionado.`);
+      } else if (results.length === 0) {
+        toast.info('Nenhum paciente cadastrado encontrado.');
+      }
+    } catch (err: any) {
+      console.error('Erro ao pesquisar paciente:', err);
+      toast.error('Erro ao pesquisar paciente no sistema.');
+    } finally {
+      setIsSearchingPatient(false);
+    }
+  };
+
+  const handleAddMedication = () => {
+    const med = newMedicationInput.trim();
+    if (!med) return;
+    if (anamnesis.continuousMedications.includes(med)) {
+      toast.warning('Este medicamento já foi adicionado.');
+      return;
+    }
+    setAnamnesis((prev) => ({
+      ...prev,
+      continuousMedications: [...prev.continuousMedications, med],
+    }));
+    setNewMedicationInput('');
+  };
+
+  const handleRemoveMedication = (index: number) => {
+    setAnamnesis((prev) => ({
+      ...prev,
+      continuousMedications: prev.continuousMedications.filter((_, i) => i !== index),
+    }));
+  };
+
+  // Cálculo de IMC
+  const calculateImc = (weightStr?: string, heightStr?: string) => {
+    const w = parseFloat(weightStr?.replace(',', '.') || '0');
+    const h = parseFloat(heightStr?.replace(',', '.') || '0');
+    if (w > 0 && h > 0) {
+      const imc = w / (h * h);
+      let label = 'Normal';
+      let color = 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200';
+      if (imc < 18.5) {
+        label = 'Abaixo do peso';
+        color = 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border-blue-200';
+      } else if (imc < 25) {
+        label = 'Peso normal';
+        color = 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200';
+      } else if (imc < 30) {
+        label = 'Sobrepeso';
+        color = 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200';
+      } else {
+        label = 'Obesidade';
+        color = 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border-red-200';
+      }
+      return { imc: imc.toFixed(1), label, color };
+    }
+    return null;
+  };
+
+  // =========================================================================
+  // ETAPA 2: Tipo de Solicitação, Procedimento & Prioridade (Cards 2 e 3)
+  // =========================================================================
   const [requestType, setRequestType] = useState<'CONSULTA' | 'EXAME' | 'PROCEDIMENTO'>('CONSULTA');
-  const [specialtyId, setSpecialtyId] = useState('');
   const [procedureGroupId, setProcedureGroupId] = useState('');
-  const [procedureId, setProcedureId] = useState('');
+  const [procedureId, setProcedureId] = useState(''); // Usado para Consulta Médica
+  const [selectedProcedures, setSelectedProcedures] = useState<any[]>([]); // Múltiplos exames/procedimentos do mesmo grupo
+  const [currentProcedureId, setCurrentProcedureId] = useState(''); // Item selecionado no dropdown para adicionar
   const [priority, setPriority] = useState<'ELETIVO' | 'PRIORITARIO' | 'URGENCIA'>('ELETIVO');
+  const [consultaFilterTerm, setConsultaFilterTerm] = useState('');
 
-  // CID-10 state & autocomplete
-  const [cidSearchTerm, setCidSearchTerm] = useState('');
-  const [cidResults, setCidResults] = useState<Array<{ code: string; description: string }>>([]);
-  const [selectedCid, setSelectedCid] = useState<{ code: string; description: string } | null>(null);
-  const [isSearchingCid, setIsSearchingCid] = useState(false);
-
-  // Clinical justification & history
-  const [clinicalJustification, setClinicalJustification] = useState('');
-  const [clinicalHistory, setClinicalHistory] = useState('');
-
-  // Attachments
-  const [files, setFiles] = useState<File[]>([]);
-
-  // Mutation
-  const createRequestMutation = useCreateRegulationRequest();
-
-  // Queries
-  const { data: patientsData, isLoading: isSearchingPatients } = usePatients({
+  // Busca de consultas médicas (procedimentos da tabela SIGTAP de consulta especializada)
+  const { data: consultationsData, isLoading: isLoadingConsultations } = useProcedures({
     page: 1,
-    limit: 25,
-    search: debouncedSearch,
+    limit: 300,
+    search: 'consulta',
+    sortBy: 'name',
+    sortOrder: 'asc',
+    requestingHealthCenterId: user?.healthCenterId,
   });
+  const consultationProcedures = consultationsData?.data || [];
 
-  const patientList: any[] = (patientsData as any)?.data ?? [];
-  const totalPatients: number = (patientsData as any)?.total ?? patientList.length;
-
-  const { data: specialtiesData } = useSpecialties({ page: 1, limit: 100 });
   const { data: procedureGroups } = useProcedureGroups();
-
-  // Filtered procedures by selected group
   const [proceduresInGroup, setProceduresInGroup] = useState<any[]>([]);
   const [isLoadingProcedures, setIsLoadingProcedures] = useState(false);
+  const [procedureFilterTerm, setProcedureFilterTerm] = useState('');
 
-  // Load procedures when procedure group changes
   useEffect(() => {
     if (!procedureGroupId) {
       setProceduresInGroup([]);
       setProcedureId('');
+      setCurrentProcedureId('');
+      setProcedureFilterTerm('');
       return;
     }
 
@@ -116,10 +233,20 @@ export const CreateRegulationRequest: React.FC = () => {
     axios
       .get(`${apiUrl}/procedures`, {
         headers: { Authorization: `Bearer ${token}` },
-        params: { procedureGroupId, limit: 100, includeInactive: 'false' },
+        params: { procedureGroupId, limit: 500, includeInactive: 'false', requestingHealthCenterId: user?.healthCenterId },
       })
       .then((res) => {
-        setProceduresInGroup(res.data.data || []);
+        let procs = res.data.data || [];
+        // Sempre remover consultas especializadas (0301010072) pois possuem aba própria
+        procs = procs.filter(
+          (p: any) => p.code !== '0301010072' && !p.name?.toLowerCase().startsWith('consulta ')
+        );
+
+        // Se estiver em Exame Diagnóstico e for grupo genérico, remover cirurgias
+        if (requestType === 'EXAME') {
+          procs = procs.filter((p: any) => !p.code?.startsWith('04'));
+        }
+        setProceduresInGroup(procs);
       })
       .catch((err) => {
         console.error('Erro ao buscar procedimentos do grupo:', err);
@@ -128,9 +255,56 @@ export const CreateRegulationRequest: React.FC = () => {
       .finally(() => {
         setIsLoadingProcedures(false);
       });
-  }, [procedureGroupId, token]);
+  }, [procedureGroupId, requestType, token]);
 
-  // CID Search debounce
+  // Altera o grupo de procedimento e reinicia os itens selecionados caso o grupo mude
+  const handleGroupChange = (newGroupId: string) => {
+    if (selectedProcedures.length > 0 && newGroupId !== procedureGroupId) {
+      setSelectedProcedures([]);
+      toast.info('Grupo alterado. Os itens selecionados do grupo anterior foram reiniciados.');
+    }
+    setProcedureGroupId(newGroupId);
+    setCurrentProcedureId('');
+    setProcedureId('');
+    setProcedureFilterTerm('');
+  };
+
+  // Adiciona um procedimento/exame do grupo à lista da solicitação
+  const handleAddProcedure = () => {
+    if (!currentProcedureId) {
+      toast.warning(`Selecione um ${requestType === 'EXAME' ? 'exame' : 'procedimento'} para adicionar.`);
+      return;
+    }
+    const item = proceduresInGroup.find((p: any) => p.id === currentProcedureId);
+    if (!item) return;
+
+    if (selectedProcedures.some((p: any) => p.id === item.id)) {
+      toast.warning(`Este ${requestType === 'EXAME' ? 'exame' : 'procedimento'} já foi adicionado.`);
+      return;
+    }
+
+    setSelectedProcedures((prev) => [...prev, item]);
+    setCurrentProcedureId('');
+    toast.success(`${requestType === 'EXAME' ? 'Exame' : 'Procedimento'} adicionado com sucesso.`);
+  };
+
+  // Remove um procedimento/exame da lista
+  const handleRemoveProcedure = (id: string) => {
+    setSelectedProcedures((prev) => prev.filter((p: any) => p.id !== id));
+  };
+
+  // =========================================================================
+  // ETAPA 3: CID-10, Justificativa & Anexos (Cards 4 e 5)
+  // =========================================================================
+  const [cidSearchTerm, setCidSearchTerm] = useState('');
+  const [cidResults, setCidResults] = useState<Array<{ code: string; description: string }>>([]);
+  const [selectedCid, setSelectedCid] = useState<{ code: string; description: string } | null>(null);
+  const [isSearchingCid, setIsSearchingCid] = useState(false);
+  const [clinicalJustification, setClinicalJustification] = useState('');
+  const [clinicalHistory, setClinicalHistory] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+
+  // Debounce busca CID-10
   useEffect(() => {
     if (!cidSearchTerm || cidSearchTerm.trim().length < 2) {
       setCidResults([]);
@@ -149,7 +323,7 @@ export const CreateRegulationRequest: React.FC = () => {
       } finally {
         setIsSearchingCid(false);
       }
-    }, 350);
+    }, 300);
 
     return () => clearTimeout(handler);
   }, [cidSearchTerm, token]);
@@ -176,52 +350,129 @@ export const CreateRegulationRequest: React.FC = () => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // =========================================================================
+  // NAVEGAÇÃO E VALIDAÇÃO DAS ETAPAS
+  // =========================================================================
+  const canNavigateToStep = (targetStep: number): boolean => {
+    if (targetStep === currentStep) return true;
+    if (targetStep < currentStep) return true; // Sempre pode voltar
 
-    if (!selectedPatient) {
-      toast.error('Selecione o paciente solicitante.');
-      return;
+    // Validações para avançar da Etapa 1
+    if (targetStep >= 2 && !selectedPatient) {
+      toast.warning('Pesquise e selecione um paciente na Etapa 1 para prosseguir.');
+      return false;
     }
-    if (requestType === 'CONSULTA' && !specialtyId) {
-      toast.error('Selecione a especialidade médica desejada.');
-      return;
+
+    // Validações para avançar da Etapa 2
+    if (targetStep >= 3) {
+      if (requestType === 'CONSULTA') {
+        if (!procedureId) {
+          toast.warning('Selecione a Consulta Médica na Etapa 2.');
+          return false;
+        }
+      } else {
+        if (!procedureGroupId) {
+          toast.warning(`Selecione o Grupo de ${requestType === 'EXAME' ? 'Exame' : 'Procedimento'} na Etapa 2.`);
+          return false;
+        }
+
+        // Se o usuário selecionou um item no dropdown mas não clicou em "Adicionar", inclui automaticamente
+        let effectiveItems = selectedProcedures;
+        if (effectiveItems.length === 0 && currentProcedureId) {
+          const autoItem = proceduresInGroup.find((p: any) => p.id === currentProcedureId);
+          if (autoItem) {
+            effectiveItems = [autoItem];
+            setSelectedProcedures([autoItem]);
+            setCurrentProcedureId('');
+          }
+        }
+
+        if (effectiveItems.length === 0) {
+          toast.warning(`Adicione pelo menos um ${requestType === 'EXAME' ? 'exame' : 'procedimento'} na Etapa 2.`);
+          return false;
+        }
+      }
     }
-    if (requestType !== 'CONSULTA' && !procedureId) {
-      toast.error('Selecione o procedimento ou exame específico.');
-      return;
+
+    // Validações para avançar da Etapa 3
+    if (targetStep >= 4) {
+      if (!selectedCid) {
+        toast.warning('Selecione a Hipótese Diagnóstica (CID-10) na Etapa 3.');
+        return false;
+      }
+      if (!clinicalJustification || clinicalJustification.trim().length < 5) {
+        toast.warning('Informe a Justificativa Clínica detalhada na Etapa 3 (mínimo 5 caracteres).');
+        return false;
+      }
     }
-    if (!selectedCid) {
-      toast.error('Selecione o diagnóstico provável (CID-10).');
-      return;
+
+    return true;
+  };
+
+  const handleStepClick = (stepNumber: number) => {
+    if (canNavigateToStep(stepNumber)) {
+      setCurrentStep(stepNumber);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    if (!clinicalJustification || clinicalJustification.trim().length < 10) {
-      toast.error('Informe uma justificativa clínica detalhada (mínimo 10 caracteres).');
-      return;
+  };
+
+  const handleNextStep = () => {
+    if (canNavigateToStep(currentStep + 1)) {
+      setCurrentStep((prev) => Math.min(prev + 1, 4));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+  };
+
+  const handlePrevStep = () => {
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // =========================================================================
+  // SUBMISSÃO FINAL (ETAPA 4)
+  // =========================================================================
+  const createRequestMutation = useCreateRegulationRequest();
+
+  const handleSubmit = async () => {
+    if (!canNavigateToStep(4)) return;
 
     const formData = new FormData();
     formData.append('patientId', selectedPatient.id);
     formData.append('type', requestType);
     formData.append('priority', priority);
-    formData.append('cid10', `${selectedCid.code} - ${selectedCid.description}`);
+    formData.append('cid10', `${selectedCid!.code} - ${selectedCid!.description}`);
     formData.append('clinicalJustification', clinicalJustification.trim());
     if (clinicalHistory) formData.append('clinicalHistory', clinicalHistory.trim());
 
     if (requestType === 'CONSULTA') {
-      formData.append('specialtyId', specialtyId);
+      if (procedureId) formData.append('procedureId', procedureId);
+      if (procedureGroupId) formData.append('procedureGroupId', procedureGroupId);
     } else {
       if (procedureGroupId) formData.append('procedureGroupId', procedureGroupId);
-      formData.append('procedureId', procedureId);
+
+      let effectiveItems = selectedProcedures;
+      if (effectiveItems.length === 0 && currentProcedureId) {
+        const autoItem = proceduresInGroup.find((p: any) => p.id === currentProcedureId);
+        if (autoItem) effectiveItems = [autoItem];
+      }
+
+      const pIds = effectiveItems.map((p: any) => p.id);
+      formData.append('procedureIds', JSON.stringify(pIds));
+      if (pIds.length > 0) {
+        formData.append('procedureId', pIds[0]);
+      }
     }
 
+    // Anamnese sincronizada
+    formData.append('anamnesis', JSON.stringify(anamnesis));
+
+    // Anexos
     files.forEach((file) => {
       formData.append('attachments', file);
     });
 
     try {
       await createRequestMutation.mutateAsync(formData);
-      toast.success('Solicitação protocolada com sucesso na Central de Regulação!');
       navigate('/regulation/solicitor');
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Falha ao protocolar solicitação';
@@ -229,16 +480,130 @@ export const CreateRegulationRequest: React.FC = () => {
     }
   };
 
+  // Configuração das etapas para o Stepper / Paginação
+  const STEPS = [
+    { number: 1, title: 'Paciente & Anamnese', shortTitle: 'Paciente', icon: User },
+    { number: 2, title: 'Tipo & Prioridade', shortTitle: 'Procedimento', icon: Activity },
+    { number: 3, title: 'Diagnóstico & Anexos', shortTitle: 'Diagnóstico', icon: FileText },
+    { number: 4, title: 'Revisão & Protocolo', shortTitle: 'Revisão', icon: Check },
+  ];
+
+  // Categorização inteligente dos grupos de procedimentos (SUS / SIGTAP)
+  const isDiagnosticGroup = (name: string): boolean => {
+    const upper = (name || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // Excluir explicitamente intervencionistas, cirúrgicos, odontologia, quimioterapia e cuidados
+    if (
+      upper.includes('INTERVENCIONISTA') ||
+      upper.includes('CIRURG') ||
+      upper.includes('ODONTO') ||
+      upper.includes('QUIMIO') ||
+      upper.includes('TERAPIA') ||
+      upper.includes('CUIDADOS')
+    ) {
+      return false;
+    }
+
+    return (
+      upper.includes('DIAGNOSTIC') ||
+      upper.includes('EXAME') ||
+      upper.includes('LABORATORI') ||
+      upper.includes('ULTRASSO') ||
+      upper.includes('TOMOGRAFIA') ||
+      upper.includes('RESSONANCIA') ||
+      upper.includes('MAMOGRAFIA') ||
+      upper.includes('PATOLOGIA') ||
+      upper.includes('CITOPATOLOGIA') ||
+      upper.includes('ELETRONEUROMIOGRAFIA') ||
+      upper.includes('MEDICINA NUCLEAR') ||
+      upper.includes('RADIODIAGNOSTICO')
+    );
+  };
+
+  const filteredProcedureGroups = useMemo(() => {
+    if (!procedureGroups || !Array.isArray(procedureGroups)) return [];
+
+    if (requestType === 'EXAME') {
+      return procedureGroups
+        .filter((grp: any) => isDiagnosticGroup(grp.name) || grp.name === 'PROCEDIMENTOS SEM GRUPO')
+        .map((grp: any) => ({
+          ...grp,
+          displayName:
+            grp.name === 'PROCEDIMENTOS SEM GRUPO'
+              ? 'OUTROS EXAMES DIAGNÓSTICOS (ENDOSCOPIA, COLONOSCOPIA, ETC.)'
+              : grp.name,
+        }))
+        .sort((a: any, b: any) => a.displayName.localeCompare(b.displayName));
+    }
+
+    if (requestType === 'PROCEDIMENTO') {
+      return procedureGroups
+        .filter((grp: any) => !isDiagnosticGroup(grp.name))
+        .map((grp: any) => ({
+          ...grp,
+          displayName:
+            grp.name === 'PROCEDIMENTOS SEM GRUPO'
+              ? 'OUTROS PROCEDIMENTOS (CLÍNICOS / CIRÚRGICOS)'
+              : grp.name,
+        }))
+        .sort((a: any, b: any) => a.displayName.localeCompare(b.displayName));
+    }
+
+    return procedureGroups.map((grp: any) => ({ ...grp, displayName: grp.name }));
+  }, [procedureGroups, requestType]);
+
+  const allAvailableProcedures = requestType === 'CONSULTA' ? consultationProcedures : proceduresInGroup;
+  const selectedProcedureObj = allAvailableProcedures.find((p: any) => p.id === procedureId);
+  const selectedGroupObj = filteredProcedureGroups.find((g: any) => g.id === procedureGroupId);
+  const selectedGroupName =
+    selectedGroupObj?.displayName || procedureGroups?.find((g: any) => g.id === procedureGroupId)?.name;
+
+  const filteredConsultations = useMemo(() => {
+    const term = consultaFilterTerm.trim().toLowerCase();
+    let list = consultationProcedures;
+    if (term) {
+      list = list.filter((p: any) =>
+        p.name?.toLowerCase().includes(term) || (p.code && p.code.includes(term))
+      );
+    }
+    if (procedureId && selectedProcedureObj && !list.some((p: any) => p.id === procedureId)) {
+      list = [selectedProcedureObj, ...list];
+    }
+    return list;
+  }, [consultationProcedures, consultaFilterTerm, procedureId, selectedProcedureObj]);
+
+  const filteredProceduresInGroup = useMemo(() => {
+    const term = procedureFilterTerm.trim().toLowerCase();
+    let list = proceduresInGroup;
+    if (term) {
+      list = list.filter((p: any) =>
+        p.name?.toLowerCase().includes(term) || (p.code && p.code.includes(term))
+      );
+    }
+    // Remove os itens que já foram adicionados a selectedProcedures para evitar duplicações no dropdown
+    list = list.filter((p: any) => !selectedProcedures.some((sp: any) => sp.id === p.id));
+    return list;
+  }, [proceduresInGroup, procedureFilterTerm, selectedProcedures]);
+
+  const effectiveSelectedProcedures = useMemo(() => {
+    if (selectedProcedures.length > 0) return selectedProcedures;
+    if (currentProcedureId) {
+      const item = proceduresInGroup.find((p: any) => p.id === currentProcedureId);
+      if (item) return [item];
+    }
+    return [];
+  }, [selectedProcedures, currentProcedureId, proceduresInGroup]);
+
   return (
-    <div className="space-y-4 lg:space-y-6 max-w-6xl mx-auto pb-12">
-      {/* Header com Navegação */}
+    <div className="space-y-4 lg:space-y-6 max-w-5xl mx-auto pb-16">
+      {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 lg:p-5 shadow-sm">
         <div className="flex items-start sm:items-center gap-3">
           <button
             type="button"
             onClick={() => navigate('/regulation/solicitor')}
             className="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md transition cursor-pointer"
-            title="Voltar para a lista de solicitações"
+            title="Voltar para a lista"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -253,677 +618,1670 @@ export const CreateRegulationRequest: React.FC = () => {
               Nova Solicitação de Regulação
             </h1>
             <p className="text-xs lg:text-sm text-slate-500 dark:text-slate-400">
-              Encaminhamento de munícipe para consultas, exames ou procedimentos especializados regulados.
+              Formulário guiado em 4 etapas para encaminhamento a consultas, exames ou procedimentos.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-end sm:self-auto">
-          <button
-            type="button"
-            onClick={() => navigate('/regulation/solicitor')}
-            className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md transition"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={createRequestMutation.isPending}
-            className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-md shadow-md transition flex items-center gap-1.5 cursor-pointer"
-          >
-            <Send className="w-4 h-4" />
-            <span>{createRequestMutation.isPending ? 'Protocolando...' : 'Protocolar Solicitação'}</span>
-          </button>
+        <button
+          type="button"
+          onClick={() => navigate('/regulation/solicitor')}
+          className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md transition self-start sm:self-auto cursor-pointer"
+        >
+          Cancelar
+        </button>
+      </div>
+
+      {/* STEPPER / ÍNDICE DE ETAPAS (PAGINAÇÃO INTERATIVA) */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3 lg:p-4 shadow-sm">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 lg:gap-3">
+          {STEPS.map((step) => {
+            const isCompleted = step.number < currentStep;
+            const isActive = step.number === currentStep;
+            const Icon = step.icon;
+
+            return (
+              <button
+                key={step.number}
+                type="button"
+                onClick={() => handleStepClick(step.number)}
+                className={`flex items-center gap-2.5 p-2.5 lg:p-3 rounded-md border text-left transition-all cursor-pointer ${
+                  isActive
+                    ? 'border-blue-600 bg-blue-50/70 dark:bg-blue-950/40 dark:border-blue-500 ring-2 ring-blue-500/20 shadow-sm'
+                    : isCompleted
+                    ? 'border-emerald-300 dark:border-emerald-800/70 bg-emerald-50/40 dark:bg-emerald-950/20 hover:bg-emerald-50'
+                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 opacity-75 hover:opacity-100 hover:bg-slate-50 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
+                    isCompleted
+                      ? 'bg-emerald-600 text-white'
+                      : isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  {isCompleted ? <Check className="w-4 h-4" /> : step.number}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <Icon className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                    <span
+                      className={`text-xs font-bold truncate ${
+                        isActive
+                          ? 'text-blue-900 dark:text-blue-200'
+                          : isCompleted
+                          ? 'text-emerald-900 dark:text-emerald-200'
+                          : 'text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      {step.title}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 block truncate">
+                    {step.number === 1
+                      ? 'Identificação'
+                      : step.number === 2
+                      ? 'Procedimento & Risco'
+                      : step.number === 3
+                      ? 'CID-10 & Justificativa'
+                      : 'Revisão Final'}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-6">
-        {/* SEÇÃO 1: Identificação do Paciente (Azul / Turquesa) */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm relative z-30">
-          <div className="px-4 py-3 bg-blue-50/70 dark:bg-blue-950/30 border-b border-blue-100 dark:border-blue-900/40 rounded-t-lg flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-blue-600 text-white rounded-md">
-                <User className="w-4 h-4" />
+      {/* ========================================================================= */}
+      {/* ETAPA 1: PESQUISA DE PACIENTE E ANAMNESE */}
+      {/* ========================================================================= */}
+      {currentStep === 1 && (
+        <div className="space-y-4 lg:space-y-6 animate-in fade-in duration-200">
+          {/* Card 1: Pesquisa & Identificação do Paciente */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
+            <div className="px-4 py-3 bg-blue-50/70 dark:bg-blue-950/30 border-b border-blue-100 dark:border-blue-900/40 rounded-t-lg flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-blue-600 text-white rounded-md">
+                  <User className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-blue-950 dark:text-blue-100 uppercase tracking-wide">
+                    1. Identificação do Paciente
+                  </h2>
+                  <p className="text-[11px] text-blue-800/80 dark:text-blue-300">
+                    Pesquise o munícipe pelo CPF, Cartão SUS ou Nome
+                  </p>
+                </div>
               </div>
-              <h2 className="text-sm font-bold text-blue-950 dark:text-blue-100 uppercase tracking-wide">
-                1. Identificação do Paciente <span className="text-red-500">*</span>
-              </h2>
+              {selectedPatient && (
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 font-bold flex items-center gap-1">
+                  <Check className="w-3.5 h-3.5" /> Paciente Selecionado
+                </span>
+              )}
             </div>
-            {selectedPatient && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 font-semibold">
-                Paciente Vinculado
-              </span>
-            )}
+
+            <div className="p-4 lg:p-6 space-y-4">
+              {/* Barra de Pesquisa */}
+              {!selectedPatient ? (
+                <div className="space-y-3">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Buscar paciente cadastrado na base municipal:
+                  </label>
+                  <form onSubmit={handleSearchPatient} className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        value={patientSearchTerm}
+                        onChange={(e) => setPatientSearchTerm(e.target.value)}
+                        placeholder="Digite o Nome, CPF ou Cartão SUS (CNS) e clique em Buscar..."
+                        className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isSearchingPatient}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-md text-xs lg:text-sm shadow-sm transition flex items-center gap-1.5 cursor-pointer shrink-0"
+                    >
+                      {isSearchingPatient ? (
+                        <>
+                          <Loader className="w-4 h-4 animate-spin" />
+                          <span>Buscando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Search className="w-4 h-4" />
+                          <span>Buscar</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+
+                  {/* Resultados múltiplos da busca manual */}
+                  {searchExecuted && !selectedPatient && (
+                    <div className="mt-3 border border-slate-200 dark:border-slate-800 rounded-md overflow-hidden bg-slate-50/50 dark:bg-slate-950/40">
+                      {patientSearchResults.length === 0 ? (
+                        <div className="p-5 text-center text-xs text-slate-500">
+                          Nenhum paciente encontrado para "{patientSearchTerm}". Verifique os dígitos ou o nome.
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-60 overflow-y-auto">
+                          <div className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-400 flex justify-between">
+                            <span>Pacientes encontrados ({patientSearchResults.length}): selecione um para continuar</span>
+                          </div>
+                          {patientSearchResults.map((p) => (
+                            <div
+                              key={p.id}
+                              className="p-3 hover:bg-blue-50/70 dark:hover:bg-slate-800/80 transition flex items-center justify-between"
+                            >
+                              <div>
+                                <div className="font-bold text-slate-800 dark:text-slate-100 text-xs sm:text-sm">
+                                  {p.name}
+                                </div>
+                                <div className="text-[11px] text-slate-500 flex flex-wrap gap-x-3 mt-0.5">
+                                  <span>CPF: <strong>{p.cpf || 'S/N'}</strong></span>
+                                  {p.cns && <span>CNS: <strong>{p.cns}</strong></span>}
+                                  {p.birthDate && <span>Nasc: {new Date(p.birthDate).toLocaleDateString('pt-BR')}</span>}
+                                  {p.healthCenter?.name && <span>UBS: {p.healthCenter.name}</span>}
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedPatient(p);
+                                  toast.success(`Paciente "${p.name}" selecionado.`);
+                                }}
+                                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md transition shadow-sm cursor-pointer"
+                              >
+                                Selecionar
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Card do Paciente Selecionado com Botão de Detalhes e Trocar */
+                <div className="bg-gradient-to-r from-blue-50/70 via-blue-50/40 to-slate-50 dark:from-blue-950/40 dark:via-slate-900 dark:to-slate-900 border border-blue-200 dark:border-blue-800/80 rounded-lg p-4 lg:p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start sm:items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-base shrink-0 shadow-md">
+                        {selectedPatient.name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-slate-900 dark:text-white text-base lg:text-lg">
+                            {selectedPatient.name}
+                          </h3>
+                          <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 text-[10px] font-bold rounded">
+                            {selectedPatient.gender === 'F' ? 'Feminino' : selectedPatient.gender === 'M' ? 'Masculino' : 'Outro'}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400 mt-1">
+                          <span>
+                            CPF: <strong className="text-slate-800 dark:text-slate-200">{selectedPatient.cpf || 'Não informado'}</strong>
+                          </span>
+                          <span>
+                            CNS: <strong className="text-slate-800 dark:text-slate-200">{selectedPatient.cns || 'Não informado'}</strong>
+                          </span>
+                          {selectedPatient.birthDate && (
+                            <span>
+                              Nascimento: {new Date(selectedPatient.birthDate).toLocaleDateString('pt-BR')}
+                            </span>
+                          )}
+                          {selectedPatient.healthCenter?.name && (
+                            <span className="text-blue-700 dark:text-blue-300 font-medium">
+                              UBS: {selectedPatient.healthCenter.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setShowPatientDetailsModal(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 rounded-md text-xs font-semibold shadow-sm transition cursor-pointer"
+                        title="Ver ficha cadastral completa do paciente"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Ver Detalhes do Paciente</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPatient(null);
+                          setPatientSearchTerm('');
+                          setSearchExecuted(false);
+                          setPatientSearchResults([]);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-md text-xs font-semibold shadow-sm transition cursor-pointer"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Trocar Paciente</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="p-4 lg:p-5">
-            {selectedPatient ? (
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-blue-50/40 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/80 rounded-md gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
-                    {selectedPatient.name.slice(0, 2).toUpperCase()}
+          {/* Card 2: Anamnese e Condições Clínicas (Logo abaixo) */}
+          {selectedPatient && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
+              <div className="px-4 py-3 bg-teal-50/70 dark:bg-teal-950/30 border-b border-teal-100 dark:border-teal-900/40 rounded-t-lg flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 bg-teal-600 text-white rounded-md">
+                    <Heart className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white text-sm lg:text-base">
-                      {selectedPatient.name}
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      <span>CPF: <strong className="text-slate-700 dark:text-slate-300">{selectedPatient.cpf || 'Não informado'}</strong></span>
-                      <span>CNS: <strong className="text-slate-700 dark:text-slate-300">{selectedPatient.cns || 'Não informado'}</strong></span>
-                      {selectedPatient.phone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-slate-400" />
-                          {selectedPatient.phone}
+                    <h2 className="text-sm font-bold text-teal-950 dark:text-teal-100 uppercase tracking-wide">
+                      Anamnese & Condições Clínicas do Paciente
+                    </h2>
+                    <p className="text-[11px] text-teal-800/80 dark:text-teal-300">
+                      Confirme ou atualize os dados clínicos que orientam o médico regulador
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-semibold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/40 px-2 py-0.5 rounded">
+                  Sincronizado com Prontuário
+                </span>
+              </div>
+
+              <div className="p-4 lg:p-6 space-y-5">
+                {/* Comorbidades Rápidas (Checkboxes Grandes) */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Condições Crônicas e Fatores de Risco:
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <label className={`flex items-center gap-3 p-3 rounded-md border cursor-pointer transition ${
+                      anamnesis.isHypertensive
+                        ? 'border-red-400 bg-red-50/60 dark:bg-red-950/30 dark:border-red-800 text-red-900 dark:text-red-200 font-semibold'
+                        : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-slate-700 dark:text-slate-300'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={anamnesis.isHypertensive}
+                        onChange={(e) => setAnamnesis({ ...anamnesis, isHypertensive: e.target.checked })}
+                        className="w-4 h-4 text-blue-600 rounded border-slate-300"
+                      />
+                      <span className="text-xs lg:text-sm">Hipertenso (HAS)</span>
+                    </label>
+
+                    <label className={`flex items-center gap-3 p-3 rounded-md border cursor-pointer transition ${
+                      anamnesis.isDiabetic
+                        ? 'border-red-400 bg-red-50/60 dark:bg-red-950/30 dark:border-red-800 text-red-900 dark:text-red-200 font-semibold'
+                        : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-slate-700 dark:text-slate-300'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={anamnesis.isDiabetic}
+                        onChange={(e) => setAnamnesis({ ...anamnesis, isDiabetic: e.target.checked })}
+                        className="w-4 h-4 text-blue-600 rounded border-slate-300"
+                      />
+                      <span className="text-xs lg:text-sm">Diabético (DM)</span>
+                    </label>
+
+                    <label className={`flex items-center gap-3 p-3 rounded-md border cursor-pointer transition ${
+                      anamnesis.isSmoker
+                        ? 'border-orange-400 bg-orange-50/60 dark:bg-orange-950/30 dark:border-orange-800 text-orange-900 dark:text-orange-200 font-semibold'
+                        : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-slate-700 dark:text-slate-300'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={anamnesis.isSmoker}
+                        onChange={(e) => setAnamnesis({ ...anamnesis, isSmoker: e.target.checked })}
+                        className="w-4 h-4 text-blue-600 rounded border-slate-300"
+                      />
+                      <span className="text-xs lg:text-sm">Tabagista / Fumante</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Paciente Oncológico & PcD */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className={`p-3.5 rounded-md border transition ${
+                    anamnesis.isOncological
+                      ? 'border-purple-300 bg-purple-50/50 dark:bg-purple-950/30 dark:border-purple-800'
+                      : 'border-slate-200 dark:border-slate-800 bg-slate-50/30'
+                  }`}>
+                    <label className="flex items-center gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={anamnesis.isOncological}
+                        onChange={(e) => setAnamnesis({ ...anamnesis, isOncological: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 rounded"
+                      />
+                      <span className="text-xs lg:text-sm font-bold text-slate-800 dark:text-slate-200">
+                        Paciente Oncológico (Tratamento de Neoplasia)
+                      </span>
+                    </label>
+                    {anamnesis.isOncological && (
+                      <div className="mt-2.5">
+                        <label className="block text-[11px] font-semibold text-purple-900 dark:text-purple-300 mb-1">
+                          Estágio / Classificação da Neoplasia:
+                        </label>
+                        <select
+                          value={anamnesis.oncologicalStage}
+                          onChange={(e) => setAnamnesis({ ...anamnesis, oncologicalStage: e.target.value })}
+                          className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-700 rounded text-xs text-slate-800 dark:text-slate-100"
+                        >
+                          <option value="">Selecione o estágio...</option>
+                          <option value="Estágio I">Estágio I</option>
+                          <option value="Estágio II">Estágio II</option>
+                          <option value="Estágio III">Estágio III</option>
+                          <option value="Estágio IV (Metastático)">Estágio IV (Metastático)</option>
+                          <option value="Em Remissão / Controle">Em Remissão / Controle</option>
+                          <option value="Cuidados Paliativos">Cuidados Paliativos</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className={`p-3.5 rounded-md border transition ${
+                    anamnesis.isPcd
+                      ? 'border-blue-300 bg-blue-50/50 dark:bg-blue-950/30 dark:border-blue-800'
+                      : 'border-slate-200 dark:border-slate-800 bg-slate-50/30'
+                  }`}>
+                    <label className="flex items-center gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={anamnesis.isPcd}
+                        onChange={(e) => setAnamnesis({ ...anamnesis, isPcd: e.target.checked })}
+                        className="w-4 h-4 text-blue-600 rounded"
+                      />
+                      <span className="text-xs lg:text-sm font-bold text-slate-800 dark:text-slate-200">
+                        Pessoa com Deficiência (PcD)
+                      </span>
+                    </label>
+                    {anamnesis.isPcd && (
+                      <div className="mt-2.5">
+                        <label className="block text-[11px] font-semibold text-blue-900 dark:text-blue-300 mb-1">
+                          Tipo de Deficiência / Necessidade Especial:
+                        </label>
+                        <input
+                          type="text"
+                          value={anamnesis.pcdDescription}
+                          onChange={(e) => setAnamnesis({ ...anamnesis, pcdDescription: e.target.value })}
+                          placeholder="Ex: Deficiência física motora, cadeirante, visual..."
+                          className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded text-xs text-slate-800 dark:text-slate-100"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sinais Vitais & Medidas Antropométricas */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Sinais Vitais e Medidas Aferidas na UBS:
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <span className="text-[11px] text-slate-500 block mb-1">Pressão Arterial (PA)</span>
+                      <input
+                        type="text"
+                        value={anamnesis.bloodPressure}
+                        onChange={(e) => setAnamnesis({ ...anamnesis, bloodPressure: e.target.value })}
+                        placeholder="Ex: 120/80 mmHg"
+                        className="w-full px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-500 block mb-1">Glicemia Capilar</span>
+                      <input
+                        type="text"
+                        value={anamnesis.glycemia}
+                        onChange={(e) => setAnamnesis({ ...anamnesis, glycemia: e.target.value })}
+                        placeholder="Ex: 95 mg/dL"
+                        className="w-full px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-500 block mb-1">Peso (kg)</span>
+                      <input
+                        type="text"
+                        value={anamnesis.weight}
+                        onChange={(e) => setAnamnesis({ ...anamnesis, weight: e.target.value })}
+                        placeholder="Ex: 72.5"
+                        className="w-full px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-500 block mb-1">Altura (m)</span>
+                      <input
+                        type="text"
+                        value={anamnesis.height}
+                        onChange={(e) => setAnamnesis({ ...anamnesis, height: e.target.value })}
+                        placeholder="Ex: 1.70"
+                        className="w-full px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Badge de IMC Calculado */}
+                  {calculateImc(anamnesis.weight, anamnesis.height) && (
+                    <div className="mt-2.5 flex items-center gap-2">
+                      <span className="text-xs text-slate-500">IMC Calculado:</span>
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold border ${calculateImc(anamnesis.weight, anamnesis.height)!.color}`}>
+                        {calculateImc(anamnesis.weight, anamnesis.height)!.imc} kg/m² ({calculateImc(anamnesis.weight, anamnesis.height)!.label})
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Alergias & Outras Doenças */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Alergias Medicamentosas / Gerais:
+                    </label>
+                    <input
+                      type="text"
+                      value={anamnesis.allergies}
+                      onChange={(e) => setAnamnesis({ ...anamnesis, allergies: e.target.value })}
+                      placeholder="Ex: Dipirona, Penicilina, Iodo, Frutos do mar..."
+                      className="w-full px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Outras Comorbidades Relevantes:
+                    </label>
+                    <input
+                      type="text"
+                      value={anamnesis.otherDiseases}
+                      onChange={(e) => setAnamnesis({ ...anamnesis, otherDiseases: e.target.value })}
+                      placeholder="Ex: Asma, Insuficiência Renal, Hipotireoidismo..."
+                      className="w-full px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Medicamentos de Uso Contínuo */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Medicamentos de Uso Contínuo:
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={newMedicationInput}
+                      onChange={(e) => setNewMedicationInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddMedication();
+                        }
+                      }}
+                      placeholder="Adicione um medicamento (ex: Losartana 50mg 1x/dia) e pressione Adicionar..."
+                      className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddMedication}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Adicionar
+                    </button>
+                  </div>
+
+                  {anamnesis.continuousMedications.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {anamnesis.continuousMedications.map((med, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs text-slate-800 dark:text-slate-200"
+                        >
+                          <span>{med}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMedication(idx)}
+                            className="text-slate-400 hover:text-red-500 cursor-pointer"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-slate-400 italic">
+                      Nenhum medicamento contínuo informado.
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ETAPA 2: TIPO DE SOLICITAÇÃO, PROCEDIMENTO & PRIORIDADE CLÍNICA (CARDS 2 E 3) */}
+      {/* ========================================================================= */}
+      {currentStep === 2 && (
+        <div className="space-y-4 lg:space-y-6 animate-in fade-in duration-200">
+          {/* Card 2: Tipo de Encaminhamento & Procedimento */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
+            <div className="px-4 py-3 bg-emerald-50/70 dark:bg-emerald-950/30 border-b border-emerald-100 dark:border-emerald-900/40 rounded-t-lg flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-emerald-600 text-white rounded-md">
+                  <Activity className="w-4 h-4" />
+                </div>
+                <h2 className="text-sm font-bold text-emerald-950 dark:text-emerald-100 uppercase tracking-wide">
+                  2. Tipo de Solicitação e Procedimento Desejado <span className="text-red-500">*</span>
+                </h2>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200">
+                {requestType}
+              </span>
+            </div>
+
+            <div className="p-4 lg:p-6 space-y-5">
+              {/* Seletor de Tipo em 3 Cards Clicáveis */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Selecione a Modalidade do Encaminhamento:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* 1. Consulta */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRequestType('CONSULTA');
+                      setProcedureId('');
+                      setProcedureGroupId('');
+                      setSelectedProcedures([]);
+                      setCurrentProcedureId('');
+                      setConsultaFilterTerm('');
+                      setProcedureFilterTerm('');
+                    }}
+                    className={`p-3.5 rounded-md border text-left transition flex items-center gap-3 cursor-pointer ${
+                      requestType === 'CONSULTA'
+                        ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-900/30 ring-1 ring-blue-500'
+                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <div
+                      className={`p-2 rounded-md shrink-0 ${
+                        requestType === 'CONSULTA'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
+                      }`}
+                    >
+                      <Stethoscope className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-xs lg:text-sm text-slate-800 dark:text-slate-100">
+                        Consulta Médica
+                      </h3>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Médico Especialista (Cardio, Orto, etc.)
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* 2. Exame */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRequestType('EXAME');
+                      setProcedureGroupId('');
+                      setProcedureId('');
+                      setSelectedProcedures([]);
+                      setCurrentProcedureId('');
+                      setConsultaFilterTerm('');
+                      setProcedureFilterTerm('');
+                    }}
+                    className={`p-3.5 rounded-md border text-left transition flex items-center gap-3 cursor-pointer ${
+                      requestType === 'EXAME'
+                        ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-900/30 ring-1 ring-emerald-500'
+                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <div
+                      className={`p-2 rounded-md shrink-0 ${
+                        requestType === 'EXAME'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
+                      }`}
+                    >
+                      <Activity className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-xs lg:text-sm text-slate-800 dark:text-slate-100">
+                        Exame Diagnóstico
+                      </h3>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Ultrassom, RX, Tomografia, Sangue
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* 3. Procedimento */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRequestType('PROCEDIMENTO');
+                      setProcedureGroupId('');
+                      setProcedureId('');
+                      setSelectedProcedures([]);
+                      setCurrentProcedureId('');
+                      setConsultaFilterTerm('');
+                      setProcedureFilterTerm('');
+                    }}
+                    className={`p-3.5 rounded-md border text-left transition flex items-center gap-3 cursor-pointer ${
+                      requestType === 'PROCEDIMENTO'
+                        ? 'border-purple-500 bg-purple-50/70 dark:bg-purple-900/30 ring-1 ring-purple-500'
+                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <div
+                      className={`p-2 rounded-md shrink-0 ${
+                        requestType === 'PROCEDIMENTO'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300'
+                      }`}
+                    >
+                      <Building2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-xs lg:text-sm text-slate-800 dark:text-slate-100">
+                        Procedimento
+                      </h3>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Pequenas cirurgias, biópsias, etc.
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Se Consulta Médica: Select de Consultas Médicas */}
+              {requestType === 'CONSULTA' ? (
+                <div className="space-y-3 p-4 bg-blue-50/40 dark:bg-slate-900/40 border border-blue-200/80 dark:border-slate-800 rounded-md">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Consulta Médica Especializada <span className="text-red-500">*</span>
+                      </label>
+                      {consultationProcedures.length > 0 && (
+                        <span className="text-[11px] text-slate-500">
+                          {filteredConsultations.length} de {consultationProcedures.length} disponíveis
                         </span>
                       )}
                     </div>
-                  </div>
-                </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPatient(null);
-                    setPatientSearch('');
-                  }}
-                  className="px-3 py-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-md transition self-start sm:self-auto cursor-pointer"
-                >
-                  Trocar Paciente
-                </button>
-              </div>
-            ) : (
-              <div className="relative" ref={patientSearchContainerRef}>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Buscar paciente cadastrado por Nome, CPF ou Cartão SUS:
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={patientSearch}
-                    onChange={(e) => {
-                      setPatientSearch(e.target.value);
-                      setPatientDropdownOpen(true);
-                    }}
-                    onFocus={() => setPatientDropdownOpen(true)}
-                    placeholder="Clique para ver os pacientes ou digite Nome, CPF ou CNS..."
-                    className="w-full pl-9 pr-10 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
-                  />
-                  {isSearchingPatients && (
-                    <div className="absolute right-3 top-2.5">
-                      <Loader className="w-4 h-4 text-blue-500 animate-spin" />
+                    {/* Input de filtro rápido */}
+                    <div className="relative mb-2">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={consultaFilterTerm}
+                        onChange={(e) => setConsultaFilterTerm(e.target.value)}
+                        placeholder="Filtrar por nome ou código (ex: Cardiologia, Pediatria, Ortopedia...)"
+                        className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+
+                    <select
+                      value={procedureId}
+                      onChange={(e) => {
+                        const pId = e.target.value;
+                        setProcedureId(pId);
+                        const found = consultationProcedures.find((p: any) => p.id === pId);
+                        if (found) {
+                          setProcedureGroupId(found.procedureGroupId || '');
+                        }
+                      }}
+                      disabled={isLoadingConsultations}
+                      className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer disabled:opacity-50"
+                    >
+                      <option value="">
+                        {isLoadingConsultations
+                          ? 'Carregando consultas médicas...'
+                          : 'Selecione a consulta médica desejada...'}
+                      </option>
+                      {filteredConsultations.map((proc: any) => (
+                        <option key={proc.id} value={proc.id}>
+                          {proc.code ? `[${proc.code}] ` : ''}{proc.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {selectedProcedureObj && (
+                    <div className="p-3 bg-white dark:bg-slate-950 border border-blue-200 dark:border-blue-900/50 rounded-md flex items-center justify-between text-xs shadow-sm">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-1.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-md shrink-0">
+                          <Stethoscope className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="font-bold text-slate-800 dark:text-slate-100 block">
+                            {selectedProcedureObj.name}
+                          </span>
+                          <span className="text-[11px] text-slate-500">
+                            Código SIGTAP/SUS: <strong className="text-slate-700 dark:text-slate-300">{selectedProcedureObj.code || 'N/A'}</strong>
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold shrink-0">
+                        Consulta Médica
+                      </span>
                     </div>
                   )}
-                  {patientSearch && !isSearchingPatients && (
+                </div>
+              ) : (
+                /* Se Exame ou Procedimento: Grupo + Procedimento em Cascata Inteligente */
+                <div
+                  className={`space-y-4 p-4 rounded-md border ${
+                    requestType === 'EXAME'
+                      ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/50'
+                      : 'bg-purple-50/40 dark:bg-purple-950/20 border-purple-200/80 dark:border-purple-900/50'
+                  }`}
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Grupo de Procedimentos / Exames */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          {requestType === 'EXAME' ? 'Grupo de Exame Diagnóstico (SUS)' : 'Grupo de Procedimento (SUS)'}{' '}
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <span className="text-[11px] text-slate-500 font-medium">
+                          {filteredProcedureGroups.length} grupos
+                        </span>
+                      </div>
+                      <select
+                        value={procedureGroupId}
+                        onChange={(e) => handleGroupChange(e.target.value)}
+                        className={`w-full px-3 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 cursor-pointer ${
+                          requestType === 'EXAME'
+                            ? 'focus:ring-emerald-500 focus:border-emerald-500'
+                            : 'focus:ring-purple-500 focus:border-purple-500'
+                        }`}
+                      >
+                        <option value="">
+                          {requestType === 'EXAME'
+                            ? 'Selecione o grupo de exames (ex: Ultrassonografia, Tomografia, Laboratório...)'
+                            : 'Selecione o grupo de procedimentos (ex: Cirurgia Oftalmológica, Odontologia, Biópsias...)'}
+                        </option>
+                        {filteredProcedureGroups.map((grp: any) => (
+                          <option key={grp.id} value={grp.id}>
+                            {grp.displayName}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        {requestType === 'EXAME'
+                          ? 'Grupos filtrados exclusivamente para diagnósticos, imagem e análises clínicas.'
+                          : 'Grupos filtrados exclusivamente para cirurgias, intervenções, odontologia e terapias.'}
+                      </p>
+                    </div>
+
+                    {/* Procedimento / Exame Específico */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          {requestType === 'EXAME' ? 'Selecionar Exame do Grupo' : 'Selecionar Procedimento do Grupo'}{' '}
+                          <span className="text-red-500">*</span>
+                        </label>
+                        {proceduresInGroup.length > 0 && (
+                          <span className="text-[11px] text-slate-500 font-medium">
+                            {filteredProceduresInGroup.length} de {proceduresInGroup.length} disponíveis
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Input de filtro dentro do grupo se houver procedimentos */}
+                      {procedureGroupId && proceduresInGroup.length > 0 && (
+                        <div className="relative mb-2">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={procedureFilterTerm}
+                            onChange={(e) => setProcedureFilterTerm(e.target.value)}
+                            placeholder={`Filtrar ${requestType === 'EXAME' ? 'exame' : 'procedimento'} por nome ou código...`}
+                            className={`w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 ${
+                              requestType === 'EXAME'
+                                ? 'focus:ring-emerald-500 focus:border-emerald-500'
+                                : 'focus:ring-purple-500 focus:border-purple-500'
+                            }`}
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <div className="relative flex-1 min-w-0">
+                          <select
+                            value={currentProcedureId}
+                            onChange={(e) => setCurrentProcedureId(e.target.value)}
+                            disabled={isLoadingProcedures || !procedureGroupId}
+                            className={`w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 disabled:opacity-50 cursor-pointer ${
+                              requestType === 'EXAME'
+                                ? 'focus:ring-emerald-500 focus:border-emerald-500'
+                                : 'focus:ring-purple-500 focus:border-purple-500'
+                            }`}
+                          >
+                            <option value="">
+                              {!procedureGroupId
+                                ? '← Selecione o grupo primeiro'
+                                : isLoadingProcedures
+                                ? `Carregando ${requestType === 'EXAME' ? 'exames' : 'procedimentos'}...`
+                                : `Selecione o ${requestType === 'EXAME' ? 'exame' : 'procedimento'}...`}
+                            </option>
+                            {filteredProceduresInGroup.map((proc: any) => (
+                              <option key={proc.id} value={proc.id}>
+                                {proc.code ? `[${proc.code}] ` : ''}
+                                {proc.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleAddProcedure}
+                          disabled={!currentProcedureId}
+                          className={`px-3.5 py-2 rounded-md font-bold text-xs flex items-center gap-1.5 transition shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                            requestType === 'EXAME'
+                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                              : 'bg-purple-600 hover:bg-purple-700 text-white shadow-sm'
+                          }`}
+                          title={`Adicionar este ${requestType === 'EXAME' ? 'exame' : 'procedimento'} à lista do grupo`}
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Adicionar</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Lista de Procedimentos / Exames Adicionados ao mesmo grupo */}
+                  <div className="mt-4 pt-3.5 border-t border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Activity className={`w-4 h-4 ${requestType === 'EXAME' ? 'text-emerald-600' : 'text-purple-600'}`} />
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wide">
+                          {requestType === 'EXAME' ? 'Exames Selecionados' : 'Procedimentos Selecionados'} ({selectedProcedures.length})
+                        </span>
+                        {selectedGroupName && (
+                          <span className="hidden sm:inline-block text-[11px] text-slate-500 dark:text-slate-400">
+                            (Grupo: <strong>{selectedGroupName}</strong>)
+                          </span>
+                        )}
+                      </div>
+                      {selectedProcedures.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedProcedures([])}
+                          className="text-[11px] text-red-500 hover:text-red-700 dark:hover:text-red-400 hover:underline cursor-pointer"
+                        >
+                          Limpar todos
+                        </button>
+                      )}
+                    </div>
+
+                    {selectedProcedures.length === 0 ? (
+                      <div className="p-4 rounded-md border border-dashed border-slate-300 dark:border-slate-800 bg-white/50 dark:bg-slate-900/40 text-center">
+                        <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                          Nenhum {requestType === 'EXAME' ? 'exame' : 'procedimento'} adicionado ainda.
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          Você pode adicionar múltiplos {requestType === 'EXAME' ? 'exames' : 'procedimentos'} pertencentes a este mesmo grupo na mesma solicitação. Selecione acima e clique em <strong>"+ Adicionar"</strong>.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {selectedProcedures.map((proc: any, idx: number) => (
+                          <div
+                            key={proc.id}
+                            className={`flex items-center justify-between p-2.5 bg-white dark:bg-slate-950 rounded-md shadow-sm border ${
+                              requestType === 'EXAME'
+                                ? 'border-emerald-200/90 dark:border-emerald-900/40'
+                                : 'border-purple-200/90 dark:border-purple-900/40'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span
+                                className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                  requestType === 'EXAME'
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                                    : 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300'
+                                }`}
+                              >
+                                {idx + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 block truncate">
+                                  {proc.name}
+                                </span>
+                                <span className="text-[10px] text-slate-500 block">
+                                  Código SIGTAP: <strong className="text-slate-700 dark:text-slate-300">{proc.code || 'N/A'}</strong>
+                                  {selectedGroupName && <span> • {selectedGroupName}</span>}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveProcedure(proc.id)}
+                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded transition cursor-pointer shrink-0 ml-2"
+                              title="Remover este item da solicitação"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Card 3: Prioridade e Classificação de Risco (Semáforo Clínico SUS) */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
+            <div className="px-4 py-3 bg-amber-50/70 dark:bg-amber-950/30 border-b border-amber-100 dark:border-amber-900/40 rounded-t-lg flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-amber-600 text-white rounded-md">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <h2 className="text-sm font-bold text-amber-950 dark:text-amber-100 uppercase tracking-wide">
+                  3. Prioridade e Classificação de Risco <span className="text-red-500">*</span>
+                </h2>
+              </div>
+            </div>
+
+            <div className="p-4 lg:p-6">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2.5">
+                Classificação Clínica de Gravidade (Protocolo de Manchester / SUS):
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Eletivo */}
+                <button
+                  type="button"
+                  onClick={() => setPriority('ELETIVO')}
+                  className={`p-3.5 rounded-md border text-left transition cursor-pointer flex flex-col justify-between ${
+                    priority === 'ELETIVO'
+                      ? 'border-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/40 ring-1 ring-emerald-500'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs lg:text-sm text-emerald-800 dark:text-emerald-300">
+                      🟢 Eletivo (Rotina)
+                    </span>
+                    {priority === 'ELETIVO' && <Check className="w-4 h-4 text-emerald-600" />}
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+                    Condição estável, sem risco de agravamento agudo a curto prazo.
+                  </p>
+                </button>
+
+                {/* Prioritário */}
+                <button
+                  type="button"
+                  onClick={() => setPriority('PRIORITARIO')}
+                  className={`p-3.5 rounded-md border text-left transition cursor-pointer flex flex-col justify-between ${
+                    priority === 'PRIORITARIO'
+                      ? 'border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 ring-1 ring-amber-500'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs lg:text-sm text-amber-800 dark:text-amber-300">
+                      🟡 Prioritário
+                    </span>
+                    {priority === 'PRIORITARIO' && <Check className="w-4 h-4 text-amber-600" />}
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+                    Gravidade intermediária ou suspeita com necessidade de brevidade.
+                  </p>
+                </button>
+
+                {/* Urgência */}
+                <button
+                  type="button"
+                  onClick={() => setPriority('URGENCIA')}
+                  className={`p-3.5 rounded-md border text-left transition cursor-pointer flex flex-col justify-between ${
+                    priority === 'URGENCIA'
+                      ? 'border-red-500 bg-red-50/80 dark:bg-red-950/40 ring-1 ring-red-500'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs lg:text-sm text-red-800 dark:text-red-300">
+                      🔴 Urgência Ambulatorial
+                    </span>
+                    {priority === 'URGENCIA' && <Check className="w-4 h-4 text-red-600" />}
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+                    Alto risco de deterioração rápida ou sequelas funcionais imediatas.
+                  </p>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ETAPA 3: DIAGNÓSTICO CID-10, JUSTIFICATIVA & ANEXOS (CARDS 4 E 5) */}
+      {/* ========================================================================= */}
+      {currentStep === 3 && (
+        <div className="space-y-4 lg:space-y-6 animate-in fade-in duration-200">
+          {/* Card 4: Hipótese Diagnóstica (CID-10) e Justificativa Clínica */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
+            <div className="px-4 py-3 bg-purple-50/70 dark:bg-purple-950/30 border-b border-purple-100 dark:border-purple-900/40 rounded-t-lg flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-purple-600 text-white rounded-md">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <h2 className="text-sm font-bold text-purple-950 dark:text-purple-100 uppercase tracking-wide">
+                  4. Hipótese Diagnóstica (CID-10) e Justificativa Clínica <span className="text-red-500">*</span>
+                </h2>
+              </div>
+            </div>
+
+            <div className="p-4 lg:p-6 space-y-4">
+              {/* CID-10 Autocomplete */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Diagnóstico Principal (CID-10) <span className="text-red-500">*</span>
+                </label>
+
+                {selectedCid ? (
+                  <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-md">
+                    <div className="flex items-center gap-2.5">
+                      <span className="px-2 py-0.5 rounded bg-purple-600 text-white font-mono font-bold text-xs">
+                        {selectedCid.code}
+                      </span>
+                      <span className="text-xs lg:text-sm font-medium text-slate-800 dark:text-slate-200">
+                        {selectedCid.description}
+                      </span>
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
-                        setPatientSearch('');
-                        setPatientDropdownOpen(true);
+                        setSelectedCid(null);
+                        setCidSearchTerm('');
                       }}
-                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      className="text-xs text-purple-700 dark:text-purple-300 hover:underline font-semibold cursor-pointer"
                     >
-                      <X className="w-4 h-4" />
+                      Alterar CID
                     </button>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={cidSearchTerm}
+                      onChange={(e) => setCidSearchTerm(e.target.value)}
+                      placeholder="Buscar CID-10 por código (ex: I10, E11, M54) ou descrição (ex: Hipertensão)..."
+                      className="w-full pl-9 pr-9 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                    />
+                    {isSearchingCid && (
+                      <Loader className="absolute right-3 top-2.5 w-4 h-4 text-purple-500 animate-spin" />
+                    )}
 
-                {/* Dropdown de pacientes */}
-                {patientDropdownOpen && (
-                  <div className="absolute z-50 left-0 right-0 mt-1 max-h-72 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md shadow-2xl divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in zoom-in-95 duration-150">
-                    {isSearchingPatients && patientList.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-                        <Loader className="w-4 h-4 animate-spin text-blue-500" />
-                        <span>Carregando pacientes...</span>
-                      </div>
-                    ) : patientList.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-slate-500">
-                        {patientSearch.trim().length > 0
-                          ? `Nenhum paciente encontrado para "${patientSearch}".`
-                          : 'Nenhum paciente cadastrado.'}
-                      </div>
-                    ) : (
-                      <>
-                        <div className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800/60 text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                          <span>
-                            {patientSearch.trim().length > 0
-                              ? `Resultados para "${patientSearch}" (${patientList.length}):`
-                              : 'Pacientes cadastrados (selecione ou digite para filtrar):'}
-                          </span>
-                          <span className="text-[10px] text-slate-400">Total: {totalPatients}</span>
-                        </div>
-                        {patientList.map((p: any) => (
+                    {cidResults.length > 0 && (
+                      <div className="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md shadow-2xl divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in zoom-in-95 duration-150">
+                        {cidResults.map((c) => (
                           <button
-                            key={p.id}
+                            key={c.code}
                             type="button"
                             onClick={() => {
-                              setSelectedPatient(p);
-                              setPatientDropdownOpen(false);
-                              setPatientSearch('');
+                              setSelectedCid(c);
+                              setCidResults([]);
+                              setCidSearchTerm('');
                             }}
-                            className="w-full text-left p-3 hover:bg-blue-50/70 dark:hover:bg-slate-800/80 transition flex items-center justify-between group cursor-pointer"
+                            className="w-full text-left p-2.5 hover:bg-purple-50/60 dark:hover:bg-slate-800 flex items-center justify-between cursor-pointer"
                           >
-                            <div className="min-w-0 pr-3">
-                              <div className="font-semibold text-slate-800 dark:text-slate-100 text-xs truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                                {p.name}
-                              </div>
-                              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
-                                <span>CPF: <strong className="font-medium text-slate-700 dark:text-slate-300">{p.cpf || 'S/N'}</strong></span>
-                                {p.cns && <span>CNS: <strong className="font-medium text-slate-700 dark:text-slate-300">{p.cns}</strong></span>}
-                                {p.birthDate && (
-                                  <span>Nasc: {new Date(p.birthDate).toLocaleDateString('pt-BR')}</span>
-                                )}
-                                {p.healthCenter?.name && (
-                                  <span className="text-slate-400 truncate">UBS: {p.healthCenter.name}</span>
-                                )}
-                              </div>
+                            <div className="flex items-center gap-2">
+                              <span className="px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300 font-mono text-xs font-bold">
+                                {c.code}
+                              </span>
+                              <span className="text-xs text-slate-700 dark:text-slate-300">
+                                {c.description}
+                              </span>
                             </div>
-                            <span className="px-2.5 py-1 text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 rounded-md font-semibold shrink-0 group-hover:bg-blue-600 group-hover:text-white transition">
-                              Selecionar
+                            <span className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold">
+                              Escolher
                             </span>
                           </button>
                         ))}
-                      </>
+                      </div>
                     )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        </div>
 
-        {/* SEÇÃO 2: Tipo de Encaminhamento & Procedimento (Cores Vivas: Ciano, Esmeralda e Roxo) */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm relative z-20">
-          <div className="px-4 py-3 bg-emerald-50/70 dark:bg-emerald-950/30 border-b border-emerald-100 dark:border-emerald-900/40 rounded-t-lg flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-emerald-600 text-white rounded-md">
-                <Activity className="w-4 h-4" />
+              {/* Justificativa Clínica */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Justificativa Clínica Detalhada <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    {clinicalJustification.length} caracteres (mínimo 5)
+                  </span>
+                </div>
+                <textarea
+                  rows={4}
+                  value={clinicalJustification}
+                  onChange={(e) => setClinicalJustification(e.target.value)}
+                  placeholder="Descreva a queixa principal, tempo de evolução, sintomas, achados no exame físico e motivo claro da necessidade do encaminhamento..."
+                  className="w-full p-3 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                />
               </div>
-              <h2 className="text-sm font-bold text-emerald-950 dark:text-emerald-100 uppercase tracking-wide">
-                2. Tipo de Solicitação e Procedimento Desejado <span className="text-red-500">*</span>
-              </h2>
-            </div>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200">
-              {requestType}
-            </span>
-          </div>
 
-          <div className="p-4 lg:p-5 space-y-4">
-            {/* Seletor de Tipo em 3 Cards Clicáveis */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                Selecione a Modalidade do Encaminhamento:
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* 1. Consulta */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRequestType('CONSULTA');
-                    setProcedureId('');
-                    setProcedureGroupId('');
-                  }}
-                  className={`p-3.5 rounded-md border text-left transition flex items-center gap-3 cursor-pointer ${
-                    requestType === 'CONSULTA'
-                      ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-900/30 ring-1 ring-blue-500'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  <div
-                    className={`p-2 rounded-md shrink-0 ${
-                      requestType === 'CONSULTA'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
-                    }`}
-                  >
-                    <Stethoscope className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-xs lg:text-sm text-slate-800 dark:text-slate-100">
-                      Consulta Médica
-                    </h3>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Médico Especialista (Cardio, Orto, etc.)
-                    </p>
-                  </div>
-                </button>
-
-                {/* 2. Exame */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRequestType('EXAME');
-                    setSpecialtyId('');
-                  }}
-                  className={`p-3.5 rounded-md border text-left transition flex items-center gap-3 cursor-pointer ${
-                    requestType === 'EXAME'
-                      ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-900/30 ring-1 ring-emerald-500'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  <div
-                    className={`p-2 rounded-md shrink-0 ${
-                      requestType === 'EXAME'
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
-                    }`}
-                  >
-                    <Activity className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-xs lg:text-sm text-slate-800 dark:text-slate-100">
-                      Exame Diagnóstico
-                    </h3>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Ultrassom, TC, RM, ECG, Sangue
-                    </p>
-                  </div>
-                </button>
-
-                {/* 3. Procedimento */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRequestType('PROCEDIMENTO');
-                    setSpecialtyId('');
-                  }}
-                  className={`p-3.5 rounded-md border text-left transition flex items-center gap-3 cursor-pointer ${
-                    requestType === 'PROCEDIMENTO'
-                      ? 'border-purple-500 bg-purple-50/70 dark:bg-purple-900/30 ring-1 ring-purple-500'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  <div
-                    className={`p-2 rounded-md shrink-0 ${
-                      requestType === 'PROCEDIMENTO'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300'
-                    }`}
-                  >
-                    <Layers className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-xs lg:text-sm text-slate-800 dark:text-slate-100">
-                      Procedimento Clínico
-                    </h3>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Pequena Cirurgia, Terapia, Biópsia
-                    </p>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Campos condicionais de acordo com o tipo */}
-            {requestType === 'CONSULTA' ? (
-              <div className="p-4 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-md">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Especialidade Médica Desejada <span className="text-red-500">*</span>
+              {/* Histórico Clínico Prévio */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Histórico Clínico e Tratamentos Prévios na UBS (Opcional):
                 </label>
-                <select
-                  value={specialtyId}
-                  onChange={(e) => setSpecialtyId(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Selecione a especialidade médica...</option>
-                  {(specialtiesData?.data || []).map((s: any) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+                <textarea
+                  rows={2}
+                  value={clinicalHistory}
+                  onChange={(e) => setClinicalHistory(e.target.value)}
+                  placeholder="Informe comorbidades crônicas, cirurgias prévias ou tratamentos já tentados na unidade..."
+                  className="w-full p-3 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                />
               </div>
-            ) : (
-              <div className="p-4 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-md space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Grupo do Procedimento (Opcional para filtrar)
-                    </label>
-                    <select
-                      value={procedureGroupId}
-                      onChange={(e) => setProcedureGroupId(e.target.value)}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                    >
-                      <option value="">Todos os Grupos...</option>
-                      {(procedureGroups || []).map((g: any) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                      {requestType === 'EXAME' ? 'Exame Específico' : 'Procedimento Específico'}{' '}
-                      <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={procedureId}
-                      onChange={(e) => setProcedureId(e.target.value)}
-                      disabled={isLoadingProcedures}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-50"
-                    >
-                      <option value="">
-                        {isLoadingProcedures
-                          ? 'Carregando procedimentos...'
-                          : 'Selecione o procedimento...'}
-                      </option>
-                      {proceduresInGroup.map((proc: any) => (
-                        <option key={proc.id} value={proc.id}>
-                          {proc.code ? `[${proc.code}] ` : ''}
-                          {proc.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* SEÇÃO 3: Classificação de Risco e Prioridade Clínica (Semáforo SUS) */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm relative z-10">
-          <div className="px-4 py-3 bg-amber-50/70 dark:bg-amber-950/30 border-b border-amber-100 dark:border-amber-900/40 rounded-t-lg flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-amber-600 text-white rounded-md">
-                <Clock className="w-4 h-4" />
-              </div>
-              <h2 className="text-sm font-bold text-amber-950 dark:text-amber-100 uppercase tracking-wide">
-                3. Prioridade e Classificação de Risco <span className="text-red-500">*</span>
-              </h2>
             </div>
           </div>
 
-          <div className="p-4 lg:p-5">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {/* Eletivo */}
-              <button
-                type="button"
-                onClick={() => setPriority('ELETIVO')}
-                className={`p-3.5 rounded-md border text-left transition cursor-pointer flex flex-col justify-between ${
-                  priority === 'ELETIVO'
-                    ? 'border-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/40 ring-1 ring-emerald-500'
-                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs lg:text-sm text-emerald-800 dark:text-emerald-300">
-                    🟢 Eletivo (Rotina)
-                  </span>
-                  {priority === 'ELETIVO' && <Check className="w-4 h-4 text-emerald-600" />}
+          {/* Card 5: Anexos e Documentos Comprobatórios */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
+            <div className="px-4 py-3 bg-indigo-50/70 dark:bg-indigo-950/30 border-b border-indigo-100 dark:border-indigo-900/40 rounded-t-lg flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-indigo-600 text-white rounded-md">
+                  <Paperclip className="w-4 h-4" />
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
-                  Condição estável, sem risco de agravamento a curto prazo.
-                </p>
-              </button>
-
-              {/* Prioritário */}
-              <button
-                type="button"
-                onClick={() => setPriority('PRIORITARIO')}
-                className={`p-3.5 rounded-md border text-left transition cursor-pointer flex flex-col justify-between ${
-                  priority === 'PRIORITARIO'
-                    ? 'border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 ring-1 ring-amber-500'
-                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs lg:text-sm text-amber-800 dark:text-amber-300">
-                    🟡 Prioritário (Atenção)
-                  </span>
-                  {priority === 'PRIORITARIO' && <Check className="w-4 h-4 text-amber-600" />}
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
-                  Quadro com risco de progressão ou dor limitante que demanda celeridade.
-                </p>
-              </button>
-
-              {/* Urgência */}
-              <button
-                type="button"
-                onClick={() => setPriority('URGENCIA')}
-                className={`p-3.5 rounded-md border text-left transition cursor-pointer flex flex-col justify-between ${
-                  priority === 'URGENCIA'
-                    ? 'border-red-500 bg-red-50/80 dark:bg-red-950/40 ring-1 ring-red-500'
-                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs lg:text-sm text-red-800 dark:text-red-300">
-                    🔴 Urgência Ambulatorial
-                  </span>
-                  {priority === 'URGENCIA' && <Check className="w-4 h-4 text-red-600" />}
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
-                  Alto risco de deterioração rápida ou sequelas funcionais imediatas.
-                </p>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* SEÇÃO 4: Diagnóstico CID-10 e Justificativa Clínica (Roxo / Lavanda) */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm relative z-20">
-          <div className="px-4 py-3 bg-purple-50/70 dark:bg-purple-950/30 border-b border-purple-100 dark:border-purple-900/40 rounded-t-lg flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-purple-600 text-white rounded-md">
-                <FileText className="w-4 h-4" />
+                <h2 className="text-sm font-bold text-indigo-950 dark:text-indigo-100 uppercase tracking-wide">
+                  5. Anexos e Documentos Comprobatórios (Opcional)
+                </h2>
               </div>
-              <h2 className="text-sm font-bold text-purple-950 dark:text-purple-100 uppercase tracking-wide">
-                4. Hipótese Diagnóstica (CID-10) e Justificativa Clínica <span className="text-red-500">*</span>
-              </h2>
+              <span className="text-xs text-indigo-700 dark:text-indigo-300 font-medium">
+                PDF, JPG, PNG até 10MB
+              </span>
             </div>
-          </div>
 
-          <div className="p-4 lg:p-5 space-y-4">
-            {/* CID-10 Autocomplete */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Diagnóstico Principal (CID-10) <span className="text-red-500">*</span>
+            <div className="p-4 lg:p-6 space-y-3">
+              <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-indigo-200 dark:border-indigo-800/80 hover:border-indigo-400 dark:hover:border-indigo-600 bg-indigo-50/20 dark:bg-indigo-950/10 rounded-md transition cursor-pointer text-center group">
+                <Upload className="w-8 h-8 text-indigo-500 group-hover:scale-110 transition-transform mb-2" />
+                <span className="text-xs lg:text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  Clique para selecionar arquivos ou arraste aqui
+                </span>
+                <span className="text-[11px] text-slate-500 mt-1">
+                  Laudos anteriores, pedidos médicos digitalizados, receitas ou resultados de exames complementares
+                </span>
+                <input
+                  type="file"
+                  multiple
+                  accept="application/pdf,image/png,image/jpeg,image/jpg"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
               </label>
 
-              {selectedCid ? (
-                <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-md">
-                  <div className="flex items-center gap-2.5">
-                    <span className="px-2 py-0.5 rounded bg-purple-600 text-white font-mono font-bold text-xs">
-                      {selectedCid.code}
-                    </span>
-                    <span className="text-xs lg:text-sm font-medium text-slate-800 dark:text-slate-200">
-                      {selectedCid.description}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedCid(null);
-                      setCidSearchTerm('');
-                    }}
-                    className="text-xs text-purple-700 dark:text-purple-300 hover:underline font-semibold"
-                  >
-                    Alterar CID
-                  </button>
-                </div>
-              ) : (
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={cidSearchTerm}
-                    onChange={(e) => setCidSearchTerm(e.target.value)}
-                    placeholder="Buscar CID-10 por código (ex: I10, E11, M54) ou descrição (ex: Hipertensão)..."
-                    className="w-full pl-9 pr-9 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
-                  />
-                  {isSearchingCid && (
-                    <Loader className="absolute right-3 top-2.5 w-4 h-4 text-purple-500 animate-spin" />
-                  )}
-
-                  {cidResults.length > 0 && (
-                    <div className="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md shadow-2xl divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in zoom-in-95 duration-150">
-                      {cidResults.map((c) => (
-                        <button
-                          key={c.code}
-                          type="button"
-                          onClick={() => {
-                            setSelectedCid(c);
-                            setCidResults([]);
-                            setCidSearchTerm('');
-                          }}
-                          className="w-full text-left p-2.5 hover:bg-purple-50/60 dark:hover:bg-slate-800 flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300 font-mono text-xs font-bold">
-                              {c.code}
-                            </span>
-                            <span className="text-xs text-slate-700 dark:text-slate-300">
-                              {c.description}
-                            </span>
-                          </div>
-                          <span className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold">
-                            Escolher
+              {/* Lista de Arquivos Anexados */}
+              {files.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                    Arquivos selecionados ({files.length}):
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {files.map((file, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-md"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Paperclip className="w-4 h-4 text-indigo-500 shrink-0" />
+                          <span className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
+                            {file.name}
                           </span>
+                          <span className="text-[10px] text-slate-400 shrink-0">
+                            ({(file.size / 1024).toFixed(0)} KB)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(idx)}
+                          className="p-1 text-slate-400 hover:text-red-500 transition cursor-pointer"
+                          title="Remover arquivo"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
-                      ))}
-                    </div>
-                  )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
-
-            {/* Justificativa Clínica */}
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Justificativa Clínica Detalhada <span className="text-red-500">*</span>
-                </label>
-                <span className="text-[11px] text-slate-400">
-                  {clinicalJustification.length}/10 min caracteres
-                </span>
-              </div>
-              <textarea
-                rows={3}
-                required
-                value={clinicalJustification}
-                onChange={(e) => setClinicalJustification(e.target.value)}
-                placeholder="Descreva o quadro clínico atual, sinais, sintomas, exames prévios, tratamentos já realizados na UBS e o motivo técnico do encaminhamento..."
-                className="w-full p-3 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
-              />
-            </div>
-
-            {/* Histórico Pregresso */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Histórico Pregresso e Comorbidades (Opcional)
-              </label>
-              <textarea
-                rows={2}
-                value={clinicalHistory}
-                onChange={(e) => setClinicalHistory(e.target.value)}
-                placeholder="Informe comorbidades crônicas (DM, HAS, cardiopatias), cirurgias prévias, alergias medicamentosas relevantes..."
-                className="w-full p-3 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
-              />
-            </div>
           </div>
         </div>
+      )}
 
-        {/* SEÇÃO 5: Documentos, Laudos e Anexos (Índigo) */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm relative z-10">
-          <div className="px-4 py-3 bg-indigo-50/70 dark:bg-indigo-950/30 border-b border-indigo-100 dark:border-indigo-900/40 rounded-t-lg flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-indigo-600 text-white rounded-md">
-                <Paperclip className="w-4 h-4" />
+      {/* ========================================================================= */}
+      {/* ETAPA 4: REVISÃO & PROTOCOLO */}
+      {/* ========================================================================= */}
+      {currentStep === 4 && (
+        <div className="space-y-4 lg:space-y-6 animate-in fade-in duration-200">
+          {/* Header de Revisão */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg p-4 lg:p-5 shadow-md flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-md backdrop-blur-sm">
+                <Check className="w-6 h-6" />
               </div>
-              <h2 className="text-sm font-bold text-indigo-950 dark:text-indigo-100 uppercase tracking-wide">
-                5. Anexos e Documentos Comprobatórios (Opcional)
-              </h2>
+              <div>
+                <h2 className="text-base lg:text-lg font-bold">Revisão Final da Solicitação</h2>
+                <p className="text-xs text-blue-100">
+                  Confira atentamente os dados antes de encaminhar para a Regulação Municipal.
+                </p>
+              </div>
             </div>
-            <span className="text-xs text-indigo-700 dark:text-indigo-300 font-medium">
-              PDF, JPG, PNG até 10MB
+            <span className="hidden sm:inline-block px-3 py-1 bg-white/20 text-white text-xs font-bold rounded-full">
+              Etapa 4 de 4
             </span>
           </div>
 
-          <div className="p-4 lg:p-5 space-y-3">
-            <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-indigo-200 dark:border-indigo-800/80 hover:border-indigo-400 dark:hover:border-indigo-600 bg-indigo-50/20 dark:bg-indigo-950/10 rounded-md transition cursor-pointer text-center group">
-              <Upload className="w-8 h-8 text-indigo-500 group-hover:scale-110 transition-transform mb-2" />
-              <span className="text-xs lg:text-sm font-semibold text-slate-800 dark:text-slate-200">
-                Clique para selecionar arquivos ou arraste aqui
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">
-                Laudos anteriores, pedidos médicos digitalizados, resultados de exames complementares
-              </span>
-              <input
-                type="file"
-                multiple
-                accept="application/pdf,image/png,image/jpeg,image/jpg"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </label>
+          {/* Bloco 1: Paciente e Anamnese */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 lg:p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-blue-600" />
+                <h3 className="font-bold text-xs lg:text-sm text-slate-900 dark:text-white uppercase tracking-wider">
+                  1. Paciente & Condições Clínicas
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentStep(1)}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 hover:underline cursor-pointer"
+              >
+                Editar Etapa 1
+              </button>
+            </div>
 
-            {/* Lista de Arquivos Anexados */}
-            {files.length > 0 && (
-              <div className="space-y-2 pt-2">
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
-                  Arquivos selecionados ({files.length}):
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {files.map((file, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-md"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Paperclip className="w-4 h-4 text-indigo-500 shrink-0" />
-                        <span className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
-                          {file.name}
-                        </span>
-                        <span className="text-[10px] text-slate-400 shrink-0">
-                          ({(file.size / 1024).toFixed(0)} KB)
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeFile(idx)}
-                        className="p-1 text-slate-400 hover:text-red-500 transition"
-                        title="Remover arquivo"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-slate-400 block">Nome do Paciente:</span>
+                <strong className="text-slate-800 dark:text-slate-200 text-sm">{selectedPatient?.name}</strong>
+                <div className="flex flex-wrap gap-x-3 text-slate-500 mt-0.5">
+                  <span>CPF: <strong>{selectedPatient?.cpf || 'S/N'}</strong></span>
+                  <span>CNS: <strong>{selectedPatient?.cns || 'S/N'}</strong></span>
+                  {selectedPatient?.birthDate && <span>Nasc: {new Date(selectedPatient.birthDate).toLocaleDateString('pt-BR')}</span>}
                 </div>
               </div>
-            )}
+
+              <div>
+                <span className="text-slate-400 block">Condições Clínicas / Anamnese:</span>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {anamnesis.isHypertensive && <span className="px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300 rounded font-semibold text-[10px]">Hipertenso</span>}
+                  {anamnesis.isDiabetic && <span className="px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300 rounded font-semibold text-[10px]">Diabético</span>}
+                  {anamnesis.isSmoker && <span className="px-2 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300 rounded font-semibold text-[10px]">Fumante</span>}
+                  {anamnesis.isOncological && <span className="px-2 py-0.5 bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 rounded font-semibold text-[10px]">Oncológico ({anamnesis.oncologicalStage || 'Sim'})</span>}
+                  {anamnesis.isPcd && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 rounded font-semibold text-[10px]">PcD ({anamnesis.pcdDescription || 'Sim'})</span>}
+                  {!anamnesis.isHypertensive && !anamnesis.isDiabetic && !anamnesis.isSmoker && !anamnesis.isOncological && !anamnesis.isPcd && (
+                    <span className="text-slate-400 italic">Sem comorbidades crônicas declaradas</span>
+                  )}
+                </div>
+                {(anamnesis.bloodPressure || anamnesis.weight) && (
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    {anamnesis.bloodPressure && <span>PA: {anamnesis.bloodPressure} • </span>}
+                    {anamnesis.weight && <span>Peso: {anamnesis.weight}kg • </span>}
+                    {anamnesis.height && <span>Alt: {anamnesis.height}m</span>}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Bloco 2: Tipo de Solicitação, Procedimento & Prioridade */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 lg:p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-emerald-600" />
+                <h3 className="font-bold text-xs lg:text-sm text-slate-900 dark:text-white uppercase tracking-wider">
+                  2. Tipo de Solicitação & Prioridade
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentStep(2)}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 hover:underline cursor-pointer"
+              >
+                Editar Etapa 2
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              <div>
+                <span className="text-slate-400 block">Modalidade:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
+                  {requestType === 'CONSULTA' ? '🩺 Consulta Médica' : requestType === 'EXAME' ? '🧪 Exame Diagnóstico' : '⚡ Procedimento'}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-slate-400 block">
+                  {requestType === 'CONSULTA'
+                    ? 'Consulta Médica:'
+                    : `${requestType === 'EXAME' ? 'Exames Solicitados' : 'Procedimentos Solicitados'} (${effectiveSelectedProcedures.length}):`}
+                </span>
+                {requestType === 'CONSULTA' ? (
+                  <strong className="text-slate-800 dark:text-slate-200 block">
+                    {selectedProcedureObj
+                      ? `${selectedProcedureObj.code ? `[${selectedProcedureObj.code}] ` : ''}${selectedProcedureObj.name}`
+                      : 'Não selecionado'}
+                  </strong>
+                ) : (
+                  <div>
+                    {selectedGroupName && (
+                      <span className="text-slate-600 dark:text-slate-300 font-semibold block text-[11px] mb-1">
+                        Grupo: {selectedGroupName}
+                      </span>
+                    )}
+                    {effectiveSelectedProcedures.length === 0 ? (
+                      <span className="text-slate-400 italic">Nenhum selecionado</span>
+                    ) : (
+                      <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                        {effectiveSelectedProcedures.map((p: any, idx: number) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center gap-1.5 text-slate-800 dark:text-slate-200 text-[11px] bg-slate-50 dark:bg-slate-800/50 px-2 py-1 rounded border border-slate-200 dark:border-slate-700/60"
+                          >
+                            <span className="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center text-[9px] font-bold shrink-0">
+                              {idx + 1}
+                            </span>
+                            <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold shrink-0">
+                              {p.code ? `[${p.code}]` : ''}
+                            </span>
+                            <span className="truncate">{p.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <span className="text-slate-400 block">Classificação de Risco:</span>
+                <span
+                  className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold mt-0.5 ${
+                    priority === 'URGENCIA'
+                      ? 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300'
+                      : priority === 'PRIORITARIO'
+                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                      : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                  }`}
+                >
+                  {priority === 'URGENCIA' ? '🔴 Urgência Ambulatorial' : priority === 'PRIORITARIO' ? '🟡 Prioritário' : '🟢 Eletivo'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Bloco 3: Diagnóstico, Justificativa & Anexos */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 lg:p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-purple-600" />
+                <h3 className="font-bold text-xs lg:text-sm text-slate-900 dark:text-white uppercase tracking-wider">
+                  3. Diagnóstico (CID-10), Justificativa & Anexos
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentStep(3)}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 hover:underline cursor-pointer"
+              >
+                Editar Etapa 3
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <span className="text-slate-400 block">Diagnóstico Principal (CID-10):</span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="px-2 py-0.5 rounded bg-purple-600 text-white font-mono font-bold text-xs">
+                    {selectedCid?.code}
+                  </span>
+                  <strong className="text-slate-800 dark:text-slate-200">{selectedCid?.description}</strong>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-slate-400 block">Justificativa Clínica:</span>
+                <p className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-md text-slate-800 dark:text-slate-200 mt-1 whitespace-pre-wrap leading-relaxed">
+                  {clinicalJustification}
+                </p>
+              </div>
+
+              {clinicalHistory && (
+                <div>
+                  <span className="text-slate-400 block">Histórico Clínico na UBS:</span>
+                  <p className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-md text-slate-800 dark:text-slate-200 mt-1 whitespace-pre-wrap">
+                    {clinicalHistory}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <span className="text-slate-400 block">Documentos e Laudos Anexados:</span>
+                {files.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {files.map((f, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded text-xs text-indigo-700 dark:text-indigo-300"
+                      >
+                        <Paperclip className="w-3.5 h-3.5" />
+                        <span>{f.name}</span>
+                        <span className="text-[10px] text-slate-400">({(f.size / 1024).toFixed(0)} KB)</span>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-slate-400 italic">Nenhum anexo adicionado (opcional).</span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Barra de Ações Final */}
-        <div className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
+      {/* ========================================================================= */}
+      {/* BARRA INFERIOR DE NAVEGAÇÃO E AÇÃO */}
+      {/* ========================================================================= */}
+      <div className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
+        {currentStep === 1 ? (
           <button
             type="button"
             onClick={() => navigate('/regulation/solicitor')}
-            className="px-4 py-2.5 text-xs lg:text-sm font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md transition cursor-pointer"
+            className="px-4 py-2 text-xs lg:text-sm font-semibold text-slate-600 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 rounded-md transition cursor-pointer"
           >
-            ← Voltar para Minhas Solicitações
+            ← Cancelar
           </button>
-
+        ) : (
           <button
-            type="submit"
-            disabled={createRequestMutation.isPending}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs lg:text-sm rounded-md shadow-md transition flex items-center gap-2 cursor-pointer active:scale-98"
+            type="button"
+            onClick={handlePrevStep}
+            className="px-4 py-2 text-xs lg:text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md transition flex items-center gap-1.5 cursor-pointer"
           >
-            <Send className="w-4 h-4" />
-            <span>
-              {createRequestMutation.isPending
-                ? 'Protocolando Solicitação...'
-                : 'Protocolar Solicitação na Regulação'}
-            </span>
+            <ArrowLeft className="w-4 h-4" />
+            <span>Voltar Etapa</span>
           </button>
+        )}
+
+        {currentStep < 4 ? (
+          <button
+            type="button"
+            onClick={handleNextStep}
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs lg:text-sm rounded-md shadow-md transition flex items-center gap-2 cursor-pointer active:scale-98"
+          >
+            <span>
+              {currentStep === 1
+                ? 'Avançar para Tipo & Prioridade'
+                : currentStep === 2
+                ? 'Avançar para Diagnóstico & Anexos'
+                : 'Avançar para Revisão Final'}
+            </span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={createRequestMutation.isPending}
+            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs lg:text-sm rounded-md shadow-lg transition flex items-center gap-2 cursor-pointer active:scale-98"
+          >
+            {createRequestMutation.isPending ? (
+              <>
+                <Loader className="w-4 h-4 animate-spin" />
+                <span>Protocolando Solicitação...</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4" />
+                <span>Protocolar Solicitação na Regulação</span>
+              </>
+            )}
+          </button>
+        )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* MODAL DE CONFERÊNCIA DE DADOS DO PACIENTE */}
+      {/* ========================================================================= */}
+      {showPatientDetailsModal && selectedPatient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden my-8 max-h-[85vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-600 text-white rounded-md">
+                  <User className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                    Ficha Cadastral do Paciente
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Conferência e verificação dos dados de identificação e contato
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPatientDetailsModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-md border border-slate-200 dark:border-slate-700/60">
+                  <span className="text-slate-400 block">Nome Completo:</span>
+                  <strong className="text-slate-800 dark:text-slate-100 text-sm">{selectedPatient.name}</strong>
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-md border border-slate-200 dark:border-slate-700/60">
+                  <span className="text-slate-400 block">CPF:</span>
+                  <strong className="text-slate-800 dark:text-slate-100 text-sm">{selectedPatient.cpf || 'Não informado'}</strong>
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-md border border-slate-200 dark:border-slate-700/60">
+                  <span className="text-slate-400 block">Cartão Nacional de Saúde (CNS):</span>
+                  <strong className="text-slate-800 dark:text-slate-100 text-sm">{selectedPatient.cns || 'Não informado'}</strong>
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-md border border-slate-200 dark:border-slate-700/60">
+                  <span className="text-slate-400 block">Data de Nascimento:</span>
+                  <strong className="text-slate-800 dark:text-slate-100 text-sm">
+                    {selectedPatient.birthDate ? new Date(selectedPatient.birthDate).toLocaleDateString('pt-BR') : 'Não informada'}
+                  </strong>
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-md border border-slate-200 dark:border-slate-700/60">
+                  <span className="text-slate-400 block">Sexo / Gênero:</span>
+                  <strong className="text-slate-800 dark:text-slate-100 text-sm">
+                    {selectedPatient.gender === 'F' ? 'Feminino' : selectedPatient.gender === 'M' ? 'Masculino' : 'Outro'}
+                  </strong>
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-md border border-slate-200 dark:border-slate-700/60">
+                  <span className="text-slate-400 block">Unidade Básica de Vínculo:</span>
+                  <strong className="text-slate-800 dark:text-slate-100 text-sm">
+                    {selectedPatient.healthCenter?.name || 'Não vinculada'}
+                  </strong>
+                </div>
+              </div>
+
+              {/* Endereço */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-md border border-slate-200 dark:border-slate-700/60 text-xs">
+                <span className="text-slate-400 block mb-1">Endereço Residencial:</span>
+                <p className="text-slate-800 dark:text-slate-200 font-medium">
+                  {selectedPatient.address || 'Endereço não cadastrado no prontuário.'}
+                </p>
+              </div>
+
+              {/* Telefones de Contato */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-md border border-slate-200 dark:border-slate-700/60 text-xs">
+                <span className="text-slate-400 block mb-2">Telefones de Contato:</span>
+                {selectedPatient.phones && selectedPatient.phones.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPatient.phones.map((ph: any, i: number) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md font-medium text-slate-800 dark:text-slate-200"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-blue-500" />
+                        <span>{ph.phoneNumber}</span>
+                        {ph.isWhatsapp && (
+                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.2 rounded">
+                            WhatsApp
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-slate-400 italic">Nenhum telefone registrado.</span>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowPatientDetailsModal(false)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold shadow-sm transition cursor-pointer"
+              >
+                Conferência Concluída
+              </button>
+            </div>
+          </div>
         </div>
-      </form>
+      )}
     </div>
   );
 };

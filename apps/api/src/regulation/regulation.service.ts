@@ -57,6 +57,159 @@ export class RegulationService {
     const randomSuffix = crypto.randomInt(1000, 9999);
     const protocolNumber = `SOL-${yearMonth}-${randomSuffix}`;
 
+    // Atualiza ou insere anamnese do paciente se fornecida
+    if (data.anamnesis) {
+      try {
+        const anamnesis = typeof data.anamnesis === 'string' ? JSON.parse(data.anamnesis) : data.anamnesis;
+        const existingAnamnesis = await this.db.query.patientAnamnesis.findFirst({
+          where: eq(schema.patientAnamnesis.patientId, data.patientId),
+        });
+
+        const anamnesisValues = {
+          isHypertensive: anamnesis.isHypertensive ?? false,
+          isDiabetic: anamnesis.isDiabetic ?? false,
+          isSmoker: anamnesis.isSmoker ?? false,
+          otherDiseases: anamnesis.otherDiseases ?? null,
+          isOncological: anamnesis.isOncological ?? false,
+          oncologicalStage: anamnesis.oncologicalStage ?? null,
+          allergies: anamnesis.allergies ?? null,
+          isPcd: anamnesis.isPcd ?? false,
+          pcdDescription: anamnesis.pcdDescription ?? null,
+          continuousMedications: Array.isArray(anamnesis.continuousMedications)
+            ? anamnesis.continuousMedications
+            : [],
+          bloodPressure: anamnesis.bloodPressure ?? null,
+          glycemia: anamnesis.glycemia ?? null,
+          weight: anamnesis.weight ?? null,
+          height: anamnesis.height ?? null,
+          updatedAt: now.toISOString(),
+        };
+
+        if (existingAnamnesis) {
+          await this.db.update(schema.patientAnamnesis)
+            .set(anamnesisValues)
+            .where(eq(schema.patientAnamnesis.patientId, data.patientId));
+        } else {
+          await this.db.insert(schema.patientAnamnesis).values({
+            id: crypto.randomUUID(),
+            patientId: data.patientId,
+            ...anamnesisValues,
+            createdAt: now.toISOString(),
+          });
+        }
+      } catch (e) {
+        console.error('Erro ao sincronizar anamnese na regulação:', e);
+      }
+    }
+
+    // Prepara anexos clínicos caso existam (upload uma única vez no storage)
+    const uploadedAttachments: Array<{
+      fileName: string;
+      fileType: string;
+      fileUrl: string;
+      fileSize: number;
+    }> = [];
+
+    if (files && files.length > 0) {
+      for (const file of files) {
+        const fileId = await this.storageService.uploadFile(file, data.patientId);
+        uploadedAttachments.push({
+          fileName: file.originalname,
+          fileType: file.mimetype,
+          fileUrl: `/storage/file/${fileId}`,
+          fileSize: file.size,
+        });
+      }
+    }
+
+    // Parsing dos procedimentos enviados (suporte a múltiplos exames/procedimentos do mesmo grupo)
+    let procedureIds: string[] = [];
+    if (data.procedureIds) {
+      try {
+        const parsed = typeof data.procedureIds === 'string' ? JSON.parse(data.procedureIds) : data.procedureIds;
+        if (Array.isArray(parsed)) {
+          procedureIds = parsed.filter(Boolean);
+        }
+      } catch (e) {
+        procedureIds = [];
+      }
+    }
+    if (procedureIds.length === 0 && data.procedureId) {
+      procedureIds = [data.procedureId];
+    }
+
+    // Se múltiplos procedimentos foram selecionados para o mesmo grupo
+    if (procedureIds.length > 1) {
+      const createdRequests: any[] = [];
+
+      for (let i = 0; i < procedureIds.length; i++) {
+        const currentProcId = procedureIds[i];
+        const currentReqId = crypto.randomUUID();
+        const itemProtocol = `${protocolNumber}/${String(i + 1).padStart(2, '0')}`;
+
+        const [created] = await this.db.insert(schema.regulationRequests).values({
+          id: currentReqId,
+          protocolNumber: itemProtocol,
+          patientId: data.patientId,
+          requestingHealthCenterId: healthCenterId,
+          requestingUserId: user.id,
+          attendingDoctorId: data.attendingDoctorId || null,
+
+          type: data.type,
+          specialtyId: data.specialtyId || null,
+          procedureId: currentProcId,
+          procedureGroupId: data.procedureGroupId || null,
+
+          cid10: data.cid10.trim(),
+          clinicalJustification: data.clinicalJustification.trim(),
+          clinicalHistory: data.clinicalHistory ? data.clinicalHistory.trim() : null,
+          priority: data.priority || 'ELETIVO',
+          status: 'PENDENTE_REGULACAO',
+
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+        }).returning();
+
+        // Registra histórico inicial
+        await this.db.insert(schema.regulationStatusHistory).values({
+          id: crypto.randomUUID(),
+          requestId: currentReqId,
+          previousStatus: null,
+          newStatus: 'PENDENTE_REGULACAO',
+          justification: `Solicitação emitida na Atenção Primária (${i + 1}/${procedureIds.length} do protocolo ${protocolNumber})`,
+          actionByUserId: user.id,
+          createdAt: now.toISOString(),
+        });
+
+        // Associa os anexos pré-armazenados
+        if (uploadedAttachments.length > 0) {
+          const attachments = uploadedAttachments.map((att) => ({
+            id: crypto.randomUUID(),
+            requestId: currentReqId,
+            ...att,
+            createdAt: now.toISOString(),
+          }));
+          await this.db.insert(schema.regulationRequestAttachments).values(attachments);
+        }
+
+        // Evento WebSocket por solicitação
+        this.eventsGateway.server?.emit('regulation_updated', {
+          type: 'REQUEST_CREATED',
+          requestId: currentReqId,
+          protocolNumber: itemProtocol,
+          patientId: data.patientId,
+          healthCenterId,
+        });
+
+        createdRequests.push(created);
+      }
+
+      return this.findOne(createdRequests[0].id);
+    }
+
+    // Caso de procedimento único ou consulta médica
+    const singleProcedureId = procedureIds.length === 1 ? procedureIds[0] : (data.procedureId || null);
+
     const [newRequest] = await this.db.insert(schema.regulationRequests).values({
       id: requestId,
       protocolNumber,
@@ -67,7 +220,7 @@ export class RegulationService {
 
       type: data.type,
       specialtyId: data.specialtyId || null,
-      procedureId: data.procedureId || null,
+      procedureId: singleProcedureId,
       procedureGroupId: data.procedureGroupId || null,
 
       cid10: data.cid10.trim(),
@@ -92,20 +245,13 @@ export class RegulationService {
     });
 
     // Salva anexos clínicos caso existam
-    if (files && files.length > 0) {
-      const attachments = [];
-      for (const file of files) {
-        const fileId = await this.storageService.uploadFile(file, data.patientId);
-        attachments.push({
-          id: crypto.randomUUID(),
-          requestId,
-          fileName: file.originalname,
-          fileType: file.mimetype,
-          fileUrl: `/storage/file/${fileId}`,
-          fileSize: file.size,
-          createdAt: now.toISOString(),
-        });
-      }
+    if (uploadedAttachments.length > 0) {
+      const attachments = uploadedAttachments.map((att) => ({
+        id: crypto.randomUUID(),
+        requestId,
+        ...att,
+        createdAt: now.toISOString(),
+      }));
       await this.db.insert(schema.regulationRequestAttachments).values(attachments);
     }
 
