@@ -59,7 +59,7 @@ export const Layout = () => {
       { name: 'Agenda & Recepção', path: '/reception', icon: CalendarCheck },
     ] : []),
     ...((permissions.includes('regulation-solicitor:read') || isAdmin) ? [
-      { name: 'Regulação (UBS)', path: '/regulation/solicitor', icon: Send },
+      { name: 'Solicitação (UBS)', path: '/regulation/solicitor', icon: Send },
     ] : []),
     ...((permissions.includes('regulation-operator:read') || isAdmin) ? [
       { name: 'Central de Regulação', path: '/regulation/inbox', icon: Layers },
@@ -267,7 +267,7 @@ export const Layout = () => {
                           className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${isSubActive
                             ? 'bg-white/15 text-white font-bold'
                             : 'text-blue-200 hover:text-white hover:bg-white/10'
-                          }`}
+                            }`}
                         >
                           {sub.name}
                         </Link>
@@ -361,7 +361,7 @@ export const Layout = () => {
 
             {/* Mobile View (Dropdown) */}
             <div className="md:hidden relative">
-              <button 
+              <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-blue-900"
               >
@@ -370,9 +370,9 @@ export const Layout = () => {
 
               {userMenuOpen && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setUserMenuOpen(false)} 
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setUserMenuOpen(false)}
                   />
                   <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-slate-900 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 z-50 overflow-hidden flex flex-col">
                     <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
@@ -395,8 +395,8 @@ export const Layout = () => {
                         <span>Alternar Perfil</span>
                       </button>
                     )}
-                    <Link 
-                      to="/profile" 
+                    <Link
+                      to="/profile"
                       onClick={() => setUserMenuOpen(false)}
                       className="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors"
                     >
@@ -431,22 +431,22 @@ export const Layout = () => {
 
         {/* Mobile Bottom Navigation */}
         <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-30 flex items-center justify-around px-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-safe">
-           <Link to="/" className={`flex flex-col items-center justify-center w-full h-full gap-1 ${location.pathname === '/' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-             <Home className="w-5 h-5" />
-             <span className="text-[10px] font-semibold">Início</span>
-           </Link>
-           {(permissions.includes('patients:read') || isAdmin) && (
-             <Link to="/patients" className={`flex flex-col items-center justify-center w-full h-full gap-1 ${location.pathname.startsWith('/patients') ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-               <Users className="w-5 h-5" />
-               <span className="text-[10px] font-semibold">Pacientes</span>
-             </Link>
-           )}
+          <Link to="/" className={`flex flex-col items-center justify-center w-full h-full gap-1 ${location.pathname === '/' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+            <Home className="w-5 h-5" />
+            <span className="text-[10px] font-semibold">Início</span>
+          </Link>
+          {(permissions.includes('patients:read') || isAdmin) && (
+            <Link to="/patients" className={`flex flex-col items-center justify-center w-full h-full gap-1 ${location.pathname.startsWith('/patients') ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <Users className="w-5 h-5" />
+              <span className="text-[10px] font-semibold">Pacientes</span>
+            </Link>
+          )}
 
-           
-           <button onClick={() => setMobileMenuOpen(true)} className="flex flex-col items-center justify-center w-full h-full gap-1 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-             <Menu className="w-5 h-5" />
-             <span className="text-[10px] font-semibold">Menu</span>
-           </button>
+
+          <button onClick={() => setMobileMenuOpen(true)} className="flex flex-col items-center justify-center w-full h-full gap-1 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+            <Menu className="w-5 h-5" />
+            <span className="text-[10px] font-semibold">Menu</span>
+          </button>
         </div>
       </div>
     </div>
