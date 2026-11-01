@@ -17,7 +17,8 @@ import {
   Stethoscope,
   Building2,
   Send,
-  Layers
+  Layers,
+  ShieldCheck
 } from 'lucide-react';
 import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
@@ -25,9 +26,10 @@ import { NotificationBell } from './NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
 import { CachedAvatar } from './CachedAvatar';
 import { useCurrentDoctor } from '../hooks/useDoctors';
+import { SwitchProfileModal } from './SwitchProfileModal';
 
 export const Layout = () => {
-  const { user, permissions, logout } = useAuthStore();
+  const { user, permissions, activeProfile, availableProfiles, logout } = useAuthStore();
   const { t } = useTranslation();
   const location = useLocation();
   const isAdmin = permissions.includes('admin:access');
@@ -38,6 +40,7 @@ export const Layout = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isSwitchProfileOpen, setIsSwitchProfileOpen] = useState(false);
 
   const toggleMenu = (path: string) => {
     setExpandedMenus(prev => ({ ...prev, [path]: !prev[path] }));
@@ -52,7 +55,9 @@ export const Layout = () => {
 
   const menuItems: MenuItem[] = [
     { name: t('Dashboard'), path: '/', icon: Home },
-    { name: 'Agenda & Recepção', path: '/reception', icon: CalendarCheck },
+    ...((permissions.includes('rooms:read') || isAdmin) && !isDoctor ? [
+      { name: 'Agenda & Recepção', path: '/reception', icon: CalendarCheck },
+    ] : []),
     ...((permissions.includes('regulation-solicitor:read') || isAdmin) ? [
       { name: 'Regulação (UBS)', path: '/regulation/solicitor', icon: Send },
     ] : []),
@@ -213,6 +218,32 @@ export const Layout = () => {
             <X className="w-6 h-6" />
           </button>
         </div>
+
+        {/* Mobile Active Profile Bar */}
+        {activeProfile && (
+          <div className="px-4 py-2.5 bg-black/20 border-b border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <ShieldCheck className="w-4 h-4 text-blue-300 shrink-0" />
+              <div className="text-left min-w-0">
+                <span className="text-[10px] uppercase text-blue-200/70 block leading-tight">Perfil Ativo</span>
+                <span className="text-xs font-bold text-white block truncate">{activeProfile.name}</span>
+              </div>
+            </div>
+            {availableProfiles.length > 1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setIsSwitchProfileOpen(true);
+                }}
+                className="text-[11px] px-2 py-1 rounded bg-white/15 text-white hover:bg-white/25 transition-colors font-medium shrink-0"
+              >
+                Alternar
+              </button>
+            )}
+          </div>
+        )}
+
         <nav className="px-2 py-3 lg:px-4 lg:py-6 space-y-0.5 lg:space-y-1">
           {menuItems.filter(item => !['/', '/patients'].includes(item.path)).map((item) => {
             const isActive = location.pathname === item.path || (item.subItems && item.subItems.some((sub: any) => location.pathname === sub.path));
@@ -280,7 +311,28 @@ export const Layout = () => {
           </div>
 
           {/* User profile dropdown and Logout */}
-          <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Active Profile Pill with Quick Switch */}
+            {activeProfile && (
+              <button
+                type="button"
+                onClick={() => setIsSwitchProfileOpen(true)}
+                className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium border border-white/20 transition-all cursor-pointer shadow-sm group"
+                title={availableProfiles.length > 1 ? "Clique para alternar perfil de acesso" : `Atuando como ${activeProfile.name}`}
+              >
+                <ShieldCheck className="w-4 h-4 text-blue-200 group-hover:scale-110 transition-transform shrink-0" />
+                <div className="flex items-center gap-1.5 text-left">
+                  <span className="text-blue-200/80 hidden lg:inline text-[11px] uppercase tracking-wider">Perfil:</span>
+                  <span className="font-semibold text-white tracking-wide">{activeProfile.name}</span>
+                </div>
+                {availableProfiles.length > 1 && (
+                  <span className="text-[10px] ml-1 px-1.5 py-0.5 rounded bg-blue-400/30 text-blue-100 group-hover:bg-blue-400/50 transition-colors font-medium">
+                    Alternar
+                  </span>
+                )}
+              </button>
+            )}
+
             <ThemeToggle />
             <NotificationBell />
 
@@ -320,10 +372,27 @@ export const Layout = () => {
                     className="fixed inset-0 z-40" 
                     onClick={() => setUserMenuOpen(false)} 
                   />
-                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-900 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 z-50 overflow-hidden flex flex-col">
+                  <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-slate-900 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 z-50 overflow-hidden flex flex-col">
                     <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
                       <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{user?.name}</p>
+                      {activeProfile && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-medium truncate mt-0.5">
+                          {activeProfile.name}
+                        </p>
+                      )}
                     </div>
+                    {availableProfiles.length > 1 && (
+                      <button
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          setIsSwitchProfileOpen(true);
+                        }}
+                        className="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors text-left"
+                      >
+                        <ShieldCheck className="w-4 h-4 text-blue-500" />
+                        <span>Alternar Perfil</span>
+                      </button>
+                    )}
                     <Link 
                       to="/profile" 
                       onClick={() => setUserMenuOpen(false)}
@@ -351,6 +420,12 @@ export const Layout = () => {
         <main className="flex-1 overflow-y-auto p-3 lg:p-6 pb-20 md:pb-6 relative">
           <Outlet />
         </main>
+
+        {/* Switch Profile Modal */}
+        <SwitchProfileModal
+          isOpen={isSwitchProfileOpen}
+          onClose={() => setIsSwitchProfileOpen(false)}
+        />
 
         {/* Mobile Bottom Navigation */}
         <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-30 flex items-center justify-around px-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-safe">
