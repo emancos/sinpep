@@ -116,10 +116,10 @@ export const NotificationBell = () => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={handleToggle}
-        className={`w-9 h-9 flex items-center justify-center rounded-md border transition-all duration-300 cursor-pointer shadow-sm relative shrink-0 ${
+        className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-all duration-200 cursor-pointer shadow-sm relative shrink-0 ${
           isOpen
             ? 'bg-white/25 border-white/40 text-white shadow-md'
-            : 'bg-white/10 hover:bg-white/15 border-white/20 text-white'
+            : 'bg-white/10 hover:bg-white/15 border-white/20 hover:border-white/30 text-white'
         }`}
         aria-label="Notificações"
       >
@@ -132,7 +132,7 @@ export const NotificationBell = () => {
       </button>
 
       {isOpen && (
-        <div className="fixed sm:absolute left-4 right-4 top-20 sm:left-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-80 md:w-96 bg-slate-100 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-300 dark:border-slate-800/80 rounded-md shadow-2xl shadow-black/50 z-50 overflow-hidden transform origin-top-right transition-all duration-200">
+        <div className="fixed sm:absolute left-4 right-4 top-20 sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 md:w-96 bg-white dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800/80 rounded-lg shadow-2xl z-50 overflow-hidden transform origin-top-right transition-all duration-200">
           <div className="p-4 border-b border-slate-300 dark:border-slate-800/60 flex items-center justify-between bg-slate-100 dark:bg-slate-900/40">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-slate-900 dark:text-white text-sm tracking-wide">Notificações</h3>

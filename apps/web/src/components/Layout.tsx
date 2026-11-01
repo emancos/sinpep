@@ -59,7 +59,7 @@ export const Layout = () => {
       { name: 'Agenda & Recepção', path: '/reception', icon: CalendarCheck },
     ] : []),
     ...((permissions.includes('regulation-solicitor:read') || isAdmin) ? [
-      { name: 'Solicitação (UBS)', path: '/regulation/solicitor', icon: Send },
+      { name: 'Solicitação', path: '/regulation/solicitor', icon: Send },
     ] : []),
     ...((permissions.includes('regulation-operator:read') || isAdmin) ? [
       { name: 'Central de Regulação', path: '/regulation/inbox', icon: Layers },
@@ -87,13 +87,13 @@ export const Layout = () => {
       { name: 'Ambulatórios & Salas', path: '/rooms' }
     ] : []),
     ...(permissions.includes('procedure-groups:write') || isAdmin ? [
-      { name: 'Tabelas Auxiliares', path: '/auxiliary-tables' }
+      { name: 'Especialidades Médicas', path: '/specialties' }
     ] : []),
     ...(isAdmin ? [
       { name: 'Procedimentos', path: '/procedures' }
     ] : []),
     ...(isAdmin ? [
-      { name: 'Medicamentos (ANVISA)', path: '/medications' }
+      { name: 'Medicamentos', path: '/medications' }
     ] : []),
     ...(isAdmin ? [
       { name: 'Gestão de Utilizadores', path: '/users' },
@@ -299,7 +299,7 @@ export const Layout = () => {
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 h-screen">
         {/* Sticky Header */}
-        <header className="z-30 shrink-0 h-12 lg:h-14 bg-[#0051A2]/95 dark:bg-[#003B77]/95 backdrop-blur-md border-b border-[#003B77] dark:border-[#002244] flex items-center justify-between px-4 lg:px-6">
+        <header className="z-30 shrink-0 h-12 lg:h-14 bg-[#003B77] dark:bg-[#002244] border-b border-white/10 dark:border-[#001122] flex items-center justify-between px-3 sm:px-4 lg:px-6">
           {/* Spacer on Desktop, Brand on mobile */}
           <div className="md:hidden flex items-center gap-2 text-white font-bold">
             <img src="/logo.svg" alt="Logo" className="w-7 h-7 shrink-0 drop-shadow-md" />
@@ -310,111 +310,114 @@ export const Layout = () => {
             <Breadcrumb />
           </div>
 
-          {/* User profile dropdown and Logout */}
+          {/* User profile dropdown and Logout - exactly matching mockup image */}
           <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* Active Profile Pill with Quick Switch */}
-            {activeProfile && (
-              <button
-                type="button"
-                onClick={() => setIsSwitchProfileOpen(true)}
-                className="hidden xl:inline-flex items-center gap-2 h-9 px-3 rounded-md bg-white/10 hover:bg-white/15 text-white text-xs font-medium border border-white/20 transition-all cursor-pointer shadow-sm group"
-                title={availableProfiles.length > 1 ? "Clique para alternar perfil de acesso" : `Atuando como ${activeProfile.name}`}
-              >
-                <ShieldCheck className="w-4 h-4 text-blue-200 group-hover:scale-110 transition-transform shrink-0" />
-                <div className="flex items-center gap-1.5 text-left">
-                  <span className="text-blue-200/80 text-[11px] uppercase tracking-wider">Perfil:</span>
-                  <span className="font-semibold text-white tracking-wide">{activeProfile.name}</span>
-                </div>
-                {availableProfiles.length > 1 && (
-                  <span className="text-[10px] ml-1 px-1.5 py-0.5 rounded bg-blue-400/30 text-blue-100 group-hover:bg-blue-400/50 transition-colors font-medium">
-                    Alternar
-                  </span>
-                )}
-              </button>
-            )}
-
             <ThemeToggle />
             <NotificationBell />
 
-            {/* Desktop View: Separated Profile & Logout exactly matching image */}
-            <div className="hidden md:flex items-center gap-2 sm:gap-2.5">
-              <Link
-                to="/profile"
-                className="h-9 px-3 flex items-center gap-2.5 rounded-md border border-white/20 bg-white/10 hover:bg-white/15 text-white transition-all duration-200 cursor-pointer shadow-sm"
-                title="Meu Perfil"
+            {/* Profile Button with Dropdown Menu */}
+            <div className="relative">
+              {/* Desktop Profile Button */}
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="hidden md:flex h-9 px-3 items-center gap-2.5 rounded-lg border border-white/20 hover:border-white/30 bg-white/10 hover:bg-white/15 text-white transition-all duration-200 cursor-pointer shadow-sm group"
+                title={activeProfile ? `Perfil Ativo: ${activeProfile.name}` : "Meu Perfil"}
               >
-                <div className="w-6 h-6 rounded-full border border-white/30 overflow-hidden shrink-0 flex items-center justify-center bg-blue-400/20">
+                <div className="w-6 h-6 rounded-full border border-white/40 overflow-hidden shrink-0 flex items-center justify-center bg-blue-400/20">
                   <CachedAvatar src={user?.avatar} alt={user?.name} />
                 </div>
                 <span className="text-white font-bold text-sm max-w-[150px] truncate">{user?.name}</span>
-              </Link>
-
-              <button
-                onClick={logout}
-                className="h-9 px-3.5 flex items-center gap-1.5 rounded-md bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold text-sm shadow-sm transition-all duration-200 cursor-pointer active:scale-95 border border-red-500/30"
-                title={t('Logout')}
-              >
-                <LogOut className="w-4 h-4" />
-                <span>{t('Logout')}</span>
               </button>
-            </div>
 
-            {/* Mobile View (Dropdown) */}
-            <div className="md:hidden relative">
+              {/* Mobile Profile Avatar Button */}
               <button
+                type="button"
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-blue-900"
+                className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-white/20 hover:border-white/30 bg-white/10 hover:bg-white/15 text-white transition-all cursor-pointer shadow-sm overflow-hidden"
+                title="Meu Perfil"
               >
-                <CachedAvatar src={user?.avatar} alt={user?.name} />
+                <div className="w-6 h-6 rounded-full border border-white/40 overflow-hidden shrink-0 flex items-center justify-center bg-blue-400/20">
+                  <CachedAvatar src={user?.avatar} alt={user?.name} />
+                </div>
               </button>
 
+              {/* Profile Dropdown Menu */}
               {userMenuOpen && (
                 <>
                   <div
                     className="fixed inset-0 z-40"
                     onClick={() => setUserMenuOpen(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-slate-900 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 z-50 overflow-hidden flex flex-col">
+                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-800 z-50 overflow-hidden flex flex-col py-1">
                     <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{user?.name}</p>
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{user?.name}</p>
                       {activeProfile && (
-                        <p className="text-xs text-blue-600 dark:text-blue-400 font-medium truncate mt-0.5">
-                          {activeProfile.name}
-                        </p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <ShieldCheck className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                          <p className="text-xs text-blue-600 dark:text-blue-400 font-medium truncate">
+                            {activeProfile.name}
+                          </p>
+                        </div>
                       )}
                     </div>
+
                     {availableProfiles.length > 1 && (
                       <button
+                        type="button"
                         onClick={() => {
                           setUserMenuOpen(false);
                           setIsSwitchProfileOpen(true);
                         }}
-                        className="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors text-left"
+                        className="px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-between transition-colors text-left cursor-pointer"
                       >
-                        <ShieldCheck className="w-4 h-4 text-blue-500" />
-                        <span>Alternar Perfil</span>
+                        <div className="flex items-center gap-2.5">
+                          <ShieldCheck className="w-4 h-4 text-blue-500" />
+                          <span>Alternar Perfil</span>
+                        </div>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-semibold">
+                          {availableProfiles.length}
+                        </span>
                       </button>
                     )}
+
                     <Link
                       to="/profile"
                       onClick={() => setUserMenuOpen(false)}
-                      className="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors"
+                      className="px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 transition-colors"
                     >
-                      <User className="w-4 h-4 text-slate-400" /> Perfil
+                      <User className="w-4 h-4 text-slate-400" />
+                      <span>Meu Perfil</span>
                     </Link>
+
+                    <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+
                     <button
+                      type="button"
                       onClick={() => {
                         setUserMenuOpen(false);
                         logout();
                       }}
-                      className="px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center gap-3 text-left transition-colors"
+                      className="px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center gap-2.5 text-left transition-colors cursor-pointer"
                     >
-                      <LogOut className="w-4 h-4" /> Sair
+                      <LogOut className="w-4 h-4" />
+                      <span>{t('Logout')}</span>
                     </button>
                   </div>
                 </>
               )}
             </div>
+
+            {/* Logout Button (Sair) - exact match to mockup image */}
+            <button
+              type="button"
+              onClick={logout}
+              className="h-9 px-3.5 flex items-center gap-1.5 rounded-lg bg-[#E52222] hover:bg-[#CC1E1E] text-white font-bold text-sm shadow-sm transition-all duration-200 cursor-pointer active:scale-95 shrink-0"
+              title={t('Logout')}
+            >
+              <LogOut className="w-4 h-4" />
+              <span>{t('Logout')}</span>
+            </button>
           </div>
         </header>
 
