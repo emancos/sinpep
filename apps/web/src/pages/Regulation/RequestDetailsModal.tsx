@@ -102,9 +102,9 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-4xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-md shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50">
           <div>
             <div className="flex items-center space-x-3">
               <span className="text-sm font-bold text-blue-600 dark:text-blue-400 font-mono tracking-wider">
@@ -113,35 +113,35 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
               {getStatusBadge(request.status)}
               {getPriorityBadge(request.priority)}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               Criado em: {new Date(request.createdAt).toLocaleString('pt-BR')} • Solicitante: {request.requestingHealthCenter?.name || 'UBS'}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+        <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
           {/* Card Chave de Confirmação (Destaque quando AGENDADA) */}
           {request.status === 'AGENDADA' && request.confirmationToken && (
-            <div className="p-5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl text-white shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
-                  <Key className="w-8 h-8 text-white" />
+            <div className="p-4 bg-gradient-to-r from-emerald-600 to-teal-700 rounded-md text-white shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center space-x-3.5">
+                <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-md">
+                  <Key className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <div className="text-xs uppercase font-semibold text-emerald-100 tracking-wider">
+                  <div className="text-[11px] uppercase font-semibold text-emerald-100 tracking-wider">
                     Chave de Confirmação Alfanumérica Única
                   </div>
                   <div className="text-2xl sm:text-3xl font-black font-mono tracking-widest mt-0.5">
                     {request.confirmationToken}
                   </div>
-                  <div className="text-xs text-emerald-100 mt-1">
+                  <div className="text-xs text-emerald-100 mt-0.5">
                     Exigida na Recepção da Unidade Executante para validação do atendimento
                   </div>
                 </div>
@@ -150,7 +150,7 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
               <button
                 type="button"
                 onClick={copyToken}
-                className="px-4 py-2 bg-white text-emerald-700 hover:bg-emerald-50 rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow-sm"
+                className="px-3.5 py-2 bg-white text-emerald-800 hover:bg-emerald-50 rounded-md text-xs font-bold transition flex items-center space-x-1.5 shadow-sm cursor-pointer"
               >
                 {copiedToken ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
                 <span>{copiedToken ? 'Copiado!' : 'Copiar Chave'}</span>
@@ -160,25 +160,25 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
 
           {/* Dados do Agendamento se Agendada */}
           {request.scheduledDate && (
-            <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/80 rounded-md">
               <h4 className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <Calendar className="w-4 h-4" /> Detalhes do Agendamento Confirmado
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                 <div>
-                  <span className="text-gray-500 block">Unidade Executante:</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
+                  <span className="text-slate-500 block">Unidade Executante:</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">
                     {request.executingHealthCenter?.name || 'Não informada'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-500 block">Data e Horário:</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
+                  <span className="text-slate-500 block">Data e Horário:</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">
                     {request.scheduledDate} às {request.scheduledTime || '08:00'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-500 block">Status da Chave:</span>
+                  <span className="text-slate-500 block">Status da Chave:</span>
                   <span className={`font-semibold ${request.tokenValidatedAt ? 'text-emerald-600' : 'text-amber-600'}`}>
                     {request.tokenValidatedAt ? `Validada em ${new Date(request.tokenValidatedAt).toLocaleString('pt-BR')}` : 'Aguardando validação na recepção'}
                   </span>
@@ -188,32 +188,32 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
           )}
 
           {/* Identificação do Paciente */}
-          <div className="p-4 bg-gray-50 dark:bg-gray-750 rounded-xl border border-gray-200 dark:border-gray-700">
-            <h4 className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-md border border-slate-200 dark:border-slate-800">
+            <h4 className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
               <User className="w-4 h-4 text-blue-500" /> Paciente
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
               <div>
-                <span className="text-gray-500 block">Nome:</span>
-                <span className="font-bold text-gray-900 dark:text-white text-sm">
+                <span className="text-slate-500 block">Nome:</span>
+                <span className="font-bold text-slate-900 dark:text-white text-sm">
                   {request.patient?.name}
                 </span>
               </div>
               <div>
-                <span className="text-gray-500 block">CPF:</span>
-                <span className="font-semibold text-gray-900 dark:text-white">
+                <span className="text-slate-500 block">CPF:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
                   {request.patient?.cpf || 'Não informado'}
                 </span>
               </div>
               <div>
-                <span className="text-gray-500 block">CNS (Cartão SUS):</span>
-                <span className="font-semibold text-gray-900 dark:text-white">
+                <span className="text-slate-500 block">CNS (Cartão SUS):</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
                   {request.patient?.cns || 'Não informado'}
                 </span>
               </div>
               <div>
-                <span className="text-gray-500 block">Nascimento / Sexo:</span>
-                <span className="font-semibold text-gray-900 dark:text-white">
+                <span className="text-slate-500 block">Nascimento / Sexo:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
                   {request.patient?.birthDate || '-'} ({request.patient?.gender || '-'})
                 </span>
               </div>
@@ -222,23 +222,23 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
 
           {/* Procedimento / Especialidade e Diagnóstico */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 bg-gray-50 dark:bg-gray-750 rounded-xl border border-gray-200 dark:border-gray-700">
-              <h4 className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-md border border-slate-200 dark:border-slate-800">
+              <h4 className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <Activity className="w-4 h-4 text-purple-500" /> Procedimento Requisitado
               </h4>
               <div className="text-xs space-y-1">
                 <div>
-                  <span className="text-gray-500">Tipo: </span>
-                  <span className="font-semibold text-gray-900 dark:text-white">{request.type}</span>
+                  <span className="text-slate-500">Tipo: </span>
+                  <span className="font-semibold text-slate-900 dark:text-white">{request.type}</span>
                 </div>
                 {request.procedureGroup && (
                   <div>
-                    <span className="text-gray-500">Grupo: </span>
-                    <span className="font-semibold text-gray-900 dark:text-white">{request.procedureGroup.name}</span>
+                    <span className="text-slate-500">Grupo: </span>
+                    <span className="font-semibold text-slate-900 dark:text-white">{request.procedureGroup.name}</span>
                   </div>
                 )}
                 <div>
-                  <span className="text-gray-500">Item: </span>
+                  <span className="text-slate-500">Item: </span>
                   <span className="font-semibold text-blue-600 dark:text-blue-400">
                     {request.procedure ? `${request.procedure.code} - ${request.procedure.name}` : request.specialty?.name}
                   </span>
@@ -246,8 +246,8 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
               </div>
             </div>
 
-            <div className="p-4 bg-gray-50 dark:bg-gray-750 rounded-xl border border-gray-200 dark:border-gray-700">
-              <h4 className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-md border border-slate-200 dark:border-slate-800">
+              <h4 className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <FileText className="w-4 h-4 text-emerald-500" /> Hipótese Diagnóstica (CID-10)
               </h4>
               <div className="text-xs">
@@ -261,20 +261,20 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
           {/* Justificativa Clínica e Histórico */}
           <div className="space-y-3">
             <div>
-              <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                 Justificativa Clínica
               </h4>
-              <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed border border-gray-200 dark:border-gray-700">
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-md text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed border border-slate-200 dark:border-slate-800">
                 {request.clinicalJustification}
               </div>
             </div>
 
             {request.clinicalHistory && (
               <div>
-                <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                   Histórico Clínico e Tratamentos Prévios
                 </h4>
-                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed border border-gray-200 dark:border-gray-700">
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-md text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed border border-slate-200 dark:border-slate-800">
                   {request.clinicalHistory}
                 </div>
               </div>
@@ -284,8 +284,8 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
           {/* Anexos */}
           {request.attachments && request.attachments.length > 0 && (
             <div>
-              <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <Paperclip className="w-4 h-4 text-gray-500" /> Documentos e Exames Anexados ({request.attachments.length})
+              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Paperclip className="w-4 h-4 text-slate-500" /> Documentos e Exames Anexados ({request.attachments.length})
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {request.attachments.map((att) => (
@@ -294,13 +294,13 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
                     href={`${apiUrl}${att.fileUrl}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-xl text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20 transition group"
+                    className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-md text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20 transition group"
                   >
                     <div className="flex items-center space-x-2 truncate">
-                      <Paperclip className="w-4 h-4 text-gray-400 group-hover:text-blue-500" />
-                      <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{att.fileName}</span>
+                      <Paperclip className="w-4 h-4 text-slate-400 group-hover:text-blue-500" />
+                      <span className="font-medium text-slate-800 dark:text-slate-200 truncate">{att.fileName}</span>
                     </div>
-                    <Download className="w-4 h-4 text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
+                    <Download className="w-4 h-4 text-slate-400 group-hover:text-blue-500 flex-shrink-0" />
                   </a>
                 ))}
               </div>
@@ -308,20 +308,20 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
           )}
 
           {/* Histórico Completo de Auditoria */}
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-5">
-            <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4 flex items-center gap-1.5">
+          <div className="border-t border-slate-200 dark:border-slate-800 pt-4">
+            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <History className="w-4 h-4 text-blue-500" /> Trilha de Auditoria & Histórico de Trocas de Status
             </h4>
 
-            <div className="space-y-4 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200 dark:before:bg-gray-700">
+            <div className="space-y-3 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-700">
               {request.statusHistory?.map((hist, idx) => (
-                <div key={hist.id || idx} className="relative pl-8 text-xs">
-                  <div className="absolute left-1.5 top-1 w-3.5 h-3.5 rounded-full bg-blue-500 border-2 border-white dark:border-gray-800" />
+                <div key={hist.id || idx} className="relative pl-7 text-xs">
+                  <div className="absolute left-1.5 top-1 w-3.5 h-3.5 rounded-full bg-blue-500 border-2 border-white dark:border-slate-900" />
                   <div className="flex items-center space-x-2">
-                    <span className="font-bold text-gray-900 dark:text-white">
+                    <span className="font-bold text-slate-900 dark:text-white">
                       {hist.newStatus.replace('_', ' ')}
                     </span>
-                    <span className="text-[11px] text-gray-400">
+                    <span className="text-[11px] text-slate-400">
                       {new Date(hist.createdAt).toLocaleString('pt-BR')}
                     </span>
                     {hist.actionByUser && (
@@ -330,7 +330,7 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
                       </span>
                     )}
                   </div>
-                  <div className="mt-1 p-2 bg-gray-50 dark:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-300 italic">
+                  <div className="mt-1 p-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-300 italic">
                     "{hist.justification}"
                   </div>
                 </div>
@@ -340,11 +340,11 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+        <div className="flex items-center justify-end px-6 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50">
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition"
+            className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition cursor-pointer"
           >
             Fechar
           </button>
