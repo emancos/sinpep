@@ -22,7 +22,7 @@ import { EditPatient } from './pages/Patients/Edit';
 import { PatientDetails } from './pages/Patients/Details';
 import { DoctorsList } from './pages/Doctors';
 import { CreateOrEditDoctor } from './pages/Doctors/Create';
-import { AuxiliaryTables } from './pages/AuxiliaryTables';
+import { SpecialtiesPage } from './pages/Specialties';
 import { ProceduresList } from './pages/Procedures';
 import { MedicalHistory } from './pages/MedicalRecords/History';
 import { CreateRecord } from './pages/MedicalRecords/CreateRecord';
@@ -104,7 +104,8 @@ function App() {
                   
 
                   <Route element={<ProtectedRoute requiredPermission="procedure-groups:read" />}>
-                    <Route path="/auxiliary-tables" element={<AuxiliaryTables />} />
+                    <Route path="/specialties" element={<SpecialtiesPage />} />
+                    <Route path="/auxiliary-tables" element={<Navigate to="/specialties" replace />} />
                   </Route>
 
                   <Route element={<ProtectedRoute requiredPermission="procedures:read" />}>
