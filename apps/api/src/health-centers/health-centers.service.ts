@@ -23,6 +23,8 @@ export class HealthCentersService {
       cnes: createHealthCenterDto.cnes || '0000000',
       address: createHealthCenterDto.address ?? null,
       nurseName: createHealthCenterDto.nurseName ?? null,
+      stSolicitante: createHealthCenterDto.stSolicitante ?? true,
+      stExecutante: createHealthCenterDto.stExecutante ?? false,
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

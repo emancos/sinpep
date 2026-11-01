@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsBoolean } from 'class-validator';
 
 export class UpdateHealthCenterDto {
   @IsString()
@@ -16,4 +16,16 @@ export class UpdateHealthCenterDto {
   @IsString()
   @IsOptional()
   nurseName?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  stSolicitante?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  stExecutante?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  active?: boolean;
 }
