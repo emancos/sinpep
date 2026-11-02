@@ -617,62 +617,175 @@ export const ProcedureQuotasManager: React.FC<{
                         Nenhuma Unidade Básica de Saúde solicitante cadastrada.
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-                            <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-200 dark:border-slate-800">
-                                <tr>
-                                    <th className="px-4 py-3">Unidade Solicitante (UBS)</th>
-                                    <th className="px-4 py-3">CNES</th>
-                                    <th className="px-4 py-3 text-center">Tipo de Ajuste</th>
-                                    <th className="px-4 py-3 text-center">Cota Mensal</th>
-                                    <th className="px-4 py-3 text-center">Consumidas</th>
-                                    <th className="px-4 py-3 text-center">Saldo</th>
-                                    <th className="px-4 py-3 text-right">Ação</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {quotaMatrix.solicitors.map((s) => {
-                                    const currentVal = solicitorInputs[s.solicitingHealthCenterId] ?? s.monthlyQuota;
-                                    const saldo = Math.max(0, currentVal - s.usedQuota);
-                                    const isZero = currentVal === 0;
+                    <>
+                        {/* Visualização Desktop: Tabela clássica completa */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                                <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-200 dark:border-slate-800">
+                                    <tr>
+                                        <th className="px-4 py-3">Unidade Solicitante (UBS)</th>
+                                        <th className="px-4 py-3">CNES</th>
+                                        <th className="px-4 py-3 text-center">Tipo de Ajuste</th>
+                                        <th className="px-4 py-3 text-center">Cota Mensal</th>
+                                        <th className="px-4 py-3 text-center">Consumidas</th>
+                                        <th className="px-4 py-3 text-center">Saldo</th>
+                                        <th className="px-4 py-3 text-right">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {quotaMatrix.solicitors.map((s) => {
+                                        const currentVal = solicitorInputs[s.solicitingHealthCenterId] ?? s.monthlyQuota;
+                                        const saldo = Math.max(0, currentVal - s.usedQuota);
+                                        const isZero = currentVal === 0;
 
-                                    return (
-                                        <tr
-                                            key={s.solicitingHealthCenterId}
-                                            className={`hover:bg-slate-50/50 dark:hover:bg-slate-855/50 transition-colors ${
-                                                isZero ? 'bg-amber-50/30 dark:bg-amber-950/10' : ''
-                                            }`}
-                                        >
-                                            <td className="px-4 py-3.5 font-semibold text-slate-900 dark:text-white">
-                                                <div className="flex items-center gap-2">
-                                                    <span>{s.solicitingHealthCenterName}</span>
+                                        return (
+                                            <tr
+                                                key={s.solicitingHealthCenterId}
+                                                className={`hover:bg-slate-50/50 dark:hover:bg-slate-855/50 transition-colors ${
+                                                    isZero ? 'bg-amber-50/30 dark:bg-amber-950/10' : ''
+                                                }`}
+                                            >
+                                                <td className="px-4 py-3.5 font-semibold text-slate-900 dark:text-white">
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{s.solicitingHealthCenterName}</span>
+                                                        {isZero && (
+                                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 font-bold">
+                                                                Invisível (Cota 0)
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+
+                                                <td className="px-4 py-3.5 font-mono text-xs text-slate-500 dark:text-slate-400">
+                                                    {s.solicitingHealthCenterCnes || '-'}
+                                                </td>
+
+                                                <td className="px-4 py-3.5 text-center">
+                                                    {s.isManualAdjustment ? (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">
+                                                            <Lock className="w-3 h-3" />
+                                                            Manual
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                                                            <Unlock className="w-3 h-3" />
+                                                            Automático
+                                                        </span>
+                                                    )}
+                                                </td>
+
+                                                <td className="px-4 py-3.5 text-center">
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        value={currentVal}
+                                                        onChange={(e) => handleManualQuotaChange(
+                                                            s.solicitingHealthCenterId,
+                                                            Math.max(0, parseInt(e.target.value) || 0)
+                                                        )}
+                                                        className="w-20 px-2.5 py-1 text-center font-bold border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:border-blue-500"
+                                                    />
+                                                </td>
+
+                                                <td className="px-4 py-3.5 text-center font-semibold text-slate-500 dark:text-slate-400">
+                                                    {s.usedQuota}
+                                                </td>
+
+                                                <td className="px-4 py-3.5 text-center font-bold text-emerald-600 dark:text-emerald-400">
+                                                    {saldo}
+                                                </td>
+
+                                                <td className="px-4 py-3.5 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleApplyManualAdjustment(s.solicitingHealthCenterId)}
+                                                        disabled={rebalanceMutation.isPending}
+                                                        className="px-3 py-1 bg-slate-100 hover:bg-blue-600 hover:text-white dark:bg-slate-800 dark:hover:bg-blue-600 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded transition-colors shadow-sm cursor-pointer"
+                                                    >
+                                                        Ajustar
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Visualização Mobile: Cards estruturados e modernos */}
+                        <div className="md:hidden space-y-3 p-3.5 bg-slate-50/50 dark:bg-slate-950/40">
+                            {quotaMatrix.solicitors.map((s) => {
+                                const currentVal = solicitorInputs[s.solicitingHealthCenterId] ?? s.monthlyQuota;
+                                const saldo = Math.max(0, currentVal - s.usedQuota);
+                                const isZero = currentVal === 0;
+
+                                return (
+                                    <div
+                                        key={s.solicitingHealthCenterId}
+                                        className={`p-4 rounded-xl border bg-white dark:bg-slate-900 shadow-xs transition-all space-y-3 ${
+                                            isZero
+                                                ? 'border-amber-200 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-950/10'
+                                                : 'border-slate-200 dark:border-slate-800'
+                                        }`}
+                                    >
+                                        {/* Header do Card: Nome da UBS, CNES e Tipo de Ajuste */}
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <h5 className="font-bold text-slate-900 dark:text-white text-sm leading-snug break-words">
+                                                        {s.solicitingHealthCenterName}
+                                                    </h5>
                                                     {isZero && (
-                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 font-bold">
+                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 font-bold shrink-0">
                                                             Invisível (Cota 0)
                                                         </span>
                                                     )}
                                                 </div>
-                                            </td>
+                                                <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500 block mt-0.5">
+                                                    CNES: {s.solicitingHealthCenterCnes || '-'}
+                                                </span>
+                                            </div>
 
-                                            <td className="px-4 py-3.5 font-mono text-xs text-slate-500 dark:text-slate-400">
-                                                {s.solicitingHealthCenterCnes || '-'}
-                                            </td>
-
-                                            <td className="px-4 py-3.5 text-center">
+                                            {/* Badge Tipo de Ajuste */}
+                                            <div className="shrink-0">
                                                 {s.isManualAdjustment ? (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800/60 shadow-xs">
                                                         <Lock className="w-3 h-3" />
                                                         Manual
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 shadow-xs">
                                                         <Unlock className="w-3 h-3" />
                                                         Automático
                                                     </span>
                                                 )}
-                                            </td>
+                                            </div>
+                                        </div>
 
-                                            <td className="px-4 py-3.5 text-center">
+                                        {/* Métricas: Consumidas vs Saldo Disponível */}
+                                        <div className="grid grid-cols-2 gap-2 p-2.5 bg-slate-50 dark:bg-slate-950/60 rounded-lg border border-slate-100 dark:border-slate-800/80">
+                                            <div className="flex flex-col items-center justify-center p-1">
+                                                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Consumidas</span>
+                                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300 mt-0.5">
+                                                    {s.usedQuota}
+                                                    <span className="text-[11px] font-normal text-slate-400 ml-1">vagas</span>
+                                                </span>
+                                            </div>
+                                            <div className="flex flex-col items-center justify-center p-1 border-l border-slate-200 dark:border-slate-800">
+                                                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Saldo Disponível</span>
+                                                <span className={`text-sm font-bold mt-0.5 ${saldo === 0 ? 'text-slate-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                    {saldo}
+                                                    <span className="text-[11px] font-normal text-slate-400 ml-1">vagas</span>
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Ações e Input de Cota Mensal */}
+                                        <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                            <div className="flex items-center gap-2">
+                                                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                                                    Cota Mensal:
+                                                </label>
                                                 <input
                                                     type="number"
                                                     min={0}
@@ -681,34 +794,24 @@ export const ProcedureQuotasManager: React.FC<{
                                                         s.solicitingHealthCenterId,
                                                         Math.max(0, parseInt(e.target.value) || 0)
                                                     )}
-                                                    className="w-20 px-2.5 py-1 text-center font-bold border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:border-blue-500"
+                                                    className="w-20 px-2 py-1 text-center font-bold border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition"
                                                 />
-                                            </td>
+                                            </div>
 
-                                            <td className="px-4 py-3.5 text-center font-semibold text-slate-500 dark:text-slate-400">
-                                                {s.usedQuota}
-                                            </td>
-
-                                            <td className="px-4 py-3.5 text-center font-bold text-emerald-600 dark:text-emerald-400">
-                                                {saldo}
-                                            </td>
-
-                                            <td className="px-4 py-3.5 text-right">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleApplyManualAdjustment(s.solicitingHealthCenterId)}
-                                                    disabled={rebalanceMutation.isPending}
-                                                    className="px-3 py-1 bg-slate-100 hover:bg-blue-600 hover:text-white dark:bg-slate-800 dark:hover:bg-blue-600 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded transition-colors shadow-sm cursor-pointer"
-                                                >
-                                                    Ajustar
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleApplyManualAdjustment(s.solicitingHealthCenterId)}
+                                                disabled={rebalanceMutation.isPending}
+                                                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-lg text-xs font-semibold transition-all shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                                            >
+                                                <span>Ajustar</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
                 )}
             </div>
 
