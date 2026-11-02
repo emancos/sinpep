@@ -308,7 +308,7 @@ export const ProcedureIntegraSusForm: React.FC<{
     return (
         <form onSubmit={handleSubmit} className="space-y-6 max-w-6xl mx-auto">
             {/* CARD 1: PROCEDIMENTO */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-6 shadow-sm space-y-5">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6 shadow-sm space-y-5">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         Procedimento
@@ -579,16 +579,16 @@ export const ProcedureIntegraSusForm: React.FC<{
             </div>
 
             {/* CARD 2: PERÍODO DE VISUALIZAÇÃO DAS AGENDAS PARA */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-6 shadow-sm space-y-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6 shadow-sm space-y-4">
                 <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         Período de visualização das agendas para
                     </span>
                     <div className="relative group cursor-pointer inline-flex items-center">
-                        <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                             ?
                         </span>
-                        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-2.5 bg-slate-900 text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
+                        <div className="absolute left-0 sm:left-1/2 sm:-translate-x-1/2 bottom-full mb-2 w-64 sm:w-72 max-w-[calc(100vw-3rem)] p-2.5 bg-slate-900 text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
                             Tem o objetivo de a partir da disponibilidade da agenda, qual o periodo em que a agenda ficará disponível
                         </div>
                     </div>
@@ -680,16 +680,16 @@ export const ProcedureIntegraSusForm: React.FC<{
             </div>
 
             {/* CARD 3: DISPONIBILIZAÇÃO DAS AGENDAS PARA */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-6 shadow-sm space-y-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-6 shadow-sm space-y-4">
                 <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         Disponibilização das agendas para
                     </span>
                     <div className="relative group cursor-pointer inline-flex items-center">
-                        <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                             ?
                         </span>
-                        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-2.5 bg-slate-900 text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
+                        <div className="absolute left-0 sm:left-1/2 sm:-translate-x-1/2 bottom-full mb-2 w-64 sm:w-72 max-w-[calc(100vw-3rem)] p-2.5 bg-slate-900 text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
                             A partir de quantos dias a agenda ficará visível
                         </div>
                     </div>
@@ -755,12 +755,12 @@ export const ProcedureIntegraSusForm: React.FC<{
             </div>
 
             {/* BOTÕES DE AÇÃO DO RODAPÉ */}
-            <div className="flex items-center justify-between pt-2">
-                <div className="flex items-center gap-4">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                <div className="flex items-center gap-4 justify-between sm:justify-start">
                     <button
                         type="submit"
                         disabled={createProcMutation.isPending || updateProcMutation.isPending}
-                        className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-xs uppercase tracking-wider transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                        className="flex-1 sm:flex-initial px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-xs uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                         {(createProcMutation.isPending || updateProcMutation.isPending) && (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -771,7 +771,7 @@ export const ProcedureIntegraSusForm: React.FC<{
                     <button
                         type="button"
                         onClick={handleClear}
-                        className="text-xs font-bold uppercase tracking-wider text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                        className="text-xs font-bold uppercase tracking-wider text-blue-600 hover:text-blue-700 hover:underline cursor-pointer px-2 py-1"
                     >
                         LIMPAR
                     </button>
@@ -780,7 +780,7 @@ export const ProcedureIntegraSusForm: React.FC<{
                 <button
                     type="button"
                     onClick={handleBack}
-                    className="text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
+                    className="text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer text-center sm:text-right py-1"
                 >
                     VOLTAR
                 </button>

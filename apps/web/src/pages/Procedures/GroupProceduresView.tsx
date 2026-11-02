@@ -157,11 +157,11 @@ export const GroupProceduresView: React.FC<{
                     </div>
 
                     {/* Ações em lote */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                         <button
                             type="button"
                             onClick={() => handleBatchToggle(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded text-xs font-semibold transition-colors"
+                            className="flex-1 sm:flex-initial justify-center flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer"
                         >
                             <Check className="w-3.5 h-3.5" />
                             Habilitar Todos
@@ -170,7 +170,7 @@ export const GroupProceduresView: React.FC<{
                         <button
                             type="button"
                             onClick={() => handleBatchToggle(false)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded text-xs font-semibold transition-colors"
+                            className="flex-1 sm:flex-initial justify-center flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer"
                         >
                             <X className="w-3.5 h-3.5" />
                             Desabilitar Todos
@@ -180,7 +180,7 @@ export const GroupProceduresView: React.FC<{
                             <button
                                 type="button"
                                 onClick={() => onOpenGroupQuotas(groupId)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded text-xs font-semibold transition-colors shadow-xs cursor-pointer ml-1"
+                                className="flex-1 sm:flex-initial justify-center flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded text-xs font-semibold transition-colors shadow-xs cursor-pointer whitespace-nowrap"
                                 title="Configurar capacidade e matriz de cotas para este grupo"
                             >
                                 <Divide className="w-3.5 h-3.5" />
@@ -192,7 +192,7 @@ export const GroupProceduresView: React.FC<{
                             <button
                                 type="button"
                                 onClick={() => onAddNewProcedure(groupId)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold transition-colors shadow-sm cursor-pointer ml-1"
+                                className="flex-1 sm:flex-initial justify-center flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold transition-colors shadow-sm cursor-pointer whitespace-nowrap"
                             >
                                 <Plus className="w-3.5 h-3.5" />
                                 Novo Procedimento
@@ -203,16 +203,16 @@ export const GroupProceduresView: React.FC<{
 
                 {/* Seletor da Executante e Filtros */}
                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex items-center gap-2">
-                            <Building2 className="w-4 h-4 text-slate-400" />
+                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                            <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
                             <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">
                                 Unidade Executante:
                             </label>
                             <select
                                 value={selectedExecutingId}
                                 onChange={(e) => setSelectedExecutingId(e.target.value)}
-                                className="px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                                className="w-full sm:w-auto max-w-full sm:max-w-xs px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                             >
                                 {fallbackExecutingUnits.map(h => (
                                     <option key={h.id} value={h.id}>
@@ -223,14 +223,14 @@ export const GroupProceduresView: React.FC<{
                         </div>
 
                         {/* Opção para listar apenas itens ativos do grupo de procedimentos */}
-                        <label className="flex items-center gap-2 cursor-pointer select-none bg-slate-50 dark:bg-slate-950/80 px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                        <label className="flex items-center gap-2 cursor-pointer select-none bg-slate-50 dark:bg-slate-950/80 px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors w-full sm:w-auto justify-center sm:justify-start">
                             <input
                                 type="checkbox"
                                 checked={showOnlyActive}
                                 onChange={(e) => setShowOnlyActive(e.target.checked)}
                                 className="rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
                             />
-                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                                 Listar apenas procedimentos ativos
                             </span>
                         </label>

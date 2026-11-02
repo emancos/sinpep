@@ -327,12 +327,12 @@ export const ProcedureQuotasManager: React.FC<{
     return (
         <div className="space-y-6 max-w-6xl mx-auto">
             {/* Header & Seleção */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm space-y-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 sm:p-5 shadow-sm space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
+                    <div className="min-w-0 flex-1">
                         <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            <Divide className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                            Distribuição e Matriz de Cotas Mensais
+                            <Divide className="w-6 h-6 text-blue-600 dark:text-blue-400 shrink-0" />
+                            <span className="break-words">Distribuição e Matriz de Cotas Mensais</span>
                         </h2>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                             Defina a capacidade da unidade executante e o rateio automático/manual entre as unidades solicitantes (UBSs), por procedimento individual ou por grupo de procedimentos.
@@ -340,11 +340,11 @@ export const ProcedureQuotasManager: React.FC<{
                     </div>
 
                     {/* Alternador de Modo: Por Procedimento vs Por Grupo */}
-                    <div className="shrink-0 flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 self-start sm:self-center">
+                    <div className="w-full sm:w-auto shrink-0 flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 self-start sm:self-center">
                         <button
                             type="button"
                             onClick={() => setConfigMode('procedure')}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                            className={`flex-1 sm:flex-initial justify-center flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                                 configMode === 'procedure'
                                     ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
                                     : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
@@ -357,7 +357,7 @@ export const ProcedureQuotasManager: React.FC<{
                         <button
                             type="button"
                             onClick={() => setConfigMode('group')}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                            className={`flex-1 sm:flex-initial justify-center flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                                 configMode === 'group'
                                     ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
                                     : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
@@ -448,10 +448,10 @@ export const ProcedureQuotasManager: React.FC<{
             </div>
 
             {/* Painel de Capacidade da Unidade Executante */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-850 border border-blue-200 dark:border-slate-800 rounded-lg p-5 shadow-sm space-y-4">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-850 border border-blue-200 dark:border-slate-800 rounded-lg p-4 sm:p-5 shadow-sm space-y-4">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                    <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1 w-full">
+                        <div className="flex flex-wrap items-center gap-2">
                             <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 block">
                                 Capacidade Mensal do Serviço
                             </span>
@@ -459,10 +459,10 @@ export const ProcedureQuotasManager: React.FC<{
                                 {configMode === 'group' ? 'Cotas do Grupo' : 'Cotas Individuais'}
                             </span>
                         </div>
-                        <h3 className="text-lg font-black text-slate-900 dark:text-white mt-0.5 truncate" title={selectedExecutingObj?.name}>
+                        <h3 className="text-lg font-black text-slate-900 dark:text-white mt-0.5 break-words" title={selectedExecutingObj?.name}>
                             {selectedExecutingObj?.name || 'Unidade Executante'}
                         </h3>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 truncate max-w-2xl" title={configMode === 'group' ? selectedGroupObj?.name : selectedProcedureObj?.name}>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 break-words max-w-2xl" title={configMode === 'group' ? selectedGroupObj?.name : selectedProcedureObj?.name}>
                             {configMode === 'group' ? (
                                 <>Grupo: <strong>{selectedGroupObj?.name}</strong> ({groupProceduresCount} procedimentos vinculados)</>
                             ) : (
@@ -472,11 +472,11 @@ export const ProcedureQuotasManager: React.FC<{
                     </div>
 
                     {/* Ações da Capacidade */}
-                    <div className="shrink-0 flex flex-wrap sm:flex-nowrap items-center gap-2 self-start lg:self-center">
+                    <div className="w-full lg:w-auto shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-nowrap items-center gap-2 self-start lg:self-center">
                         <button
                             type="button"
                             onClick={handleOpenReallocateModal}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm cursor-pointer whitespace-nowrap"
+                            className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm cursor-pointer whitespace-nowrap w-full sm:w-auto"
                             title="Remanejar vagas ociosas para unidades com pacientes em fila de espera"
                         >
                             <ArrowRightLeft className="w-3.5 h-3.5" />
@@ -486,20 +486,20 @@ export const ProcedureQuotasManager: React.FC<{
                         <button
                             type="button"
                             onClick={() => setShowHistoryModal(true)}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold transition-colors shadow-xs cursor-pointer whitespace-nowrap"
+                            className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold transition-colors shadow-xs cursor-pointer whitespace-nowrap w-full sm:w-auto"
                             title="Ver histórico de auditoria de remanejamentos"
                         >
                             <History className="w-3.5 h-3.5 text-slate-500" />
                             Histórico
                         </button>
 
-                        <div className="h-6 w-px bg-blue-200 dark:bg-slate-700 hidden sm:block mx-0.5" />
+                        <div className="h-6 w-px bg-blue-200 dark:bg-slate-700 hidden lg:block mx-0.5" />
 
                         <button
                             type="button"
                             onClick={handleAutoDistribute}
                             disabled={autoDistributeMutation.isPending || executingCapacity <= 0}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                            className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm disabled:opacity-50 cursor-pointer whitespace-nowrap w-full sm:w-auto"
                             title="Distribuir capacidade igualmente entre todas as unidades solicitantes"
                         >
                             <RefreshCw className={`w-3.5 h-3.5 ${autoDistributeMutation.isPending ? 'animate-spin' : ''}`} />
@@ -510,7 +510,7 @@ export const ProcedureQuotasManager: React.FC<{
                             type="button"
                             onClick={handleSaveExecutingCapacity}
                             disabled={isSaving}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition-colors shadow-sm disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                            className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition-colors shadow-sm disabled:opacity-50 cursor-pointer whitespace-nowrap w-full sm:w-auto"
                             title="Salvar alterações na capacidade mensal ofertada"
                         >
                             <Save className="w-3.5 h-3.5" />
@@ -714,19 +714,19 @@ export const ProcedureQuotasManager: React.FC<{
 
             {/* Modal: Remanejamento Automático de Vagas Ociosas */}
             {showReallocateModal && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         {/* Modal Header */}
-                        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-slate-900 dark:to-slate-850">
-                            <div className="flex items-center gap-2.5">
-                                <div className="p-2 rounded-lg bg-purple-600 text-white shadow-xs">
+                        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-slate-900 dark:to-slate-850">
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <div className="p-2 rounded-lg bg-purple-600 text-white shadow-xs shrink-0">
                                     <ArrowRightLeft className="w-5 h-5" />
                                 </div>
-                                <div>
-                                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="text-base font-bold text-slate-900 dark:text-white truncate">
                                         Remanejamento Automático de Vagas Ociosas
                                     </h3>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                                         Identifica sobras não utilizadas e redistribui para unidades com fila reprimida.
                                     </p>
                                 </div>
@@ -737,25 +737,25 @@ export const ProcedureQuotasManager: React.FC<{
                                     setShowReallocateModal(false);
                                     setPreviewData(null);
                                 }}
-                                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0 ml-2"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
                         {/* Modal Body */}
-                        <div className="p-6 space-y-5 overflow-y-auto flex-1">
+                        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1">
                             {/* Escopo do Remanejamento */}
-                            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-lg border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between">
+                            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-lg border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                 <div>
                                     <span className="font-semibold text-slate-500 uppercase text-[10px] block">Unidade Executante:</span>
-                                    <strong className="text-slate-900 dark:text-white">{selectedExecutingObj?.name}</strong>
+                                    <strong className="text-slate-900 dark:text-white break-words">{selectedExecutingObj?.name}</strong>
                                 </div>
-                                <div className="text-right">
+                                <div className="text-left sm:text-right">
                                     <span className="font-semibold text-slate-500 uppercase text-[10px] block">
                                         {configMode === 'group' ? 'Grupo Selecionado:' : 'Procedimento Selecionado:'}
                                     </span>
-                                    <strong className="text-purple-700 dark:text-purple-400">
+                                    <strong className="text-purple-700 dark:text-purple-400 break-words">
                                         {configMode === 'group' ? selectedGroupObj?.name : selectedProcedureObj?.name}
                                     </strong>
                                 </div>
@@ -848,7 +848,7 @@ export const ProcedureQuotasManager: React.FC<{
                                 ) : previewData ? (
                                     <div className="space-y-4">
                                         {/* Cards Métricas */}
-                                        <div className="grid grid-cols-3 gap-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                                             <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-100 dark:border-purple-900/40 text-center">
                                                 <span className="text-[10px] uppercase font-bold text-purple-600 dark:text-purple-400 block">
                                                     Pool Ocioso Identificado
@@ -960,14 +960,14 @@ export const ProcedureQuotasManager: React.FC<{
                         </div>
 
                         {/* Modal Footer */}
-                        <div className="px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60">
+                        <div className="px-4 sm:px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-slate-50 dark:bg-slate-900/60">
                             <button
                                 type="button"
                                 onClick={() => {
                                     setShowReallocateModal(false);
                                     setPreviewData(null);
                                 }}
-                                className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-md text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                                className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-md text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer w-full sm:w-auto text-center"
                             >
                                 Cancelar
                             </button>
@@ -981,7 +981,7 @@ export const ProcedureQuotasManager: React.FC<{
                                     previewData.reallocatedSlots === 0 ||
                                     !reallocateJustification.trim()
                                 }
-                                className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                                className="flex items-center justify-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm disabled:opacity-50 cursor-pointer w-full sm:w-auto text-center"
                             >
                                 <ArrowRightLeft className={`w-3.5 h-3.5 ${executeReallocateMutation.isPending ? 'animate-spin' : ''}`} />
                                 {executeReallocateMutation.isPending ? 'Aplicando Remanejamento...' : 'Confirmar e Aplicar Remanejamento'}
@@ -993,16 +993,16 @@ export const ProcedureQuotasManager: React.FC<{
 
             {/* Modal: Histórico de Auditoria de Remanejamentos */}
             {showHistoryModal && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-850">
-                            <div className="flex items-center gap-2">
-                                <History className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                                <div>
-                                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-850">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <History className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="text-base font-bold text-slate-900 dark:text-white truncate">
                                         Histórico de Remanejamentos de Vagas
                                     </h3>
-                                    <p className="text-xs text-slate-500">
+                                    <p className="text-xs text-slate-500 truncate">
                                         Registro de auditoria dos remanejamentos automáticos e manuais de vagas ociosas.
                                     </p>
                                 </div>
@@ -1010,13 +1010,13 @@ export const ProcedureQuotasManager: React.FC<{
                             <button
                                 type="button"
                                 onClick={() => setShowHistoryModal(false)}
-                                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0 ml-2"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <div className="p-6 overflow-y-auto flex-1 space-y-3">
+                        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3">
                             {loadingHistory ? (
                                 <div className="py-12 text-center text-slate-400 flex flex-col items-center justify-center gap-2">
                                     <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
@@ -1036,14 +1036,14 @@ export const ProcedureQuotasManager: React.FC<{
                                     return (
                                         <div
                                             key={item.id}
-                                            className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50/50 dark:bg-slate-950/40 space-y-3"
+                                            className="border border-slate-200 dark:border-slate-800 rounded-lg p-3 sm:p-4 bg-slate-50/50 dark:bg-slate-950/40 space-y-3"
                                         >
                                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex flex-wrap items-center gap-2">
                                                     <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">
                                                         {item.reallocatedSlots} Vaga(s)
                                                     </span>
-                                                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                                                    <span className="text-xs font-bold text-slate-900 dark:text-white break-words">
                                                         {item.procedure?.name || item.procedureGroup?.name || 'Procedimento Geral'}
                                                     </span>
                                                     <span className="text-[10px] text-slate-400">
@@ -1051,7 +1051,7 @@ export const ProcedureQuotasManager: React.FC<{
                                                     </span>
                                                 </div>
 
-                                                <div className="flex items-center gap-3 text-xs text-slate-500">
+                                                <div className="flex items-center justify-between sm:justify-end gap-3 text-xs text-slate-500 w-full sm:w-auto">
                                                     <span>{dateStr}</span>
                                                     <button
                                                         type="button"
@@ -1068,7 +1068,7 @@ export const ProcedureQuotasManager: React.FC<{
                                             </div>
 
                                             {item.justification && (
-                                                <p className="text-xs text-slate-600 dark:text-slate-300 italic bg-white dark:bg-slate-900 p-2 rounded border border-slate-100 dark:border-slate-800">
+                                                <p className="text-xs text-slate-600 dark:text-slate-300 italic bg-white dark:bg-slate-900 p-2 rounded border border-slate-100 dark:border-slate-800 break-words">
                                                     "{item.justification}"
                                                 </p>
                                             )}
@@ -1080,9 +1080,9 @@ export const ProcedureQuotasManager: React.FC<{
                                                             Cedentes ({sources.length}):
                                                         </span>
                                                         {sources.map((s: any, idx: number) => (
-                                                            <div key={idx} className="flex justify-between text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-1.5 rounded">
-                                                                <span className="truncate max-w-[200px]">{s.name}</span>
-                                                                <span className="font-bold text-rose-600">-{s.deducted}</span>
+                                                            <div key={idx} className="flex justify-between text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-1.5 rounded gap-2">
+                                                                <span className="truncate max-w-[150px] sm:max-w-[200px]">{s.name}</span>
+                                                                <span className="font-bold text-rose-600 shrink-0">-{s.deducted}</span>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -1092,9 +1092,9 @@ export const ProcedureQuotasManager: React.FC<{
                                                             Beneficiadas ({targets.length}):
                                                         </span>
                                                         {targets.map((t: any, idx: number) => (
-                                                            <div key={idx} className="flex justify-between text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-1.5 rounded">
-                                                                <span className="truncate max-w-[200px]">{t.name}</span>
-                                                                <span className="font-bold text-emerald-600">+{t.added}</span>
+                                                            <div key={idx} className="flex justify-between text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-1.5 rounded gap-2">
+                                                                <span className="truncate max-w-[150px] sm:max-w-[200px]">{t.name}</span>
+                                                                <span className="font-bold text-emerald-600 shrink-0">+{t.added}</span>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -1106,11 +1106,11 @@ export const ProcedureQuotasManager: React.FC<{
                             )}
                         </div>
 
-                        <div className="px-6 py-3 border-t border-slate-100 dark:border-slate-800 flex justify-end bg-slate-50 dark:bg-slate-900/60">
+                        <div className="px-4 sm:px-6 py-3 border-t border-slate-100 dark:border-slate-800 flex justify-end bg-slate-50 dark:bg-slate-900/60">
                             <button
                                 type="button"
                                 onClick={() => setShowHistoryModal(false)}
-                                className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-md text-xs font-semibold transition-colors cursor-pointer"
+                                className="w-full sm:w-auto px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-md text-xs font-semibold transition-colors cursor-pointer text-center"
                             >
                                 Fechar
                             </button>

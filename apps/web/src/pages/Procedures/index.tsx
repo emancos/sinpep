@@ -222,24 +222,24 @@ export const ProceduresList: React.FC = () => {
         <div className="space-y-6">
             {/* Header Geral do Hub */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
+                <div className="min-w-0 flex-1">
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <FolderKanban className="w-7 h-7 text-blue-600 dark:text-blue-400" />
-                        Central de Procedimentos & Cotas
+                        <FolderKanban className="w-7 h-7 text-blue-600 dark:text-blue-400 shrink-0" />
+                        <span className="break-words">Central de Procedimentos & Cotas</span>
                     </h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                         Gerenciamento unificado de procedimentos, grupos, integração SIGTAP, matriz de cotas e preparos clínicos
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                     <button
                         type="button"
                         onClick={() => {
                             setSelectedProcedureId('');
                             setActiveTab('integra-sus');
                         }}
-                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm w-full sm:w-auto cursor-pointer"
                     >
                         <Plus className="w-4 h-4" />
                         Novo Procedimento
@@ -248,7 +248,7 @@ export const ProceduresList: React.FC = () => {
             </div>
 
             {/* Navigation Tabs Bar */}
-            <div className="flex border-b border-slate-200 dark:border-slate-800 gap-1 overflow-x-auto">
+            <div className="flex border-b border-slate-200 dark:border-slate-800 gap-1 overflow-x-auto pb-px scrollbar-none">
                 <button
                     onClick={() => setActiveTab('procedures')}
                     className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap cursor-pointer ${activeTab === 'procedures'
@@ -319,7 +319,7 @@ export const ProceduresList: React.FC = () => {
             {activeTab === 'procedures' && (
                 <div className="space-y-4">
                     {/* Barra de Filtros */}
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3 sm:p-4 flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-center justify-between shadow-sm">
                         <div className="flex flex-1 flex-col sm:flex-row gap-3 w-full">
                             {/* Input de Busca */}
                             <div className="relative flex-1">
@@ -337,7 +337,7 @@ export const ProceduresList: React.FC = () => {
                             <select
                                 value={selectedFilterGroup}
                                 onChange={(e) => { setSelectedFilterGroup(e.target.value); setPage(1); }}
-                                className="px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 min-w-[200px]"
+                                className="px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 w-full sm:w-auto sm:min-w-[200px]"
                             >
                                 <option value="">Todos os Grupos</option>
                                 {(groups || []).filter(g => g.isActive).map(g => (
@@ -511,8 +511,8 @@ export const ProceduresList: React.FC = () => {
             {/* TAB 2: GRUPOS DE PROCEDIMENTOS */}
             {activeTab === 'groups' && (
                 <div className="space-y-4">
-                    <div className="flex justify-between items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 shadow-sm">
-                        <div>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 shadow-sm">
+                        <div className="min-w-0 flex-1">
                             <h3 className="text-base font-bold text-slate-900 dark:text-white">
                                 Grupos de Procedimentos & Exames
                             </h3>
@@ -521,16 +521,16 @@ export const ProceduresList: React.FC = () => {
                             </p>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full sm:w-auto">
                             {/* Opção para listar apenas grupos ativos */}
-                            <label className="flex items-center gap-2 cursor-pointer select-none bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                            <label className="flex items-center gap-2 cursor-pointer select-none bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex-1 sm:flex-initial justify-center">
                                 <input
                                     type="checkbox"
                                     checked={showOnlyActiveGroups}
                                     onChange={(e) => setShowOnlyActiveGroups(e.target.checked)}
                                     className="rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
                                 />
-                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                                     Listar apenas grupos ativos
                                 </span>
                             </label>
@@ -539,7 +539,7 @@ export const ProceduresList: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={handleOpenCreateGroup}
-                                    className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                                    className="flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm w-full sm:w-auto whitespace-nowrap cursor-pointer"
                                 >
                                     <Plus className="w-4 h-4" />
                                     Novo Grupo
@@ -552,15 +552,15 @@ export const ProceduresList: React.FC = () => {
                         {(groups || []).filter(grp => showOnlyActiveGroups ? grp.isActive : true).map((grp) => (
                             <div
                                 key={grp.id}
-                                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm space-y-4 hover:border-blue-300 dark:hover:border-blue-700 transition-all"
+                                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm space-y-4 hover:border-blue-300 dark:hover:border-blue-700 transition-all overflow-hidden"
                             >
-                                <div className="flex items-start justify-between">
-                                    <div className="flex items-center gap-2.5">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                         <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center shrink-0">
                                             <Layers className="w-5 h-5" />
                                         </div>
-                                        <div>
-                                            <h4 className="font-bold text-slate-900 dark:text-white text-base">
+                                        <div className="min-w-0 flex-1">
+                                            <h4 className="font-bold text-slate-900 dark:text-white text-base break-words">
                                                 {grp.name}
                                             </h4>
                                             <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded mt-0.5 ${grp.isActive
