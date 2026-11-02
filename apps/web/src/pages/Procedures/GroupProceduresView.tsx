@@ -16,7 +16,8 @@ import {
     Loader2,
     Check,
     X,
-    Power
+    Power,
+    Plus
 } from 'lucide-react';
 
 export const GroupProceduresView: React.FC<{
@@ -26,13 +27,15 @@ export const GroupProceduresView: React.FC<{
     onOpenPreparation: (procedureId: string) => void;
     onOpenQuotas: (procedureId: string, executingId?: string) => void;
     onEditProcedure: (procedureId: string) => void;
+    onAddNewProcedure?: (groupId: string) => void;
 }> = ({
     groupId,
     groupName,
     onBack,
     onOpenPreparation,
     onOpenQuotas,
-    onEditProcedure
+    onEditProcedure,
+    onAddNewProcedure
 }) => {
     // Filtro de ativos do grupo
     const [showOnlyActive, setShowOnlyActive] = useState(true);
@@ -170,6 +173,17 @@ export const GroupProceduresView: React.FC<{
                             <X className="w-3.5 h-3.5" />
                             Desabilitar Todos
                         </button>
+
+                        {onAddNewProcedure && (
+                            <button
+                                type="button"
+                                onClick={() => onAddNewProcedure(groupId)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold transition-colors shadow-sm cursor-pointer ml-1"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                Novo Procedimento
+                            </button>
+                        )}
                     </div>
                 </div>
 

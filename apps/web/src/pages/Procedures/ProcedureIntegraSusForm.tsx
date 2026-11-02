@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import axios from 'axios';
 import {
     useProcedure,
     useProcedureGroups,
@@ -12,11 +13,13 @@ import { toast } from 'sonner';
 import {
     Search,
     Loader2,
-    HelpCircle,
     Plus,
     X,
-    Database
+    Database,
+    Layers
 } from 'lucide-react';
+
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 interface ProcedureFormState {
     code: string;
@@ -56,7 +59,7 @@ const defaultValues: ProcedureFormState = {
     minAge: 0,
     maxAge: 120,
     consumptionType: 'Por paciente',
-    sigtapValue: '0.00',
+    sigtapValue: '0,00',
     regulatorRespectsQuota: true,
 
     viewScheduleFirstTimeDays: 10,
@@ -72,18 +75,23 @@ const defaultValues: ProcedureFormState = {
 
 export const ProcedureIntegraSusForm: React.FC<{
     procedureIdProp?: string;
+    procedureGroupIdProp?: string;
     onSuccessProp?: () => void;
     onBackProp?: () => void;
-}> = ({ procedureIdProp, onSuccessProp, onBackProp }) => {
+}> = ({ procedureIdProp, procedureGroupIdProp, onSuccessProp, onBackProp }) => {
     const { id: routeId } = useParams<{ id: string }>();
     const procedureId = procedureIdProp || routeId;
     const isEditMode = !!procedureId;
     const navigate = useNavigate();
 
-    const [form, setForm] = useState<ProcedureFormState>(defaultValues);
+    const [form, setForm] = useState<ProcedureFormState>(() => ({
+        ...defaultValues,
+        procedureGroupId: procedureGroupIdProp || '',
+    }));
     const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [enableSearchQuery, setEnableSearchQuery] = useState(false);
+    const [isDirectSearching, setIsDirectSearching] = useState(false);
 
     // Criação rápida de grupo inline
     const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
@@ -100,9 +108,19 @@ export const ProcedureIntegraSusForm: React.FC<{
         enableSearchQuery
     );
 
+    // Atualiza grupo padrão caso passado por prop
+    useEffect(() => {
+        if (procedureGroupIdProp && !form.procedureGroupId) {
+            setForm(prev => ({ ...prev, procedureGroupId: procedureGroupIdProp }));
+        }
+    }, [procedureGroupIdProp, form.procedureGroupId]);
+
     // Preenche se estiver em modo de edição
     useEffect(() => {
         if (isEditMode && procedureData) {
+            const valNum = Number(procedureData.sigtapValue || 0);
+            const formattedVal = valNum.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
             setForm({
                 code: procedureData.code || '',
                 name: procedureData.name || '',
@@ -114,7 +132,7 @@ export const ProcedureIntegraSusForm: React.FC<{
                 minAge: procedureData.minAge ?? 0,
                 maxAge: procedureData.maxAge ?? 120,
                 consumptionType: procedureData.consumptionType || 'Por paciente',
-                sigtapValue: procedureData.sigtapValue || '0.00',
+                sigtapValue: formattedVal,
                 regulatorRespectsQuota: procedureData.regulatorRespectsQuota ?? true,
 
                 viewScheduleFirstTimeDays: procedureData.viewScheduleFirstTimeDays ?? 10,
@@ -134,22 +152,68 @@ export const ProcedureIntegraSusForm: React.FC<{
         setForm(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleOpenSearchModal = () => {
-        setSearchTerm(form.code || form.name || '');
-        setEnableSearchQuery(true);
+    const handleOpenSearchModal = (initialQuery?: string) => {
+        const queryToUse = initialQuery !== undefined ? initialQuery : (form.code || form.name || '');
+        setSearchTerm(queryToUse);
+        setEnableSearchQuery(queryToUse.length >= 2);
         setIsSearchModalOpen(true);
     };
 
+    const handleDirectCodeSearch = async () => {
+        const query = form.code.trim();
+        if (!query) {
+            handleOpenSearchModal('');
+            return;
+        }
+
+        setIsDirectSearching(true);
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.get(`${apiUrl}/procedures/integra-sus/search`, {
+                params: { query },
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            const results = response.data || [];
+            if (Array.isArray(results) && results.length === 1) {
+                handleSelectIntegraSusItem(results[0]);
+            } else if (Array.isArray(results) && results.length > 1) {
+                handleOpenSearchModal(query);
+            } else {
+                toast.info(`Nenhum procedimento encontrado para "${query}". Abrindo busca geral...`);
+                handleOpenSearchModal(query);
+            }
+        } catch {
+            handleOpenSearchModal(query);
+        } finally {
+            setIsDirectSearching(false);
+        }
+    };
+
     const handleSelectIntegraSusItem = (item: any) => {
-        // Mapeia os dados do INTEGRA SUS para o formulário
+        const rawCode = item.co_procedimento || item.codigo || item.code || '';
+        const rawName = item.no_procedimento || item.nome || item.name || '';
+        const rawVal = item.vl_sa !== undefined ? Number(item.vl_sa) : (item.valor ? Number(item.valor) : 0);
+        const formattedVal = rawVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        // Tenta auto-selecionar o grupo pelos 2 primeiros dígitos do código SUS
+        let matchedGroupId = form.procedureGroupId;
+        if (rawCode && (!matchedGroupId || matchedGroupId === '')) {
+            const groupCodePrefix = String(rawCode).padStart(10, '0').substring(0, 2);
+            const foundGroup = (groups || []).find(g => g.groupCode === groupCodePrefix);
+            if (foundGroup) {
+                matchedGroupId = foundGroup.id;
+            }
+        }
+
         setForm(prev => ({
             ...prev,
-            code: item.co_procedimento || item.codigo || item.code || prev.code,
-            name: item.no_procedimento || item.nome || item.name || prev.name,
+            code: rawCode || prev.code,
+            name: rawName || prev.name,
+            procedureGroupId: matchedGroupId || prev.procedureGroupId,
             genderAllowed: item.tp_sexo === 'M' ? 'MASCULINO' : item.tp_sexo === 'F' ? 'FEMININO' : 'AMBOS',
             minAge: item.nu_idade_minima !== undefined ? Math.floor(item.nu_idade_minima / 12) : prev.minAge,
             maxAge: item.nu_idade_maxima !== undefined ? Math.floor(item.nu_idade_maxima / 12) : prev.maxAge,
-            sigtapValue: item.vl_sa ? Number(item.vl_sa).toFixed(2) : prev.sigtapValue,
+            sigtapValue: formattedVal,
         }));
         setIsSearchModalOpen(false);
         toast.success('Procedimento importado com sucesso da INTEGRA SUS API!');
@@ -183,8 +247,16 @@ export const ProcedureIntegraSusForm: React.FC<{
             return;
         }
 
+        // Sanitiza o valor do SIGTAP para numérico
+        const cleanVal = String(form.sigtapValue || '0')
+            .replace('R$', '')
+            .trim()
+            .replace(/\./g, '')
+            .replace(',', '.');
+
         const payload: any = {
             ...form,
+            sigtapValue: cleanVal || '0.00',
             minAge: Number(form.minAge),
             maxAge: Number(form.maxAge),
             maxReturns: Number(form.maxReturns),
@@ -221,7 +293,10 @@ export const ProcedureIntegraSusForm: React.FC<{
     };
 
     const handleClear = () => {
-        setForm(defaultValues);
+        setForm({
+            ...defaultValues,
+            procedureGroupId: procedureGroupIdProp || '',
+        });
         toast.info('Formulário limpo.');
     };
 
@@ -238,93 +313,97 @@ export const ProcedureIntegraSusForm: React.FC<{
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         Procedimento
                     </span>
-                    <button
-                        type="button"
-                        onClick={handleOpenSearchModal}
-                        className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 rounded text-xs font-semibold transition-colors"
-                    >
-                        <Database className="w-3.5 h-3.5" />
-                        Buscar no INTEGRA SUS
-                    </button>
                 </div>
 
                 {/* Linha 1: Código Interno, Nome, Exige Regulação */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
                     {/* Código Interno com botão de busca */}
-                    <div className="md:col-span-3">
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    <div className="lg:col-span-3">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             Código Interno <span className="text-rose-500">*</span>
                         </label>
-                        <div className="relative">
+                        <div className="relative flex items-center">
                             <input
                                 type="text"
                                 value={form.code}
                                 onChange={(e) => handleInputChange('code', e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleDirectCodeSearch();
+                                    }
+                                }}
                                 placeholder="00.00.00.000-0"
-                                className="w-full pl-3 pr-9 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                                className="w-full pl-3 pr-10 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                             />
                             <button
                                 type="button"
-                                onClick={handleOpenSearchModal}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 p-1"
-                                title="Buscar na INTEGRA SUS API"
+                                onClick={handleDirectCodeSearch}
+                                disabled={isDirectSearching}
+                                className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded transition-colors cursor-pointer"
+                                title="Buscar na INTEGRA SUS API (Enter)"
                             >
-                                <Search className="w-4 h-4" />
+                                {isDirectSearching ? (
+                                    <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                                ) : (
+                                    <Search className="w-4 h-4" />
+                                )}
                             </button>
                         </div>
                     </div>
 
                     {/* Nome do Procedimento */}
-                    <div className="md:col-span-6">
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    <div className="lg:col-span-6">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             Nome do procedimento <span className="text-rose-500">*</span>
                         </label>
                         <input
                             type="text"
                             value={form.name}
                             onChange={(e) => handleInputChange('name', e.target.value)}
-                            placeholder="Ex: CONSULTA MÉDICA EM ATENÇÃO ESPECIALIZADA"
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 uppercase"
+                            placeholder="Nome do procedimento"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 uppercase"
                         />
                     </div>
 
-                    {/* Exige regulação (Toggle) */}
-                    <div className="md:col-span-3 flex items-center justify-start md:justify-end gap-3 pb-2">
+                    {/* Exige regulação (Toggle Switch) */}
+                    <div className="lg:col-span-3 flex items-center gap-3 pb-2">
                         <button
                             type="button"
                             role="switch"
                             aria-checked={form.requiresRegulation}
                             onClick={() => handleInputChange('requiresRegulation', !form.requiresRegulation)}
-                            className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer ${
-                                form.requiresRegulation ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                            className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer shrink-0 ${
+                                form.requiresRegulation ? 'bg-slate-700 dark:bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
                             }`}
                         >
                             <div
-                                className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                                className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${
                                     form.requiresRegulation ? 'translate-x-5' : 'translate-x-0'
                                 }`}
                             />
                         </button>
-                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                             Exige regulação
                         </span>
                     </div>
                 </div>
 
-                {/* Linha 2: Grupo de Procedimento */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                    <div className="md:col-span-12">
+                {/* Seleção do Grupo de Procedimento */}
+                <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-lg border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
-                            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400">
+                            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                <Layers className="w-3.5 h-3.5 text-blue-600" />
                                 Grupo de Procedimento <span className="text-rose-500">*</span>
                             </label>
                             <button
                                 type="button"
                                 onClick={() => setIsNewGroupOpen(!isNewGroupOpen)}
-                                className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                                className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1 cursor-pointer"
                             >
                                 <Plus className="w-3.5 h-3.5" />
-                                {isNewGroupOpen ? 'Cancelar novo grupo' : 'Cadastrar novo grupo'}
+                                {isNewGroupOpen ? 'Cancelar' : 'Cadastrar novo grupo'}
                             </button>
                         </div>
 
@@ -334,14 +413,14 @@ export const ProcedureIntegraSusForm: React.FC<{
                                     type="text"
                                     value={newGroupName}
                                     onChange={(e) => setNewGroupName(e.target.value)}
-                                    placeholder="Nome do novo grupo (ex: ULTRASSONOGRAFIAS, EXAMES LABORATORIAIS)"
-                                    className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white uppercase"
+                                    placeholder="Nome do novo grupo (ex: ULTRASSONOGRAFIAS, TOMOGRAFIAS)"
+                                    className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white uppercase"
                                 />
                                 <button
                                     type="button"
                                     onClick={handleCreateGroup}
                                     disabled={createGroupMutation.isPending}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold transition-colors"
+                                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition-colors cursor-pointer"
                                 >
                                     Adicionar
                                 </button>
@@ -350,22 +429,24 @@ export const ProcedureIntegraSusForm: React.FC<{
                             <select
                                 value={form.procedureGroupId}
                                 onChange={(e) => handleInputChange('procedureGroupId', e.target.value)}
-                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                                className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                             >
                                 <option value="">Selecione o grupo do procedimento...</option>
-                                {(groups || []).map(g => (
-                                    <option key={g.id} value={g.id}>{g.name}</option>
+                                {(groups || []).filter(g => g.isActive !== false).map(g => (
+                                    <option key={g.id} value={g.id}>
+                                        {g.groupCode ? `[${g.groupCode}] ` : ''}{g.name}
+                                    </option>
                                 ))}
                             </select>
                         )}
                     </div>
                 </div>
 
-                {/* Linha 3: Retornos, Sexo, Intervalo, Idades */}
+                {/* Linha 2: Retornos, Sexo, Intervalo, Idade Mínima */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* Máximo de retornos */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             Máximo de retornos possíveis <span className="text-rose-500">*</span>
                         </label>
                         <input
@@ -373,19 +454,19 @@ export const ProcedureIntegraSusForm: React.FC<{
                             min={0}
                             value={form.maxReturns}
                             onChange={(e) => handleInputChange('maxReturns', parseInt(e.target.value) || 0)}
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                     </div>
 
                     {/* Sexo permitido */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             Sexo permitido <span className="text-rose-500">*</span>
                         </label>
                         <select
                             value={form.genderAllowed}
                             onChange={(e) => handleInputChange('genderAllowed', e.target.value as any)}
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         >
                             <option value="AMBOS">Ambos</option>
                             <option value="FEMININO">Feminino</option>
@@ -395,7 +476,7 @@ export const ProcedureIntegraSusForm: React.FC<{
 
                     {/* Intervalo entre solicitações */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             Intervalo entre solicitações (dias) <span className="text-rose-500">*</span>
                         </label>
                         <input
@@ -403,52 +484,52 @@ export const ProcedureIntegraSusForm: React.FC<{
                             min={0}
                             value={form.requestIntervalDays}
                             onChange={(e) => handleInputChange('requestIntervalDays', parseInt(e.target.value) || 0)}
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                     </div>
 
-                    {/* Idade Mínima / Máxima */}
-                    <div className="grid grid-cols-2 gap-2">
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 truncate">
-                                Idade mín. (anos) <span className="text-rose-500">*</span>
-                            </label>
-                            <input
-                                type="number"
-                                min={0}
-                                max={130}
-                                value={form.minAge}
-                                onChange={(e) => handleInputChange('minAge', parseInt(e.target.value) || 0)}
-                                className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 truncate">
-                                Idade máx. (anos) <span className="text-rose-500">*</span>
-                            </label>
-                            <input
-                                type="number"
-                                min={0}
-                                max={130}
-                                value={form.maxAge}
-                                onChange={(e) => handleInputChange('maxAge', parseInt(e.target.value) || 120)}
-                                className="w-full px-2.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white"
-                            />
-                        </div>
+                    {/* Idade Mínima */}
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Idade mínima - ano(s) <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            min={0}
+                            max={130}
+                            value={form.minAge}
+                            onChange={(e) => handleInputChange('minAge', parseInt(e.target.value) || 0)}
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
                     </div>
                 </div>
 
-                {/* Linha 4: Consumo, Valor SIGTAP, Regulador respeita cota */}
+                {/* Linha 3: Idade Máxima, Consumo, Valor SIGTAP, Regulador respeita cota */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
+                    {/* Idade Máxima */}
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Idade máxima - ano(s) <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            min={0}
+                            max={130}
+                            value={form.maxAge}
+                            onChange={(e) => handleInputChange('maxAge', parseInt(e.target.value) || 120)}
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                    </div>
+
                     {/* Consumo */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             Consumo <span className="text-rose-500">*</span>
                         </label>
                         <select
                             value={form.consumptionType}
                             onChange={(e) => handleInputChange('consumptionType', e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         >
                             <option value="Por paciente">Por paciente</option>
                             <option value="Por procedimento">Por procedimento</option>
@@ -458,121 +539,138 @@ export const ProcedureIntegraSusForm: React.FC<{
 
                     {/* Valor SIGTAP (R$) */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             Valor SIGTAP (R$)
                         </label>
                         <input
                             type="text"
-                            value={form.sigtapValue}
-                            onChange={(e) => handleInputChange('sigtapValue', e.target.value)}
+                            value={form.sigtapValue.startsWith('R$') ? form.sigtapValue : `R$ ${form.sigtapValue}`}
+                            onChange={(e) => {
+                                const raw = e.target.value.replace('R$', '').trim();
+                                handleInputChange('sigtapValue', raw);
+                            }}
                             placeholder="R$ 0,00"
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white font-mono"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                     </div>
 
-                    {/* Toggle: Regulador respeita cota */}
-                    <div className="sm:col-span-2 flex items-center gap-3 pt-4 sm:pt-0">
+                    {/* Regulador respeita cota */}
+                    <div className="flex items-center gap-3 pt-4 sm:pt-0">
                         <button
                             type="button"
                             role="switch"
                             aria-checked={form.regulatorRespectsQuota}
                             onClick={() => handleInputChange('regulatorRespectsQuota', !form.regulatorRespectsQuota)}
                             className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer shrink-0 ${
-                                form.regulatorRespectsQuota ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                                form.regulatorRespectsQuota ? 'bg-slate-700 dark:bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
                             }`}
                         >
                             <div
-                                className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                                className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${
                                     form.regulatorRespectsQuota ? 'translate-x-5' : 'translate-x-0'
                                 }`}
                             />
                         </button>
-                        <div>
-                            <span className="text-xs font-medium text-slate-700 dark:text-slate-300 block">
-                                Regulador respeita cota da unidade solicitante
-                            </span>
-                            <span className="text-[11px] text-slate-400 block">
-                                Se ativado, a aprovação do regulador é deduzida da cota mensal da UBS
-                            </span>
-                        </div>
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 leading-snug">
+                            Regulador respeita cota da unidade solicitante
+                        </span>
                     </div>
                 </div>
             </div>
 
             {/* CARD 2: PERÍODO DE VISUALIZAÇÃO DAS AGENDAS PARA */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-6 shadow-sm space-y-4">
-                <div className="flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         Período de visualização das agendas para
                     </span>
-                    <div className="relative group cursor-pointer text-amber-500">
-                        <HelpCircle className="w-4 h-4" />
-                        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-2.5 bg-slate-900 text-white text-[11px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                            Tem o objetivo de definir, a partir da disponibilidade da agenda, qual o período em que a agenda ficará disponível para agendamento.
+                    <div className="relative group cursor-pointer inline-flex items-center">
+                        <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                            ?
+                        </span>
+                        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-2.5 bg-slate-900 text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
+                            Tem o objetivo de a partir da disponibilidade da agenda, qual o periodo em que a agenda ficará disponível
                         </div>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* 1ª Vez */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             1ª Vez <span className="text-rose-500">*</span>
                         </label>
                         <select
                             value={form.viewScheduleFirstTimeDays}
                             onChange={(e) => handleInputChange('viewScheduleFirstTimeDays', parseInt(e.target.value))}
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         >
+                            <option value={1}>1 dia(s)</option>
+                            <option value={3}>3 dia(s)</option>
                             <option value={5}>5 dia(s)</option>
+                            <option value={7}>7 dia(s)</option>
                             <option value={10}>10 dia(s)</option>
                             <option value={15}>15 dia(s)</option>
+                            <option value={20}>20 dia(s)</option>
                             <option value={30}>30 dia(s)</option>
+                            <option value={60}>60 dia(s)</option>
                         </select>
                     </div>
 
+                    {/* Retorno */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             Retorno <span className="text-rose-500">*</span>
                         </label>
                         <select
                             value={form.viewScheduleReturnDays}
                             onChange={(e) => handleInputChange('viewScheduleReturnDays', parseInt(e.target.value))}
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         >
                             <option value={5}>5 dia(s)</option>
                             <option value={10}>10 dia(s)</option>
                             <option value={15}>15 dia(s)</option>
+                            <option value={20}>20 dia(s)</option>
                             <option value={30}>30 dia(s)</option>
+                            <option value={45}>45 dia(s)</option>
+                            <option value={60}>60 dia(s)</option>
                         </select>
                     </div>
 
+                    {/* Profissional Regulador */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             Profissional Regulador <span className="text-rose-500">*</span>
                         </label>
                         <select
                             value={form.viewScheduleRegulatorDays}
                             onChange={(e) => handleInputChange('viewScheduleRegulatorDays', parseInt(e.target.value))}
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         >
                             <option value={15}>15 dia(s)</option>
                             <option value={30}>30 dia(s)</option>
                             <option value={45}>45 dia(s)</option>
                             <option value={60}>60 dia(s)</option>
                             <option value={90}>90 dia(s)</option>
+                            <option value={120}>120 dia(s)</option>
+                            <option value={180}>180 dia(s)</option>
                         </select>
                     </div>
 
+                    {/* Agendamento automático */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             Agendamento automático <span className="text-rose-500">*</span>
                         </label>
                         <select
                             value={form.viewScheduleAutoDays}
                             onChange={(e) => handleInputChange('viewScheduleAutoDays', parseInt(e.target.value))}
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         >
+                            <option value={5}>5 dia(s)</option>
+                            <option value={10}>10 dia(s)</option>
                             <option value={15}>15 dia(s)</option>
+                            <option value={20}>20 dia(s)</option>
                             <option value={30}>30 dia(s)</option>
                             <option value={45}>45 dia(s)</option>
                             <option value={60}>60 dia(s)</option>
@@ -583,21 +681,24 @@ export const ProcedureIntegraSusForm: React.FC<{
 
             {/* CARD 3: DISPONIBILIZAÇÃO DAS AGENDAS PARA */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-6 shadow-sm space-y-4">
-                <div className="flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         Disponibilização das agendas para
                     </span>
-                    <div className="relative group cursor-pointer text-amber-500">
-                        <HelpCircle className="w-4 h-4" />
-                        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-2.5 bg-slate-900 text-white text-[11px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                            Define a partir de quantos dias de antecedência a agenda ficará visível no sistema.
+                    <div className="relative group cursor-pointer inline-flex items-center">
+                        <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                            ?
+                        </span>
+                        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-2.5 bg-slate-900 text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
+                            A partir de quantos dias a agenda ficará visível
                         </div>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* 1ª Vez */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             1ª Vez <span className="text-rose-500">*</span>
                         </label>
                         <input
@@ -605,12 +706,13 @@ export const ProcedureIntegraSusForm: React.FC<{
                             min={0}
                             value={form.releaseScheduleFirstTimeDays}
                             onChange={(e) => handleInputChange('releaseScheduleFirstTimeDays', parseInt(e.target.value) || 0)}
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                     </div>
 
+                    {/* Retorno */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             Retorno <span className="text-rose-500">*</span>
                         </label>
                         <input
@@ -618,12 +720,13 @@ export const ProcedureIntegraSusForm: React.FC<{
                             min={0}
                             value={form.releaseScheduleReturnDays}
                             onChange={(e) => handleInputChange('releaseScheduleReturnDays', parseInt(e.target.value) || 0)}
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                     </div>
 
+                    {/* Profissional Regulador */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             Profissional Regulador <span className="text-rose-500">*</span>
                         </label>
                         <input
@@ -631,12 +734,13 @@ export const ProcedureIntegraSusForm: React.FC<{
                             min={0}
                             value={form.releaseScheduleRegulatorDays}
                             onChange={(e) => handleInputChange('releaseScheduleRegulatorDays', parseInt(e.target.value) || 0)}
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                     </div>
 
+                    {/* Agendamento automático */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             Agendamento automático <span className="text-rose-500">*</span>
                         </label>
                         <input
@@ -644,7 +748,7 @@ export const ProcedureIntegraSusForm: React.FC<{
                             min={0}
                             value={form.releaseScheduleAutoDays}
                             onChange={(e) => handleInputChange('releaseScheduleAutoDays', parseInt(e.target.value) || 0)}
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                     </div>
                 </div>
@@ -656,10 +760,10 @@ export const ProcedureIntegraSusForm: React.FC<{
                     <button
                         type="submit"
                         disabled={createProcMutation.isPending || updateProcMutation.isPending}
-                        className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold text-sm transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                        className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-xs uppercase tracking-wider transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                         {(createProcMutation.isPending || updateProcMutation.isPending) && (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         )}
                         SALVAR
                     </button>
@@ -667,7 +771,7 @@ export const ProcedureIntegraSusForm: React.FC<{
                     <button
                         type="button"
                         onClick={handleClear}
-                        className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                        className="text-xs font-bold uppercase tracking-wider text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
                     >
                         LIMPAR
                     </button>
@@ -676,7 +780,7 @@ export const ProcedureIntegraSusForm: React.FC<{
                 <button
                     type="button"
                     onClick={handleBack}
-                    className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer"
+                    className="text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
                 >
                     VOLTAR
                 </button>
@@ -699,7 +803,7 @@ export const ProcedureIntegraSusForm: React.FC<{
                             <button
                                 type="button"
                                 onClick={() => setIsSearchModalOpen(false)}
-                                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                                className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -719,7 +823,7 @@ export const ProcedureIntegraSusForm: React.FC<{
                                             setEnableSearchQuery(true);
                                         }
                                     }}
-                                    placeholder="Digite o código (ex: 0205020186) ou nome do procedimento..."
+                                    placeholder="Digite o código (ex: 0301010072) ou nome do procedimento..."
                                     className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                                     autoFocus
                                 />
@@ -727,7 +831,7 @@ export const ProcedureIntegraSusForm: React.FC<{
                             <button
                                 type="button"
                                 onClick={() => setEnableSearchQuery(true)}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold transition-colors flex items-center gap-1.5"
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
                             >
                                 {searchingIntegraSus ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                                 Buscar
@@ -745,7 +849,7 @@ export const ProcedureIntegraSusForm: React.FC<{
                                 searchResults.map((item: any, idx: number) => {
                                     const code = item.co_procedimento || item.codigo || item.code || '';
                                     const name = item.no_procedimento || item.nome || item.name || '';
-                                    const val = item.vl_sa ? Number(item.vl_sa).toFixed(2) : '0.00';
+                                    const val = item.vl_sa !== undefined ? Number(item.vl_sa).toFixed(2) : (item.valor ? Number(item.valor).toFixed(2) : '0.00');
                                     return (
                                         <div
                                             key={idx}
@@ -757,7 +861,7 @@ export const ProcedureIntegraSusForm: React.FC<{
                                                     <span className="font-mono text-xs font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300">
                                                         {code}
                                                     </span>
-                                                    <span className="text-xs text-slate-500">R$ {val}</span>
+                                                    <span className="text-xs text-slate-500 font-mono">R$ {val}</span>
                                                 </div>
                                                 <span className="block text-sm font-medium text-slate-900 dark:text-white mt-1 truncate">
                                                     {name}
@@ -780,7 +884,7 @@ export const ProcedureIntegraSusForm: React.FC<{
                             <button
                                 type="button"
                                 onClick={() => setIsSearchModalOpen(false)}
-                                className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-md text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
+                                className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-md text-xs hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                             >
                                 Fechar
                             </button>

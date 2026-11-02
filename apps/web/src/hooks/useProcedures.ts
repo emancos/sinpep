@@ -20,8 +20,26 @@ export interface ProcedureVariant {
 export interface ProcedureGroup {
   id: string;
   name: string;
+  groupCode?: string;
+  subgroupCode?: string;
   isActive: boolean;
   proceduresCount?: number;
+}
+
+export interface IntegraSusSubgroup {
+  grupo_codigo: string;
+  grupo_nome: string;
+  subgrupo_codigo: string;
+  subgrupo_nome: string;
+}
+
+export interface IntegraSusGroup {
+  codigo: string;
+  nome: string;
+  subgrupos?: Array<{
+    codigo: string;
+    nome: string;
+  }>;
 }
 
 export interface ProcedurePreparation {
@@ -210,6 +228,113 @@ export const useToggleProcedureGroupActive = () => {
       await axios.patch(`${apiUrl}/procedure-groups/${id}/toggle-active`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['procedure-groups'] });
+      queryClient.invalidateQueries({ queryKey: ['procedures'] });
+      queryClient.invalidateQueries({ queryKey: ['executing-offers'] });
+    },
+  });
+};
+
+// --- Hooks INTEGRA SUS API para Grupos & Subgrupos ---
+export const useSearchIntegraSusSubgroups = (search?: string, grupo?: string, enabled: boolean = true) => {
+  const token = useAuthStore((state) => state.token);
+
+  return useQuery<IntegraSusSubgroup[]>({
+    queryKey: ['integra-sus-subgroups', search, grupo],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (grupo) params.append('grupo', grupo);
+      const res = await axios.get(
+        `${apiUrl}/procedure-groups/integra-sus/subgroups${params.toString() ? `?${params.toString()}` : ''}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return res.data;
+    },
+    enabled: !!token && enabled,
+  });
+};
+
+export const useIntegraSusGroups = (search?: string, arvore: boolean = false, enabled: boolean = true) => {
+  const token = useAuthStore((state) => state.token);
+
+  return useQuery<IntegraSusGroup[]>({
+    queryKey: ['integra-sus-groups', search, arvore],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (arvore) params.append('arvore', 'true');
+      const res = await axios.get(
+        `${apiUrl}/procedure-groups/integra-sus/groups${params.toString() ? `?${params.toString()}` : ''}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return res.data;
+    },
+    enabled: !!token && enabled,
+  });
+};
+
+export const useIntegraSusGroupSubgroups = (grupoCodigo?: string, search?: string, enabled: boolean = true) => {
+  const token = useAuthStore((state) => state.token);
+
+  return useQuery<IntegraSusSubgroup[]>({
+    queryKey: ['integra-sus-group-subgroups', grupoCodigo, search],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      const res = await axios.get(
+        `${apiUrl}/procedure-groups/integra-sus/groups/${grupoCodigo}/subgroups${params.toString() ? `?${params.toString()}` : ''}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return res.data;
+    },
+    enabled: !!token && !!grupoCodigo && enabled,
+  });
+};
+
+export const useIntegraSusSubgroupProcedures = (
+  grupoCodigo?: string,
+  subgrupoCodigo?: string,
+  enabled: boolean = true
+) => {
+  const token = useAuthStore((state) => state.token);
+
+  return useQuery<any[]>({
+    queryKey: ['integra-sus-subgroup-procedures', grupoCodigo, subgrupoCodigo],
+    queryFn: async () => {
+      const res = await axios.get(
+        `${apiUrl}/procedure-groups/integra-sus/groups/${grupoCodigo}/subgroups/${subgrupoCodigo}/procedimentos`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return res.data;
+    },
+    enabled: !!token && !!grupoCodigo && !!subgrupoCodigo && enabled,
+  });
+};
+
+export const useImportProcedureGroupFromIntegraSus = () => {
+  const token = useAuthStore((state) => state.token);
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    { group: ProcedureGroup; importedCount: number },
+    Error,
+    {
+      name?: string;
+      groupCode: string;
+      subgroupCode: string;
+      groupName?: string;
+      subgroupName?: string;
+      autoImportProcedures?: boolean;
+    }
+  >({
+    mutationFn: async (dto) => {
+      const response = await axios.post(`${apiUrl}/procedure-groups/import-integra-sus`, dto, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['procedure-groups'] });

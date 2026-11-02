@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
     useProcedures,
     useProcedureGroups,
-    useCreateProcedureGroup,
-    useUpdateProcedureGroup,
     useDeleteProcedureGroup,
     useToggleProcedureGroupActive,
     useDeleteProcedure,
@@ -26,7 +24,6 @@ import {
     Divide,
     Database,
     ChevronRight,
-    X,
     FolderKanban
 } from 'lucide-react';
 import { TablePagination } from '../../components/TablePagination';
@@ -35,6 +32,7 @@ import { ProcedureIntegraSusForm } from './ProcedureIntegraSusForm';
 import { ProcedureQuotasManager } from './ProcedureQuotasManager';
 import { PreparationEditor } from './PreparationEditor';
 import { GroupProceduresView } from './GroupProceduresView';
+import { GroupCreateIntegraSusModal } from './GroupCreateIntegraSusModal';
 
 type TabType = 'procedures' | 'groups' | 'integra-sus' | 'quotas' | 'preparation' | 'group-view';
 
@@ -87,15 +85,12 @@ export const ProceduresList: React.FC = () => {
     // Mutations
     const deleteProcedureMutation = useDeleteProcedure();
     const toggleActiveMutation = useToggleProcedureActive();
-    const createGroupMutation = useCreateProcedureGroup();
-    const updateGroupMutation = useUpdateProcedureGroup();
     const deleteGroupMutation = useDeleteProcedureGroup();
     const toggleGroupActiveMutation = useToggleProcedureGroupActive();
 
     // Group Modal states
     const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
-    const [editingGroupId, setEditingGroupId] = useState('');
-    const [groupNameInput, setGroupNameInput] = useState('');
+    const [editingGroup, setEditingGroup] = useState<{ id: string; name: string } | null>(null);
     const [showOnlyActiveGroups, setShowOnlyActiveGroups] = useState(false);
 
     const handleSort = (field: string) => {
@@ -108,7 +103,12 @@ export const ProceduresList: React.FC = () => {
         setPage(1);
     };
 
-    const handleDeleteProcedure = async (id: string, name: string) => {
+    const handleDeleteProcedure = async (id: string, name: string, isGroupLinked?: boolean) => {
+        if (isGroupLinked) {
+            toast.error('Procedimentos vinculados a um grupo não podem ser excluídos, apenas desativados.');
+            return;
+        }
+
         const isConfirmed = await confirm({
             title: 'Excluir Procedimento',
             description: `Deseja realmente excluir definitivamente o procedimento "${name}"?`,
@@ -120,7 +120,7 @@ export const ProceduresList: React.FC = () => {
         if (isConfirmed) {
             deleteProcedureMutation.mutate(id, {
                 onSuccess: () => toast.success('Procedimento excluído com sucesso!'),
-                onError: () => toast.error('Erro ao excluir procedimento.')
+                onError: (err: any) => toast.error(err?.response?.data?.message || 'Erro ao excluir procedimento.')
             });
         }
     };
@@ -145,55 +145,26 @@ export const ProceduresList: React.FC = () => {
 
     // Group Actions
     const handleOpenCreateGroup = () => {
-        setEditingGroupId('');
-        setGroupNameInput('');
+        setEditingGroup(null);
         setIsGroupModalOpen(true);
     };
 
     const handleOpenEditGroup = (g: { id: string; name: string }) => {
-        setEditingGroupId(g.id);
-        setGroupNameInput(g.name);
+        setEditingGroup(g);
         setIsGroupModalOpen(true);
-    };
-
-    const handleSaveGroup = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const name = groupNameInput.trim().toUpperCase();
-        if (!name) {
-            toast.error('Informe o nome do grupo.');
-            return;
-        }
-
-        if (editingGroupId) {
-            updateGroupMutation.mutate({ id: editingGroupId, data: { name } }, {
-                onSuccess: () => {
-                    toast.success('Grupo atualizado com sucesso!');
-                    setIsGroupModalOpen(false);
-                },
-                onError: () => toast.error('Erro ao atualizar grupo.')
-            });
-        } else {
-            createGroupMutation.mutate({ name }, {
-                onSuccess: () => {
-                    toast.success('Grupo criado com sucesso!');
-                    setIsGroupModalOpen(false);
-                },
-                onError: () => toast.error('Erro ao criar grupo.')
-            });
-        }
     };
 
     const handleDeleteGroup = async (id: string, name: string) => {
         const confirmed = await confirm({
-            title: 'Excluir Grupo de Procedimentos',
-            description: `Deseja realmente excluir o grupo "${name}"? Esta ação removerá a classificação dos procedimentos vinculados.`,
-            confirmText: 'Excluir',
+            title: 'Excluir Grupo e Procedimentos',
+            description: `Deseja realmente excluir definitivamente o grupo "${name}" e TODOS os procedimentos vinculados a ele? Esta ação é irreversível.`,
+            confirmText: 'Excluir Grupo e Procedimentos',
             cancelText: 'Cancelar',
             variant: 'danger'
         });
         if (confirmed) {
             deleteGroupMutation.mutate(id, {
-                onSuccess: () => toast.success('Grupo excluído com sucesso!'),
+                onSuccess: () => toast.success('Grupo e todos os procedimentos vinculados foram excluídos com sucesso!'),
                 onError: () => toast.error('Erro ao excluir grupo.')
             });
         }
@@ -496,12 +467,21 @@ export const ProceduresList: React.FC = () => {
                                                                 <Power className="w-4 h-4" />
                                                             </button>
 
-                                                            {/* Excluir */}
+                                                            {/* Excluir (Bloqueado se vinculado a grupo) */}
                                                             <button
                                                                 type="button"
-                                                                onClick={() => handleDeleteProcedure(proc.id, proc.name)}
-                                                                className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-rose-600 transition-colors"
-                                                                title="Excluir"
+                                                                disabled={!!proc.procedureGroupId}
+                                                                onClick={() => handleDeleteProcedure(proc.id, proc.name, !!proc.procedureGroupId)}
+                                                                className={`p-1.5 rounded transition-colors ${
+                                                                    proc.procedureGroupId
+                                                                        ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-slate-600'
+                                                                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-rose-600'
+                                                                }`}
+                                                                title={
+                                                                    proc.procedureGroupId
+                                                                        ? 'Procedimentos vinculados a um grupo não podem ser excluídos, apenas desativados.'
+                                                                        : 'Excluir Procedimento'
+                                                                }
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
                                                             </button>
@@ -641,6 +621,7 @@ export const ProceduresList: React.FC = () => {
             {activeTab === 'integra-sus' && (
                 <ProcedureIntegraSusForm
                     procedureIdProp={selectedProcedureId}
+                    procedureGroupIdProp={selectedGroupId}
                     onSuccessProp={() => setActiveTab('procedures')}
                     onBackProp={() => setActiveTab('procedures')}
                 />
@@ -670,64 +651,20 @@ export const ProceduresList: React.FC = () => {
                     onOpenPreparation={handleOpenPreparation}
                     onOpenQuotas={handleOpenQuotas}
                     onEditProcedure={handleOpenEditProcedure}
+                    onAddNewProcedure={(gId) => {
+                        setSelectedProcedureId('');
+                        setSelectedGroupId(gId);
+                        setActiveTab('integra-sus');
+                    }}
                 />
             )}
 
-            {/* MODAL DE CRIAÇÃO / EDIÇÃO DE GRUPO */}
-            {isGroupModalOpen && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg max-w-md w-full shadow-2xl p-6">
-                        <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-                            <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                                {editingGroupId ? 'Editar Grupo de Procedimento' : 'Novo Grupo de Procedimento'}
-                            </h3>
-                            <button
-                                type="button"
-                                onClick={() => setIsGroupModalOpen(false)}
-                                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleSaveGroup} className="space-y-4 mt-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                                    Nome do Grupo *
-                                </label>
-                                <input
-                                    type="text"
-                                    value={groupNameInput}
-                                    onChange={(e) => setGroupNameInput(e.target.value)}
-                                    placeholder="Ex: ULTRASSONOGRAFIAS, ENDOSCOPIA, MAMOGRAFIA..."
-                                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white uppercase focus:outline-none focus:border-blue-500"
-                                    autoFocus
-                                />
-                            </div>
-
-                            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsGroupModalOpen(false)}
-                                    className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-md text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={createGroupMutation.isPending || updateGroupMutation.isPending}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold transition-colors flex items-center gap-1.5"
-                                >
-                                    {(createGroupMutation.isPending || updateGroupMutation.isPending) && (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    )}
-                                    Salvar
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            {/* MODAL DE CRIAÇÃO / IMPORTAÇÃO INTEGRA SUS / EDIÇÃO DE GRUPO */}
+            <GroupCreateIntegraSusModal
+                isOpen={isGroupModalOpen}
+                onClose={() => setIsGroupModalOpen(false)}
+                editingGroup={editingGroup}
+            />
         </div>
     );
 };
