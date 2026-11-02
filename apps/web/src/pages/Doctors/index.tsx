@@ -206,10 +206,11 @@ export const DoctorsList: React.FC = () => {
         </div>
       )}
 
-      {/* Table Section */}
+      {/* Table & Cards Section */}
       {!isLoading && !isError && (
         <div className="bg-white shadow-md dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-md overflow-hidden backdrop-blur-md">
-          <div className="overflow-x-auto">
+          {/* Visualização Desktop: Tabela completa */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
@@ -336,6 +337,175 @@ export const DoctorsList: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Visualização Mobile: Cards estruturados e modernos */}
+          <div className="md:hidden space-y-3 p-3.5 bg-slate-50/50 dark:bg-slate-950/40">
+            {doctorsList && doctorsList.length > 0 ? (
+              doctorsList.map((doctor) => (
+                <div
+                  key={doctor.id}
+                  className={`p-4 rounded-xl border bg-white dark:bg-slate-900 shadow-xs space-y-3 transition-all ${
+                    !doctor.isActive
+                      ? 'border-slate-200 dark:border-slate-800 opacity-75 bg-slate-50/40 dark:bg-slate-950/40'
+                      : 'border-slate-200 dark:border-slate-800'
+                  }`}
+                >
+                  {/* Top Row: Ícone + Nome + Status */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                          doctor.isActive
+                            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
+                            : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+                        }`}
+                      >
+                        <Stethoscope className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4
+                          className={`font-bold text-sm leading-snug break-words ${
+                            doctor.isActive
+                              ? 'text-slate-900 dark:text-white'
+                              : 'text-slate-500 dark:text-slate-400 line-through'
+                          }`}
+                        >
+                          {doctor.name}
+                        </h4>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60">
+                            CRM: {doctor.crm}/{doctor.crmState}
+                          </span>
+                          {!doctor.isActive && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300 font-bold uppercase">
+                              Desabilitado
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0">
+                      {doctor.isActive ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60 px-2 py-0.5 rounded-full">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Ativo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200/80 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800/60 px-2 py-0.5 rounded-full">
+                          <ShieldAlert className="w-3 h-3" />
+                          Inativo
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Documentos: CPF & CNS */}
+                  <div className="grid grid-cols-2 gap-2 p-2 bg-slate-50 dark:bg-slate-950/60 rounded-lg border border-slate-100 dark:border-slate-800/80 text-xs">
+                    <div>
+                      <span className="block text-[10px] uppercase font-bold text-slate-400">CPF</span>
+                      <span className="font-mono text-slate-700 dark:text-slate-300 font-semibold mt-0.5 block">
+                        {doctor.cpf || '-'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] uppercase font-bold text-slate-400">CNS</span>
+                      <span className="font-mono text-slate-700 dark:text-slate-300 font-semibold mt-0.5 block">
+                        {doctor.cns || '-'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Especialidades & Vínculo */}
+                  <div className="space-y-2 pt-0.5">
+                    <div className="flex flex-wrap gap-1">
+                      {doctor.doctorSpecialties && doctor.doctorSpecialties.length > 0 ? (
+                        doctor.doctorSpecialties.map(ds => (
+                          <span
+                            key={ds.specialtyId}
+                            className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-xs rounded-md border border-indigo-200/80 dark:border-indigo-800/50 font-medium"
+                          >
+                            {ds.specialty.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-slate-400 italic text-xs">Sem especialidades cadastradas</span>
+                      )}
+                    </div>
+
+                    <div>
+                      {doctor.user?.healthCenter ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-950/40 px-2 py-1 rounded-md border border-emerald-200/80 dark:border-emerald-800/50">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Vinculado a {doctor.user.healthCenter.name || doctor.user.healthCenter.noFantasia}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700/60">
+                          <ShieldAlert className="w-3.5 h-3.5" />
+                          Sem vínculo de unidade
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Barra de Ações Rápidas */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/doctors/${doctor.id}`)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 border border-indigo-200/80 dark:border-indigo-800/50 transition-colors cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Visualizar</span>
+                    </button>
+
+                    <div className="flex items-center gap-1.5">
+                      {userPermissions.includes('doctors:write') && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/doctors/${doctor.id}/edit`)}
+                            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700/80 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+                            title="Editar"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleActive(doctor.id, doctor.isActive)}
+                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                              doctor.isActive
+                                ? 'border-amber-200 dark:border-amber-800/60 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                                : 'border-teal-200 dark:border-teal-800/60 text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/40'
+                            }`}
+                            title={doctor.isActive ? "Desabilitar" : "Habilitar"}
+                          >
+                            <Power className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+
+                      {userPermissions.includes('admin:access') && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDoctor(doctor.id)}
+                          className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-800/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                          title="Excluir Definitivamente"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="py-12 text-center text-slate-400 text-sm">
+                Nenhum médico encontrado.
+              </div>
+            )}
           </div>
           <TablePagination
             page={page}
