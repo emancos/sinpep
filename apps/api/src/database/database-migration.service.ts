@@ -18,6 +18,9 @@ export class DatabaseMigrationService implements OnModuleInit {
       this.logger.log('Checking and applying procedure & quota database migrations...');
 
       await this.db.execute(sql`
+        ALTER TABLE procedure_groups ADD COLUMN IF NOT EXISTS group_code TEXT;
+        ALTER TABLE procedure_groups ADD COLUMN IF NOT EXISTS subgroup_code TEXT;
+
         ALTER TABLE procedures ADD COLUMN IF NOT EXISTS requires_regulation BOOLEAN NOT NULL DEFAULT true;
         ALTER TABLE procedures ADD COLUMN IF NOT EXISTS max_returns INTEGER NOT NULL DEFAULT 1;
         ALTER TABLE procedures ADD COLUMN IF NOT EXISTS request_interval_days INTEGER NOT NULL DEFAULT 30;

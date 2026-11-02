@@ -345,6 +345,8 @@ export const cid10 = pgTable("cid10", {
 export const procedureGroups = pgTable("procedure_groups", {
   id: uuid().primaryKey().notNull(),
   name: text().notNull(),
+  groupCode: text("group_code"),
+  subgroupCode: text("subgroup_code"),
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
