@@ -26,6 +26,7 @@ export const GroupProceduresView: React.FC<{
     onBack: () => void;
     onOpenPreparation: (procedureId: string) => void;
     onOpenQuotas: (procedureId: string, executingId?: string) => void;
+    onOpenGroupQuotas?: (groupId: string) => void;
     onEditProcedure: (procedureId: string) => void;
     onAddNewProcedure?: (groupId: string) => void;
 }> = ({
@@ -34,6 +35,7 @@ export const GroupProceduresView: React.FC<{
     onBack,
     onOpenPreparation,
     onOpenQuotas,
+    onOpenGroupQuotas,
     onEditProcedure,
     onAddNewProcedure
 }) => {
@@ -173,6 +175,18 @@ export const GroupProceduresView: React.FC<{
                             <X className="w-3.5 h-3.5" />
                             Desabilitar Todos
                         </button>
+
+                        {onOpenGroupQuotas && (
+                            <button
+                                type="button"
+                                onClick={() => onOpenGroupQuotas(groupId)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded text-xs font-semibold transition-colors shadow-xs cursor-pointer ml-1"
+                                title="Configurar capacidade e matriz de cotas para este grupo"
+                            >
+                                <Divide className="w-3.5 h-3.5" />
+                                Cotas do Grupo
+                            </button>
+                        )}
 
                         {onAddNewProcedure && (
                             <button

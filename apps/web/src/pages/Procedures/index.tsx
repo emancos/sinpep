@@ -631,6 +631,7 @@ export const ProceduresList: React.FC = () => {
             {activeTab === 'quotas' && (
                 <ProcedureQuotasManager
                     initialProcedureId={selectedProcedureId}
+                    initialGroupId={selectedGroupId}
                 />
             )}
 
@@ -650,6 +651,11 @@ export const ProceduresList: React.FC = () => {
                     onBack={() => setActiveTab('groups')}
                     onOpenPreparation={handleOpenPreparation}
                     onOpenQuotas={handleOpenQuotas}
+                    onOpenGroupQuotas={(gId) => {
+                        setSelectedGroupId(gId);
+                        setSelectedProcedureId('');
+                        setActiveTab('quotas');
+                    }}
                     onEditProcedure={handleOpenEditProcedure}
                     onAddNewProcedure={(gId) => {
                         setSelectedProcedureId('');

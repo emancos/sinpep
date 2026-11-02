@@ -105,7 +105,10 @@ export interface QuotaSolicitorItem {
 export interface QuotaMatrixResponse {
   executingHealthCenterId: string;
   executingHealthCenterName?: string;
-  procedureId: string;
+  procedureId?: string;
+  procedureGroupId?: string;
+  procedureGroupName?: string;
+  proceduresCount?: number;
   totalCapacity: number;
   allocatedTotal: number;
   unallocated: number;
@@ -508,19 +511,26 @@ export const useUpdateExecutingOffer = () => {
 };
 
 // --- Cotas Matrix & Rebalanceamento (Item 3) ---
-export const useProcedureQuotasMatrix = (executingHealthCenterId?: string, procedureId?: string) => {
+export const useProcedureQuotasMatrix = (
+  executingHealthCenterId?: string,
+  procedureId?: string,
+  procedureGroupId?: string
+) => {
   const token = useAuthStore((state) => state.token);
 
   return useQuery<QuotaMatrixResponse>({
-    queryKey: ['procedures-quotas-matrix', executingHealthCenterId, procedureId],
+    queryKey: ['procedures-quotas-matrix', executingHealthCenterId, procedureId, procedureGroupId],
     queryFn: async () => {
       const response = await axios.get(`${apiUrl}/procedures/quotas/matrix`, {
         headers: { Authorization: `Bearer ${token}` },
-        params: { executingHealthCenterId, procedureId },
+        params: {
+          executingHealthCenterId,
+          ...(procedureGroupId ? { procedureGroupId } : { procedureId }),
+        },
       });
       return response.data;
     },
-    enabled: !!token && !!executingHealthCenterId && !!procedureId,
+    enabled: !!token && !!executingHealthCenterId && (!!procedureId || !!procedureGroupId),
   });
 };
 
@@ -528,7 +538,17 @@ export const useAutoDistributeQuotas = () => {
   const token = useAuthStore((state) => state.token);
   const queryClient = useQueryClient();
 
-  return useMutation<QuotaMatrixResponse, Error, { executingHealthCenterId: string; procedureId: string; totalCapacity?: number }>({
+  return useMutation<
+    QuotaMatrixResponse,
+    Error,
+    {
+      executingHealthCenterId: string;
+      procedureId?: string;
+      procedureGroupId?: string;
+      totalCapacity?: number;
+      applyToAllProcedures?: boolean;
+    }
+  >({
     mutationFn: async (payload) => {
       const response = await axios.post(`${apiUrl}/procedures/quotas/distribute-auto`, payload, {
         headers: { Authorization: `Bearer ${token}` },
@@ -536,8 +556,11 @@ export const useAutoDistributeQuotas = () => {
       return response.data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['procedures-quotas-matrix', data.executingHealthCenterId, data.procedureId] });
+      queryClient.invalidateQueries({
+        queryKey: ['procedures-quotas-matrix', data.executingHealthCenterId, data.procedureId, data.procedureGroupId],
+      });
       queryClient.invalidateQueries({ queryKey: ['executing-offers', data.executingHealthCenterId] });
+      queryClient.invalidateQueries({ queryKey: ['procedures'] });
     },
   });
 };
@@ -546,7 +569,18 @@ export const useRebalanceQuotas = () => {
   const token = useAuthStore((state) => state.token);
   const queryClient = useQueryClient();
 
-  return useMutation<QuotaMatrixResponse, Error, { executingHealthCenterId: string; procedureId: string; solicitingHealthCenterId: string; monthlyQuota: number }>({
+  return useMutation<
+    QuotaMatrixResponse,
+    Error,
+    {
+      executingHealthCenterId: string;
+      procedureId?: string;
+      procedureGroupId?: string;
+      solicitingHealthCenterId: string;
+      monthlyQuota: number;
+      applyToAllProcedures?: boolean;
+    }
+  >({
     mutationFn: async (payload) => {
       const response = await axios.put(`${apiUrl}/procedures/quotas/rebalance`, payload, {
         headers: { Authorization: `Bearer ${token}` },
@@ -554,7 +588,41 @@ export const useRebalanceQuotas = () => {
       return response.data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['procedures-quotas-matrix', data.executingHealthCenterId, data.procedureId] });
+      queryClient.invalidateQueries({
+        queryKey: ['procedures-quotas-matrix', data.executingHealthCenterId, data.procedureId, data.procedureGroupId],
+      });
+      queryClient.invalidateQueries({ queryKey: ['procedures'] });
+    },
+  });
+};
+
+export const useUpdateExecutingGroupOffer = () => {
+  const token = useAuthStore((state) => state.token);
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    any,
+    Error,
+    {
+      healthCenterId: string;
+      procedureGroupId: string;
+      monthlyQuantity: number;
+      isOffered?: boolean;
+      applyToAllProcedures?: boolean;
+    }
+  >({
+    mutationFn: async ({ healthCenterId, ...data }) => {
+      const response = await axios.put(`${apiUrl}/procedures/executing-group/${healthCenterId}`, data, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data;
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: ['procedures-quotas-matrix', vars.healthCenterId, undefined, vars.procedureGroupId],
+      });
+      queryClient.invalidateQueries({ queryKey: ['executing-offers', vars.healthCenterId] });
+      queryClient.invalidateQueries({ queryKey: ['procedures'] });
     },
   });
 };
