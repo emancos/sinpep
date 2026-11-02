@@ -1,7 +1,7 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database/schema';
-import { eq, ilike, or, and, asc, sql, notInArray } from 'drizzle-orm';
+import { eq, ilike, or, and, asc, desc, sql, notInArray, inArray } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { IntegraSusService } from '../integra-sus/integra-sus.service';
 
@@ -816,5 +816,381 @@ export class ProceduresService {
     }
 
     return this.getProcedureQuotasMatrix(executingHealthCenterId, procedureId);
+  }
+
+  // --- Remanejamento Automático de Vagas Ociosas ---
+  async reallocateIdleVacancies(params: {
+    executingHealthCenterId: string;
+    procedureId?: string;
+    procedureGroupId?: string;
+    strategy?: 'DEMAND_QUEUE' | 'EQUAL';
+    safetyMarginPerUnit?: number;
+    dryRun?: boolean;
+    justification?: string;
+    triggeredBy?: 'MANUAL' | 'SCHEDULED_AUTOMATIC';
+  }) {
+    const {
+      executingHealthCenterId,
+      procedureId,
+      procedureGroupId,
+      strategy = 'DEMAND_QUEUE',
+      safetyMarginPerUnit = 0,
+      dryRun = false,
+      justification = 'Remanejamento automático de vagas ociosas para atendimento de demandas reprimidas',
+      triggeredBy = 'MANUAL',
+    } = params;
+
+    if (!procedureId && !procedureGroupId) {
+      throw new BadRequestException('Informe o procedimento ou grupo de procedimentos para remanejamento.');
+    }
+
+    const executingHc = await this.db.query.healthCenters.findFirst({
+      where: eq(schema.healthCenters.id, executingHealthCenterId),
+    });
+    if (!executingHc) throw new NotFoundException('Unidade executante não encontrada.');
+
+    // 1. Obter todas as UBSs solicitantes ativas
+    const solicitors = await this.db.query.healthCenters.findMany({
+      where: and(
+        eq(schema.healthCenters.isActive, true),
+        eq(schema.healthCenters.stSolicitante, true)
+      ),
+      orderBy: [asc(schema.healthCenters.name)],
+    });
+
+    // 2. Carregar cotas atuais
+    let quotas: any[] = [];
+    const isGroup = !!procedureGroupId;
+
+    if (isGroup) {
+      quotas = await this.db.query.procedureGroupSolicitorQuotas.findMany({
+        where: and(
+          eq(schema.procedureGroupSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+          eq(schema.procedureGroupSolicitorQuotas.procedureGroupId, procedureGroupId!)
+        ),
+      });
+    } else {
+      quotas = await this.db.query.procedureSolicitorQuotas.findMany({
+        where: and(
+          eq(schema.procedureSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+          eq(schema.procedureSolicitorQuotas.procedureId, procedureId!)
+        ),
+      });
+    }
+
+    const quotaMap = new Map<string, any>(quotas.map(q => [q.solicitingHealthCenterId, q]));
+
+    // 3. Obter solicitações pendentes (Demanda Reprimida / Fila de Espera)
+    const pendingConditions: any[] = [
+      inArray(schema.regulationRequests.status, ['PENDENTE_REGULACAO', 'PENDENTE_AGENDAMENTO']),
+    ];
+    if (isGroup) {
+      pendingConditions.push(
+        or(
+          eq(schema.regulationRequests.procedureGroupId, procedureGroupId!),
+          sql`${schema.regulationRequests.procedureId} IN (
+            SELECT id FROM procedures WHERE procedure_group_id = ${procedureGroupId!}::uuid
+          )`
+        )
+      );
+    } else {
+      pendingConditions.push(eq(schema.regulationRequests.procedureId, procedureId!));
+    }
+
+    const pendingRequests = await this.db.query.regulationRequests.findMany({
+      where: and(...pendingConditions),
+      columns: {
+        id: true,
+        requestingHealthCenterId: true,
+      },
+    });
+
+    const pendingDemandMap = new Map<string, number>();
+    for (const req of pendingRequests) {
+      const current = pendingDemandMap.get(req.requestingHealthCenterId) || 0;
+      pendingDemandMap.set(req.requestingHealthCenterId, current + 1);
+    }
+
+    // 4. Identificar Unidades Cedentes (com vagas ociosas)
+    const sourceSolicitors: Array<{
+      healthCenterId: string;
+      name: string;
+      cnes?: string | null;
+      currentQuota: number;
+      usedQuota: number;
+      idleSlots: number;
+      deducted: number;
+      newQuota: number;
+    }> = [];
+
+    let totalIdlePool = 0;
+
+    for (const s of solicitors) {
+      const q = quotaMap.get(s.id);
+      const monthly = q?.monthlyQuota || 0;
+      const used = q?.usedQuota || 0;
+      const pendingCount = pendingDemandMap.get(s.id) || 0;
+
+      const availableSurplus = Math.max(0, monthly - used - Number(safetyMarginPerUnit || 0));
+      const unneededIdle = Math.max(0, availableSurplus - pendingCount);
+
+      if (unneededIdle > 0) {
+        sourceSolicitors.push({
+          healthCenterId: s.id,
+          name: s.name,
+          cnes: s.cnes,
+          currentQuota: monthly,
+          usedQuota: used,
+          idleSlots: availableSurplus,
+          deducted: unneededIdle,
+          newQuota: monthly - unneededIdle,
+        });
+        totalIdlePool += unneededIdle;
+      }
+    }
+
+    // 5. Identificar Candidatos a receber as vagas
+    const targetCandidates: Array<{
+      healthCenterId: string;
+      name: string;
+      cnes?: string | null;
+      currentQuota: number;
+      usedQuota: number;
+      pendingDemand: number;
+      weight: number;
+    }> = [];
+
+    for (const s of solicitors) {
+      const pending = pendingDemandMap.get(s.id) || 0;
+      const q = quotaMap.get(s.id);
+      const current = q?.monthlyQuota || 0;
+      const used = q?.usedQuota || 0;
+      const balance = Math.max(0, current - used);
+      const unmetDemand = Math.max(0, pending - balance);
+
+      if (strategy === 'DEMAND_QUEUE') {
+        if (unmetDemand > 0) {
+          targetCandidates.push({
+            healthCenterId: s.id,
+            name: s.name,
+            cnes: s.cnes,
+            currentQuota: current,
+            usedQuota: used,
+            pendingDemand: pending,
+            weight: unmetDemand,
+          });
+        }
+      } else {
+        if (!sourceSolicitors.some(src => src.healthCenterId === s.id)) {
+          targetCandidates.push({
+            healthCenterId: s.id,
+            name: s.name,
+            cnes: s.cnes,
+            currentQuota: current,
+            usedQuota: used,
+            pendingDemand: pending,
+            weight: 1,
+          });
+        }
+      }
+    }
+
+    // Fallback se não houver fila pendente
+    if (targetCandidates.length === 0 && totalIdlePool > 0) {
+      for (const s of solicitors) {
+        if (!sourceSolicitors.some(src => src.healthCenterId === s.id)) {
+          const q = quotaMap.get(s.id);
+          targetCandidates.push({
+            healthCenterId: s.id,
+            name: s.name,
+            cnes: s.cnes,
+            currentQuota: q?.monthlyQuota || 0,
+            usedQuota: q?.usedQuota || 0,
+            pendingDemand: 0,
+            weight: 1,
+          });
+        }
+      }
+    }
+
+    // 6. Distribuir o pool
+    const targetSolicitors: Array<{
+      healthCenterId: string;
+      name: string;
+      cnes?: string | null;
+      currentQuota: number;
+      added: number;
+      newQuota: number;
+      pendingDemand: number;
+    }> = [];
+
+    const totalWeight = targetCandidates.reduce((acc, c) => acc + c.weight, 0);
+
+    if (totalWeight > 0 && totalIdlePool > 0) {
+      let allocatedSoFar = 0;
+      const tempAllocations: number[] = [];
+
+      for (let i = 0; i < targetCandidates.length; i++) {
+        const cand = targetCandidates[i];
+        const share = Math.floor((cand.weight / totalWeight) * totalIdlePool);
+        tempAllocations.push(share);
+        allocatedSoFar += share;
+      }
+
+      let remainder = totalIdlePool - allocatedSoFar;
+      for (let i = 0; i < targetCandidates.length && remainder > 0; i++, remainder--) {
+        tempAllocations[i]++;
+      }
+
+      for (let i = 0; i < targetCandidates.length; i++) {
+        const cand = targetCandidates[i];
+        const added = tempAllocations[i];
+        if (added > 0) {
+          targetSolicitors.push({
+            healthCenterId: cand.healthCenterId,
+            name: cand.name,
+            cnes: cand.cnes,
+            currentQuota: cand.currentQuota,
+            added,
+            newQuota: cand.currentQuota + added,
+            pendingDemand: cand.pendingDemand,
+          });
+        }
+      }
+    }
+
+    const reallocatedSlots = targetSolicitors.reduce((acc, t) => acc + t.added, 0);
+
+    // 7. Se não for simulação (dryRun), persiste no banco
+    if (!dryRun && reallocatedSlots > 0) {
+      for (const src of sourceSolicitors) {
+        if (src.deducted > 0) {
+          if (isGroup) {
+            const ex = await this.db.query.procedureGroupSolicitorQuotas.findFirst({
+              where: and(
+                eq(schema.procedureGroupSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+                eq(schema.procedureGroupSolicitorQuotas.solicitingHealthCenterId, src.healthCenterId),
+                eq(schema.procedureGroupSolicitorQuotas.procedureGroupId, procedureGroupId!)
+              ),
+            });
+            if (ex) {
+              await this.db.update(schema.procedureGroupSolicitorQuotas)
+                .set({ monthlyQuota: src.newQuota, updatedAt: new Date().toISOString() })
+                .where(eq(schema.procedureGroupSolicitorQuotas.id, ex.id));
+            }
+          } else {
+            const ex = await this.db.query.procedureSolicitorQuotas.findFirst({
+              where: and(
+                eq(schema.procedureSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+                eq(schema.procedureSolicitorQuotas.solicitingHealthCenterId, src.healthCenterId),
+                eq(schema.procedureSolicitorQuotas.procedureId, procedureId!)
+              ),
+            });
+            if (ex) {
+              await this.db.update(schema.procedureSolicitorQuotas)
+                .set({ monthlyQuota: src.newQuota, updatedAt: new Date().toISOString() })
+                .where(eq(schema.procedureSolicitorQuotas.id, ex.id));
+            }
+          }
+        }
+      }
+
+      for (const tgt of targetSolicitors) {
+        if (tgt.added > 0) {
+          if (isGroup) {
+            const ex = await this.db.query.procedureGroupSolicitorQuotas.findFirst({
+              where: and(
+                eq(schema.procedureGroupSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+                eq(schema.procedureGroupSolicitorQuotas.solicitingHealthCenterId, tgt.healthCenterId),
+                eq(schema.procedureGroupSolicitorQuotas.procedureGroupId, procedureGroupId!)
+              ),
+            });
+            if (ex) {
+              await this.db.update(schema.procedureGroupSolicitorQuotas)
+                .set({ monthlyQuota: tgt.newQuota, updatedAt: new Date().toISOString() })
+                .where(eq(schema.procedureGroupSolicitorQuotas.id, ex.id));
+            } else {
+              await this.db.insert(schema.procedureGroupSolicitorQuotas).values({
+                id: crypto.randomUUID(),
+                executingHealthCenterId,
+                solicitingHealthCenterId: tgt.healthCenterId,
+                procedureGroupId: procedureGroupId!,
+                monthlyQuota: tgt.newQuota,
+                usedQuota: 0,
+                isManualAdjustment: false,
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          } else {
+            const ex = await this.db.query.procedureSolicitorQuotas.findFirst({
+              where: and(
+                eq(schema.procedureSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+                eq(schema.procedureSolicitorQuotas.solicitingHealthCenterId, tgt.healthCenterId),
+                eq(schema.procedureSolicitorQuotas.procedureId, procedureId!)
+              ),
+            });
+            if (ex) {
+              await this.db.update(schema.procedureSolicitorQuotas)
+                .set({ monthlyQuota: tgt.newQuota, updatedAt: new Date().toISOString() })
+                .where(eq(schema.procedureSolicitorQuotas.id, ex.id));
+            } else {
+              await this.db.insert(schema.procedureSolicitorQuotas).values({
+                id: crypto.randomUUID(),
+                executingHealthCenterId,
+                solicitingHealthCenterId: tgt.healthCenterId,
+                procedureId: procedureId!,
+                monthlyQuota: tgt.newQuota,
+                usedQuota: 0,
+                isManualAdjustment: false,
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          }
+        }
+      }
+
+      // Salva histórico de auditoria
+      await this.db.insert(schema.quotaReallocations).values({
+        id: crypto.randomUUID(),
+        executingHealthCenterId,
+        procedureId: procedureId || null,
+        procedureGroupId: procedureGroupId || null,
+        reallocatedSlots,
+        sourceSolicitors,
+        targetSolicitors,
+        strategy,
+        triggeredBy,
+        justification,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    return {
+      success: true,
+      dryRun,
+      totalIdlePool,
+      reallocatedSlots,
+      pendingRequestsTotal: pendingRequests.length,
+      sourceSolicitors,
+      targetSolicitors,
+    };
+  }
+
+  async getReallocationHistory(executingHealthCenterId?: string, limit: number = 20) {
+    const conditions: any[] = [];
+    if (executingHealthCenterId) {
+      conditions.push(eq(schema.quotaReallocations.executingHealthCenterId, executingHealthCenterId));
+    }
+
+    return this.db.query.quotaReallocations.findMany({
+      where: conditions.length > 0 ? and(...conditions) : undefined,
+      orderBy: [desc(schema.quotaReallocations.createdAt)],
+      limit: Number(limit),
+      with: {
+        executingHealthCenter: { columns: { id: true, name: true, cnes: true } },
+        procedure: { columns: { id: true, code: true, name: true } },
+        procedureGroup: { columns: { id: true, name: true, groupCode: true } },
+      },
+    });
   }
 }

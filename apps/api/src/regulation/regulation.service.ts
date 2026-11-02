@@ -551,6 +551,31 @@ export class RegulationService {
         .where(eq(schema.regulationQuotas.id, quotaId));
     }
 
+    // Atualiza cota consumida da unidade solicitante (por procedimento ou grupo)
+    if (existing.procedureId && executingHealthCenterId && existing.requestingHealthCenterId) {
+      await this.db.update(schema.procedureSolicitorQuotas)
+        .set({ usedQuota: sql`${schema.procedureSolicitorQuotas.usedQuota} + 1` })
+        .where(
+          and(
+            eq(schema.procedureSolicitorQuotas.procedureId, existing.procedureId),
+            eq(schema.procedureSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+            eq(schema.procedureSolicitorQuotas.solicitingHealthCenterId, existing.requestingHealthCenterId),
+          ),
+        );
+    }
+
+    if (existing.procedureGroupId && executingHealthCenterId && existing.requestingHealthCenterId) {
+      await this.db.update(schema.procedureGroupSolicitorQuotas)
+        .set({ usedQuota: sql`${schema.procedureGroupSolicitorQuotas.usedQuota} + 1` })
+        .where(
+          and(
+            eq(schema.procedureGroupSolicitorQuotas.procedureGroupId, existing.procedureGroupId),
+            eq(schema.procedureGroupSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+            eq(schema.procedureGroupSolicitorQuotas.solicitingHealthCenterId, existing.requestingHealthCenterId),
+          ),
+        );
+    }
+
     await this.db.update(schema.regulationRequests)
       .set({
         executingHealthCenterId,
@@ -598,6 +623,31 @@ export class RegulationService {
 
     const now = new Date();
     const newStatus = returnToQueue ? 'PENDENTE_AGENDAMENTO' : 'AGENDAMENTO_CANCELADO';
+
+    // Estorna cota consumida da unidade solicitante (por procedimento ou grupo)
+    if (existing.procedureId && existing.executingHealthCenterId && existing.requestingHealthCenterId) {
+      await this.db.update(schema.procedureSolicitorQuotas)
+        .set({ usedQuota: sql`GREATEST(0, ${schema.procedureSolicitorQuotas.usedQuota} - 1)` })
+        .where(
+          and(
+            eq(schema.procedureSolicitorQuotas.procedureId, existing.procedureId),
+            eq(schema.procedureSolicitorQuotas.executingHealthCenterId, existing.executingHealthCenterId),
+            eq(schema.procedureSolicitorQuotas.solicitingHealthCenterId, existing.requestingHealthCenterId),
+          ),
+        );
+    }
+
+    if (existing.procedureGroupId && existing.executingHealthCenterId && existing.requestingHealthCenterId) {
+      await this.db.update(schema.procedureGroupSolicitorQuotas)
+        .set({ usedQuota: sql`GREATEST(0, ${schema.procedureGroupSolicitorQuotas.usedQuota} - 1)` })
+        .where(
+          and(
+            eq(schema.procedureGroupSolicitorQuotas.procedureGroupId, existing.procedureGroupId),
+            eq(schema.procedureGroupSolicitorQuotas.executingHealthCenterId, existing.executingHealthCenterId),
+            eq(schema.procedureGroupSolicitorQuotas.solicitingHealthCenterId, existing.requestingHealthCenterId),
+          ),
+        );
+    }
 
     await this.db.update(schema.regulationRequests)
       .set({

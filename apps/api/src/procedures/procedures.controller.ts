@@ -108,6 +108,49 @@ export class ProceduresController {
     );
   }
 
+  // --- Remanejamento Automático de Vagas Ociosas ---
+  @Post('quotas/reallocate-idle/preview')
+  previewReallocateIdle(
+    @Body() body: {
+      executingHealthCenterId: string;
+      procedureId?: string;
+      procedureGroupId?: string;
+      strategy?: 'DEMAND_QUEUE' | 'EQUAL';
+      safetyMarginPerUnit?: number;
+    }
+  ) {
+    return this.proceduresService.reallocateIdleVacancies({
+      ...body,
+      dryRun: true,
+    });
+  }
+
+  @Post('quotas/reallocate-idle')
+  executeReallocateIdle(
+    @Body() body: {
+      executingHealthCenterId: string;
+      procedureId?: string;
+      procedureGroupId?: string;
+      strategy?: 'DEMAND_QUEUE' | 'EQUAL';
+      safetyMarginPerUnit?: number;
+      justification?: string;
+    }
+  ) {
+    return this.proceduresService.reallocateIdleVacancies({
+      ...body,
+      dryRun: false,
+      triggeredBy: 'MANUAL',
+    });
+  }
+
+  @Get('quotas/reallocate-idle/history')
+  getReallocationHistory(
+    @Query('executingHealthCenterId') executingHealthCenterId?: string,
+    @Query('limit') limit?: number
+  ) {
+    return this.proceduresService.getReallocationHistory(executingHealthCenterId, limit ? Number(limit) : 20);
+  }
+
   // --- Ofertas da Executante ---
   @Get('executing/:healthCenterId')
   getExecutingOffers(
