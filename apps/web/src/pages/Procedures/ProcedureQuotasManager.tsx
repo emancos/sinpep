@@ -449,8 +449,8 @@ export const ProcedureQuotasManager: React.FC<{
 
             {/* Painel de Capacidade da Unidade Executante */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-850 border border-blue-200 dark:border-slate-800 rounded-lg p-5 shadow-sm space-y-4">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                    <div>
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                    <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                             <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 block">
                                 Capacidade Mensal do Serviço
@@ -459,10 +459,10 @@ export const ProcedureQuotasManager: React.FC<{
                                 {configMode === 'group' ? 'Cotas do Grupo' : 'Cotas Individuais'}
                             </span>
                         </div>
-                        <h3 className="text-lg font-black text-slate-900 dark:text-white mt-0.5">
+                        <h3 className="text-lg font-black text-slate-900 dark:text-white mt-0.5 truncate" title={selectedExecutingObj?.name}>
                             {selectedExecutingObj?.name || 'Unidade Executante'}
                         </h3>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 truncate max-w-2xl" title={configMode === 'group' ? selectedGroupObj?.name : selectedProcedureObj?.name}>
                             {configMode === 'group' ? (
                                 <>Grupo: <strong>{selectedGroupObj?.name}</strong> ({groupProceduresCount} procedimentos vinculados)</>
                             ) : (
@@ -472,11 +472,11 @@ export const ProcedureQuotasManager: React.FC<{
                     </div>
 
                     {/* Ações da Capacidade */}
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="shrink-0 flex flex-wrap sm:flex-nowrap items-center gap-2 self-start lg:self-center">
                         <button
                             type="button"
                             onClick={handleOpenReallocateModal}
-                            className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm cursor-pointer whitespace-nowrap"
                             title="Remanejar vagas ociosas para unidades com pacientes em fila de espera"
                         >
                             <ArrowRightLeft className="w-3.5 h-3.5" />
@@ -486,31 +486,35 @@ export const ProcedureQuotasManager: React.FC<{
                         <button
                             type="button"
                             onClick={() => setShowHistoryModal(true)}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold transition-colors shadow-xs cursor-pointer whitespace-nowrap"
                             title="Ver histórico de auditoria de remanejamentos"
                         >
                             <History className="w-3.5 h-3.5 text-slate-500" />
                             Histórico
                         </button>
 
-                        <button
-                            type="button"
-                            onClick={handleSaveExecutingCapacity}
-                            disabled={isSaving}
-                            className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
-                        >
-                            <Save className="w-3.5 h-3.5" />
-                            {isSaving ? 'Salvando...' : 'Salvar Capacidade'}
-                        </button>
+                        <div className="h-6 w-px bg-blue-200 dark:bg-slate-700 hidden sm:block mx-0.5" />
 
                         <button
                             type="button"
                             onClick={handleAutoDistribute}
                             disabled={autoDistributeMutation.isPending || executingCapacity <= 0}
-                            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                            title="Distribuir capacidade igualmente entre todas as unidades solicitantes"
                         >
                             <RefreshCw className={`w-3.5 h-3.5 ${autoDistributeMutation.isPending ? 'animate-spin' : ''}`} />
                             Distribuir Igualmente
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleSaveExecutingCapacity}
+                            disabled={isSaving}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition-colors shadow-sm disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                            title="Salvar alterações na capacidade mensal ofertada"
+                        >
+                            <Save className="w-3.5 h-3.5" />
+                            {isSaving ? 'Salvando...' : 'Salvar Capacidade'}
                         </button>
                     </div>
                 </div>
