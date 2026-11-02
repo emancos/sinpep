@@ -254,151 +254,292 @@ export const GroupProceduresView: React.FC<{
                         Nenhum procedimento vinculado a este grupo.
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-                            <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-200 dark:border-slate-800">
-                                <tr>
-                                    <th className="px-4 py-3">Código</th>
-                                    <th className="px-4 py-3">Procedimento</th>
-                                    <th className="px-4 py-3 text-center">Status Geral</th>
-                                    <th className="px-4 py-3 text-center">Regulação</th>
-                                    <th className="px-4 py-3 text-center">Ofertado na Executante</th>
-                                    <th className="px-4 py-3 text-center">Capacidade Mensal</th>
-                                    <th className="px-4 py-3 text-right">Ações Rápidas</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {procedures.map((p) => {
-                                    const offered = p.isOffered ?? true;
+                    <>
+                        {/* Visualização Desktop: Tabela completa */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                                <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-200 dark:border-slate-800">
+                                    <tr>
+                                        <th className="px-4 py-3">Código</th>
+                                        <th className="px-4 py-3">Procedimento</th>
+                                        <th className="px-4 py-3 text-center">Status Geral</th>
+                                        <th className="px-4 py-3 text-center">Regulação</th>
+                                        <th className="px-4 py-3 text-center">Ofertado na Executante</th>
+                                        <th className="px-4 py-3 text-center">Capacidade Mensal</th>
+                                        <th className="px-4 py-3 text-right">Ações Rápidas</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {procedures.map((p) => {
+                                        const offered = p.isOffered ?? true;
 
-                                    return (
-                                        <tr
-                                            key={p.id}
-                                            className={`hover:bg-slate-50/50 dark:hover:bg-slate-850/50 transition-colors ${
-                                                !offered ? 'opacity-60 bg-slate-50/20 dark:bg-slate-950/30' : ''
-                                            }`}
-                                        >
-                                            {/* Código */}
-                                            <td className="px-4 py-3.5 font-mono text-xs font-bold text-slate-600 dark:text-slate-300">
-                                                {p.code || '-'}
-                                            </td>
+                                        return (
+                                            <tr
+                                                key={p.id}
+                                                className={`hover:bg-slate-50/50 dark:hover:bg-slate-850/50 transition-colors ${
+                                                    !offered ? 'opacity-60 bg-slate-50/20 dark:bg-slate-950/30' : ''
+                                                }`}
+                                            >
+                                                {/* Código */}
+                                                <td className="px-4 py-3.5 font-mono text-xs font-bold text-slate-600 dark:text-slate-300">
+                                                    {p.code || '-'}
+                                                </td>
 
-                                            {/* Nome */}
-                                            <td className="px-4 py-3.5 font-semibold text-slate-900 dark:text-white">
-                                                <div className="max-w-md">
-                                                    <span className="block truncate">{p.name}</span>
-                                                    <span className="block text-[11px] text-slate-400 mt-0.5">
-                                                        Idade: {p.minAge} a {p.maxAge} anos • Sexo: {p.genderAllowed}
+                                                {/* Nome */}
+                                                <td className="px-4 py-3.5 font-semibold text-slate-900 dark:text-white">
+                                                    <div className="max-w-md">
+                                                        <span className="block truncate">{p.name}</span>
+                                                        <span className="block text-[11px] text-slate-400 mt-0.5">
+                                                            Idade: {p.minAge} a {p.maxAge} anos • Sexo: {p.genderAllowed}
+                                                        </span>
+                                                    </div>
+                                                </td>
+
+                                                {/* Status Cadastro Geral */}
+                                                <td className="px-4 py-3.5 text-center">
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
+                                                        p.isActive
+                                                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                                                            : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
+                                                    }`}>
+                                                        {p.isActive ? 'Ativo' : 'Inativo'}
                                                     </span>
-                                                </div>
-                                            </td>
+                                                </td>
 
-                                            {/* Status Cadastro Geral */}
-                                            <td className="px-4 py-3.5 text-center">
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
-                                                    p.isActive
-                                                        ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
-                                                        : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
-                                                }`}>
+                                                {/* Exige Regulação */}
+                                                <td className="px-4 py-3.5 text-center">
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
+                                                        p.requiresRegulation !== false
+                                                            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                                                            : 'bg-slate-100 text-slate-500'
+                                                    }`}>
+                                                        {p.requiresRegulation !== false ? 'Sim' : 'Não'}
+                                                    </span>
+                                                </td>
+
+                                                {/* Toggle switch: Ofertado na Executante (Item 5) */}
+                                                <td className="px-4 py-3.5 text-center">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            role="switch"
+                                                            aria-checked={offered}
+                                                            onClick={() => handleToggleOffer(p.id, offered, p.monthlyQuantity || 0)}
+                                                            disabled={updateOfferMutation.isPending}
+                                                            className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer ${
+                                                                offered ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                                                            }`}
+                                                        >
+                                                            <div
+                                                                className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                                                                    offered ? 'translate-x-5' : 'translate-x-0'
+                                                                }`}
+                                                            />
+                                                        </button>
+                                                        <span className={`text-xs font-semibold ${
+                                                            offered ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'
+                                                        }`}>
+                                                            {offered ? 'Ofertado' : 'Suspenso'}
+                                                        </span>
+                                                    </div>
+                                                </td>
+
+                                                {/* Quantidade Mensal */}
+                                                <td className="px-4 py-3.5 text-center font-bold text-slate-800 dark:text-slate-200">
+                                                    {p.monthlyQuantity || 0} vagas
+                                                </td>
+
+                                                {/* Ações Rápidas */}
+                                                <td className="px-4 py-3.5 text-right">
+                                                    <div className="flex items-center justify-end gap-1.5">
+                                                        {/* Botão Preparo */}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onOpenPreparation(p.id)}
+                                                            className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-600 transition-colors"
+                                                            title="Editar Preparo Clínico"
+                                                        >
+                                                            <FileText className="w-4 h-4" />
+                                                        </button>
+
+                                                        {/* Botão Cotas */}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onOpenQuotas(p.id, selectedExecutingId)}
+                                                            className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-blue-600 transition-colors"
+                                                            title="Gerenciar Cotas Mensais"
+                                                        >
+                                                            <Divide className="w-4 h-4" />
+                                                        </button>
+
+                                                        {/* Botão Editar */}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onEditProcedure(p.id)}
+                                                            className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-blue-600 transition-colors"
+                                                            title="Editar Procedimento"
+                                                        >
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </button>
+
+                                                        {/* Botão Toggle Ativo Geral */}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleToggleProcedureStatus(p.id, p.name, p.isActive)}
+                                                            className={`p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${
+                                                                p.isActive ? 'text-amber-500 hover:text-amber-600' : 'text-emerald-500 hover:text-emerald-600'
+                                                            }`}
+                                                            title={p.isActive ? 'Desativar Procedimento' : 'Ativar Procedimento'}
+                                                        >
+                                                            <Power className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Visualização Mobile: Cards estruturados e modernos */}
+                        <div className="md:hidden space-y-3 p-3 bg-slate-50/50 dark:bg-slate-950/40">
+                            {procedures.map((p) => {
+                                const offered = p.isOffered ?? true;
+
+                                return (
+                                    <div
+                                        key={p.id}
+                                        className={`p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-3 transition-all ${
+                                            !offered ? 'opacity-70 bg-slate-50/30 dark:bg-slate-950/40' : ''
+                                        }`}
+                                    >
+                                        {/* Top Row: Código SIGTAP + Badges de Status */}
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/60">
+                                                {p.code || '-'}
+                                            </span>
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <span
+                                                    className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
+                                                        p.requiresRegulation !== false
+                                                            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                                    }`}
+                                                >
+                                                    {p.requiresRegulation !== false ? 'Exige' : 'Dispensada'}
+                                                </span>
+                                                <span
+                                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                                                        p.isActive
+                                                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
+                                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                                    }`}
+                                                >
                                                     {p.isActive ? 'Ativo' : 'Inativo'}
                                                 </span>
-                                            </td>
+                                            </div>
+                                        </div>
 
-                                            {/* Exige Regulação */}
-                                            <td className="px-4 py-3.5 text-center">
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
-                                                    p.requiresRegulation !== false
-                                                        ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                                                        : 'bg-slate-100 text-slate-500'
+                                        {/* Informações Principais: Nome e Demografia */}
+                                        <div>
+                                            <h4 className="font-bold text-slate-900 dark:text-white text-sm leading-snug break-words">
+                                                {p.name}
+                                            </h4>
+                                            <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                                <span>Idade: {p.minAge} a {p.maxAge} anos</span>
+                                                <span>•</span>
+                                                <span>Sexo: {p.genderAllowed}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Oferta no Serviço Executante + Capacidade */}
+                                        <div className="flex items-center justify-between gap-2 p-2.5 bg-slate-50 dark:bg-slate-950/60 rounded-lg border border-slate-100 dark:border-slate-800/80">
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    role="switch"
+                                                    aria-checked={offered}
+                                                    onClick={() => handleToggleOffer(p.id, offered, p.monthlyQuantity || 0)}
+                                                    disabled={updateOfferMutation.isPending}
+                                                    className={`w-10 h-5.5 flex items-center rounded-full p-0.5 transition-colors cursor-pointer ${
+                                                        offered ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                                                    }`}
+                                                >
+                                                    <div
+                                                        className={`bg-white w-4.5 h-4.5 rounded-full shadow-md transform transition-transform ${
+                                                            offered ? 'translate-x-4.5' : 'translate-x-0'
+                                                        }`}
+                                                    />
+                                                </button>
+                                                <span className={`text-xs font-semibold ${
+                                                    offered ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'
                                                 }`}>
-                                                    {p.requiresRegulation !== false ? 'Sim' : 'Não'}
+                                                    {offered ? 'Ofertado' : 'Suspenso'}
                                                 </span>
-                                            </td>
+                                            </div>
 
-                                            {/* Toggle switch: Ofertado na Executante (Item 5) */}
-                                            <td className="px-4 py-3.5 text-center">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <button
-                                                        type="button"
-                                                        role="switch"
-                                                        aria-checked={offered}
-                                                        onClick={() => handleToggleOffer(p.id, offered, p.monthlyQuantity || 0)}
-                                                        disabled={updateOfferMutation.isPending}
-                                                        className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer ${
-                                                            offered ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
-                                                        }`}
-                                                    >
-                                                        <div
-                                                            className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
-                                                                offered ? 'translate-x-5' : 'translate-x-0'
-                                                            }`}
-                                                        />
-                                                    </button>
-                                                    <span className={`text-xs font-semibold ${
-                                                        offered ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'
-                                                    }`}>
-                                                        {offered ? 'Ofertado' : 'Suspenso'}
-                                                    </span>
-                                                </div>
-                                            </td>
+                                            <div className="text-right">
+                                                <span className="block text-[10px] uppercase font-bold text-slate-400">Capacidade</span>
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                                    {p.monthlyQuantity || 0} vagas
+                                                </span>
+                                            </div>
+                                        </div>
 
-                                            {/* Quantidade Mensal */}
-                                            <td className="px-4 py-3.5 text-center font-bold text-slate-800 dark:text-slate-200">
-                                                {p.monthlyQuantity || 0} vagas
-                                            </td>
+                                        {/* Barra de Ações Rápidas */}
+                                        <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                                            {/* Botões contextuais: Preparo e Cotas */}
+                                            <div className="flex items-center gap-1.5">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onOpenPreparation(p.id)}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40 transition-colors cursor-pointer"
+                                                    title="Editar Preparo Clínico"
+                                                >
+                                                    <FileText className="w-3.5 h-3.5" />
+                                                    <span>Preparo</span>
+                                                </button>
 
-                                            {/* Ações Rápidas */}
-                                            <td className="px-4 py-3.5 text-right">
-                                                <div className="flex items-center justify-end gap-1.5">
-                                                    {/* Botão Preparo */}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => onOpenPreparation(p.id)}
-                                                        className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-600 transition-colors"
-                                                        title="Editar Preparo Clínico"
-                                                    >
-                                                        <FileText className="w-4 h-4" />
-                                                    </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onOpenQuotas(p.id, selectedExecutingId)}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/40 transition-colors cursor-pointer"
+                                                    title="Gerenciar Cotas Mensais"
+                                                >
+                                                    <Divide className="w-3.5 h-3.5" />
+                                                    <span>Cotas</span>
+                                                </button>
+                                            </div>
 
-                                                    {/* Botão Cotas */}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => onOpenQuotas(p.id, selectedExecutingId)}
-                                                        className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-blue-600 transition-colors"
-                                                        title="Gerenciar Cotas Mensais"
-                                                    >
-                                                        <Divide className="w-4 h-4" />
-                                                    </button>
+                                            {/* Ações de gerenciamento: Editar, Toggle Status */}
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onEditProcedure(p.id)}
+                                                    className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-blue-600 transition-colors cursor-pointer"
+                                                    title="Editar Procedimento"
+                                                >
+                                                    <Edit2 className="w-3.5 h-3.5" />
+                                                </button>
 
-                                                    {/* Botão Editar */}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => onEditProcedure(p.id)}
-                                                        className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-blue-600 transition-colors"
-                                                        title="Editar Procedimento"
-                                                    >
-                                                        <Edit2 className="w-4 h-4" />
-                                                    </button>
-
-                                                    {/* Botão Toggle Ativo Geral */}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleToggleProcedureStatus(p.id, p.name, p.isActive)}
-                                                        className={`p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${
-                                                            p.isActive ? 'text-amber-500 hover:text-amber-600' : 'text-emerald-500 hover:text-emerald-600'
-                                                        }`}
-                                                        title={p.isActive ? 'Desativar Procedimento' : 'Ativar Procedimento'}
-                                                    >
-                                                        <Power className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleToggleProcedureStatus(p.id, p.name, p.isActive)}
+                                                    className={`p-1.5 rounded-lg border border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer ${
+                                                        p.isActive ? 'text-amber-500 hover:text-amber-600' : 'text-emerald-500 hover:text-emerald-600'
+                                                    }`}
+                                                    title={p.isActive ? 'Desativar Procedimento' : 'Ativar Procedimento'}
+                                                >
+                                                    <Power className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
                 )}
             </div>
         </div>
