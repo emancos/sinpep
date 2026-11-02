@@ -27,18 +27,36 @@ export class ProceduresController {
   @Get('quotas/matrix')
   getQuotasMatrix(
     @Query('executingHealthCenterId') executingHealthCenterId: string,
-    @Query('procedureId') procedureId: string
+    @Query('procedureId') procedureId?: string,
+    @Query('procedureGroupId') procedureGroupId?: string
   ) {
-    return this.proceduresService.getProcedureQuotasMatrix(executingHealthCenterId, procedureId);
+    if (procedureGroupId) {
+      return this.proceduresService.getGroupQuotasMatrix(executingHealthCenterId, procedureGroupId);
+    }
+    return this.proceduresService.getProcedureQuotasMatrix(executingHealthCenterId, procedureId!);
   }
 
   @Post('quotas/distribute-auto')
   distributeAuto(
-    @Body() body: { executingHealthCenterId: string; procedureId: string; totalCapacity?: number }
+    @Body() body: {
+      executingHealthCenterId: string;
+      procedureId?: string;
+      procedureGroupId?: string;
+      totalCapacity?: number;
+      applyToAllProcedures?: boolean;
+    }
   ) {
+    if (body.procedureGroupId) {
+      return this.proceduresService.autoDistributeGroupQuotas(
+        body.executingHealthCenterId,
+        body.procedureGroupId,
+        body.totalCapacity,
+        body.applyToAllProcedures ?? false
+      );
+    }
     return this.proceduresService.autoDistributeQuotas(
       body.executingHealthCenterId,
-      body.procedureId,
+      body.procedureId!,
       body.totalCapacity
     );
   }
@@ -47,16 +65,46 @@ export class ProceduresController {
   rebalance(
     @Body() body: {
       executingHealthCenterId: string;
-      procedureId: string;
+      procedureId?: string;
+      procedureGroupId?: string;
       solicitingHealthCenterId: string;
       monthlyQuota: number;
+      applyToAllProcedures?: boolean;
     }
   ) {
+    if (body.procedureGroupId) {
+      return this.proceduresService.rebalanceGroupQuotas(
+        body.executingHealthCenterId,
+        body.procedureGroupId,
+        body.solicitingHealthCenterId,
+        body.monthlyQuota,
+        body.applyToAllProcedures ?? false
+      );
+    }
     return this.proceduresService.rebalanceQuotas(
       body.executingHealthCenterId,
-      body.procedureId,
+      body.procedureId!,
       body.solicitingHealthCenterId,
       body.monthlyQuota
+    );
+  }
+
+  @Put('executing-group/:healthCenterId')
+  updateExecutingGroupOffer(
+    @Param('healthCenterId') healthCenterId: string,
+    @Body() body: {
+      procedureGroupId: string;
+      monthlyQuantity: number;
+      isOffered?: boolean;
+      applyToAllProcedures?: boolean;
+    }
+  ) {
+    return this.proceduresService.updateExecutingGroupOffer(
+      healthCenterId,
+      body.procedureGroupId,
+      body.monthlyQuantity,
+      body.isOffered ?? true,
+      body.applyToAllProcedures ?? false
     );
   }
 

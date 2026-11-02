@@ -46,6 +46,15 @@ export class ProceduresService {
             AND monthly_quota <= 0
         )`
       );
+      // Regra da Cota 0 para o Grupo de Procedimento
+      conditions.push(
+        sql`${schema.procedures.procedureGroupId} NOT IN (
+          SELECT procedure_group_id 
+          FROM procedure_group_solicitor_quotas 
+          WHERE soliciting_health_center_id = ${requestingHealthCenterId}::uuid 
+            AND monthly_quota <= 0
+        )`
+      );
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -402,6 +411,314 @@ export class ProceduresService {
     }
 
     return this.getProcedureQuotasMatrix(executingHealthCenterId, procedureId);
+  }
+
+  // --- Ofertas e Capacidade Mensal por Grupo ---
+  async updateExecutingGroupOffer(
+    healthCenterId: string,
+    procedureGroupId: string,
+    monthlyQuantity: number,
+    isOffered: boolean,
+    applyToAllProcedures: boolean = false
+  ) {
+    const existing = await this.db.query.healthCenterProcedureGroups.findFirst({
+      where: and(
+        eq(schema.healthCenterProcedureGroups.healthCenterId, healthCenterId),
+        eq(schema.healthCenterProcedureGroups.procedureGroupId, procedureGroupId)
+      ),
+    });
+
+    let groupOffer;
+    if (existing) {
+      const [updated] = await this.db.update(schema.healthCenterProcedureGroups)
+        .set({
+          monthlyQuantity: Number(monthlyQuantity),
+          isOffered: Boolean(isOffered),
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(schema.healthCenterProcedureGroups.id, existing.id))
+        .returning();
+      groupOffer = updated;
+    } else {
+      const [created] = await this.db.insert(schema.healthCenterProcedureGroups)
+        .values({
+          id: crypto.randomUUID(),
+          healthCenterId,
+          procedureGroupId,
+          monthlyQuantity: Number(monthlyQuantity),
+          isOffered: Boolean(isOffered),
+          updatedAt: new Date().toISOString(),
+        })
+        .returning();
+      groupOffer = created;
+    }
+
+    if (applyToAllProcedures) {
+      const procs = await this.db.query.procedures.findMany({
+        where: eq(schema.procedures.procedureGroupId, procedureGroupId),
+      });
+      for (const p of procs) {
+        await this.updateExecutingOffer(healthCenterId, p.id, monthlyQuantity, isOffered);
+      }
+    }
+
+    return groupOffer;
+  }
+
+  // --- Matriz de Cotas por Grupo ---
+  async getGroupQuotasMatrix(executingHealthCenterId: string, procedureGroupId: string) {
+    const executingHc = await this.db.query.healthCenters.findFirst({
+      where: eq(schema.healthCenters.id, executingHealthCenterId),
+    });
+    const group = await this.db.query.procedureGroups.findFirst({
+      where: eq(schema.procedureGroups.id, procedureGroupId),
+    });
+    const groupProcs = await this.db.query.procedures.findMany({
+      where: eq(schema.procedures.procedureGroupId, procedureGroupId),
+    });
+    const offer = await this.db.query.healthCenterProcedureGroups.findFirst({
+      where: and(
+        eq(schema.healthCenterProcedureGroups.healthCenterId, executingHealthCenterId),
+        eq(schema.healthCenterProcedureGroups.procedureGroupId, procedureGroupId)
+      ),
+    });
+    const totalCapacity = offer?.monthlyQuantity ?? 0;
+
+    const solicitors = await this.db.query.healthCenters.findMany({
+      where: and(
+        eq(schema.healthCenters.isActive, true),
+        eq(schema.healthCenters.stSolicitante, true)
+      ),
+      orderBy: [asc(schema.healthCenters.name)],
+    });
+
+    const quotas = await this.db.query.procedureGroupSolicitorQuotas.findMany({
+      where: and(
+        eq(schema.procedureGroupSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+        eq(schema.procedureGroupSolicitorQuotas.procedureGroupId, procedureGroupId)
+      ),
+    });
+    const quotaMap = new Map(quotas.map(q => [q.solicitingHealthCenterId, q]));
+
+    const matrix = solicitors.map(s => {
+      const q = quotaMap.get(s.id);
+      return {
+        solicitingHealthCenterId: s.id,
+        solicitingHealthCenterName: s.name,
+        solicitingHealthCenterCnes: s.cnes,
+        monthlyQuota: q?.monthlyQuota ?? 0,
+        usedQuota: q?.usedQuota ?? 0,
+        isManualAdjustment: q?.isManualAdjustment ?? false,
+      };
+    });
+
+    const allocatedTotal = matrix.reduce((acc, curr) => acc + curr.monthlyQuota, 0);
+
+    return {
+      executingHealthCenterId,
+      executingHealthCenterName: executingHc?.name,
+      procedureGroupId,
+      procedureGroupName: group?.name,
+      proceduresCount: groupProcs.length,
+      totalCapacity,
+      allocatedTotal,
+      unallocated: totalCapacity - allocatedTotal,
+      isOffered: offer ? offer.isOffered : true,
+      solicitors: matrix,
+    };
+  }
+
+  // --- Distribuição Automática de Cotas por Grupo ---
+  async autoDistributeGroupQuotas(
+    executingHealthCenterId: string,
+    procedureGroupId: string,
+    totalCapacityOverride?: number,
+    applyToAllProcedures: boolean = false
+  ) {
+    let total = totalCapacityOverride;
+    if (total === undefined) {
+      const offer = await this.db.query.healthCenterProcedureGroups.findFirst({
+        where: and(
+          eq(schema.healthCenterProcedureGroups.healthCenterId, executingHealthCenterId),
+          eq(schema.healthCenterProcedureGroups.procedureGroupId, procedureGroupId)
+        ),
+      });
+      total = offer?.monthlyQuantity ?? 0;
+    } else {
+      await this.updateExecutingGroupOffer(executingHealthCenterId, procedureGroupId, total, true, applyToAllProcedures);
+    }
+
+    const solicitors = await this.db.query.healthCenters.findMany({
+      where: and(
+        eq(schema.healthCenters.isActive, true),
+        eq(schema.healthCenters.stSolicitante, true)
+      ),
+      orderBy: [asc(schema.healthCenters.name)],
+    });
+
+    if (solicitors.length === 0) {
+      return this.getGroupQuotasMatrix(executingHealthCenterId, procedureGroupId);
+    }
+
+    const count = solicitors.length;
+    const baseQuota = Math.floor(total / count);
+    const remainder = total % count;
+
+    for (let i = 0; i < count; i++) {
+      const s = solicitors[i];
+      const quotaValue = baseQuota + (i < remainder ? 1 : 0);
+
+      const existing = await this.db.query.procedureGroupSolicitorQuotas.findFirst({
+        where: and(
+          eq(schema.procedureGroupSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+          eq(schema.procedureGroupSolicitorQuotas.solicitingHealthCenterId, s.id),
+          eq(schema.procedureGroupSolicitorQuotas.procedureGroupId, procedureGroupId)
+        ),
+      });
+
+      if (existing) {
+        await this.db.update(schema.procedureGroupSolicitorQuotas)
+          .set({
+            monthlyQuota: quotaValue,
+            isManualAdjustment: false,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(schema.procedureGroupSolicitorQuotas.id, existing.id));
+      } else {
+        await this.db.insert(schema.procedureGroupSolicitorQuotas)
+          .values({
+            id: crypto.randomUUID(),
+            executingHealthCenterId,
+            solicitingHealthCenterId: s.id,
+            procedureGroupId,
+            monthlyQuota: quotaValue,
+            usedQuota: 0,
+            isManualAdjustment: false,
+            updatedAt: new Date().toISOString(),
+          });
+      }
+    }
+
+    if (applyToAllProcedures) {
+      const procs = await this.db.query.procedures.findMany({
+        where: eq(schema.procedures.procedureGroupId, procedureGroupId),
+      });
+      for (const p of procs) {
+        await this.autoDistributeQuotas(executingHealthCenterId, p.id, total);
+      }
+    }
+
+    return this.getGroupQuotasMatrix(executingHealthCenterId, procedureGroupId);
+  }
+
+  // --- Rebalanceamento de Cotas por Grupo ---
+  async rebalanceGroupQuotas(
+    executingHealthCenterId: string,
+    procedureGroupId: string,
+    changedSolicitingId: string,
+    newManualQuota: number,
+    applyToAllProcedures: boolean = false
+  ) {
+    const offer = await this.db.query.healthCenterProcedureGroups.findFirst({
+      where: and(
+        eq(schema.healthCenterProcedureGroups.healthCenterId, executingHealthCenterId),
+        eq(schema.healthCenterProcedureGroups.procedureGroupId, procedureGroupId)
+      ),
+    });
+    const totalCapacity = offer?.monthlyQuantity ?? 0;
+
+    const solicitors = await this.db.query.healthCenters.findMany({
+      where: and(
+        eq(schema.healthCenters.isActive, true),
+        eq(schema.healthCenters.stSolicitante, true)
+      ),
+      orderBy: [asc(schema.healthCenters.name)],
+    });
+
+    const otherSolicitors = solicitors.filter(s => s.id !== changedSolicitingId);
+    const clampedVal = Math.min(Math.max(0, newManualQuota), totalCapacity);
+    const remainingToDistribute = Math.max(0, totalCapacity - clampedVal);
+
+    const existingChanged = await this.db.query.procedureGroupSolicitorQuotas.findFirst({
+      where: and(
+        eq(schema.procedureGroupSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+        eq(schema.procedureGroupSolicitorQuotas.solicitingHealthCenterId, changedSolicitingId),
+        eq(schema.procedureGroupSolicitorQuotas.procedureGroupId, procedureGroupId)
+      ),
+    });
+
+    if (existingChanged) {
+      await this.db.update(schema.procedureGroupSolicitorQuotas)
+        .set({
+          monthlyQuota: clampedVal,
+          isManualAdjustment: true,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(schema.procedureGroupSolicitorQuotas.id, existingChanged.id));
+    } else {
+      await this.db.insert(schema.procedureGroupSolicitorQuotas)
+        .values({
+          id: crypto.randomUUID(),
+          executingHealthCenterId,
+          solicitingHealthCenterId: changedSolicitingId,
+          procedureGroupId,
+          monthlyQuota: clampedVal,
+          usedQuota: 0,
+          isManualAdjustment: true,
+          updatedAt: new Date().toISOString(),
+        });
+    }
+
+    if (otherSolicitors.length > 0) {
+      const otherCount = otherSolicitors.length;
+      const baseOther = Math.floor(remainingToDistribute / otherCount);
+      const remainderOther = remainingToDistribute % otherCount;
+
+      for (let i = 0; i < otherCount; i++) {
+        const s = otherSolicitors[i];
+        const assignedQuota = Math.max(0, baseOther + (i < remainderOther ? 1 : 0));
+
+        const ex = await this.db.query.procedureGroupSolicitorQuotas.findFirst({
+          where: and(
+            eq(schema.procedureGroupSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+            eq(schema.procedureGroupSolicitorQuotas.solicitingHealthCenterId, s.id),
+            eq(schema.procedureGroupSolicitorQuotas.procedureGroupId, procedureGroupId)
+          ),
+        });
+
+        if (ex) {
+          await this.db.update(schema.procedureGroupSolicitorQuotas)
+            .set({
+              monthlyQuota: assignedQuota,
+              updatedAt: new Date().toISOString(),
+            })
+            .where(eq(schema.procedureGroupSolicitorQuotas.id, ex.id));
+        } else {
+          await this.db.insert(schema.procedureGroupSolicitorQuotas)
+            .values({
+              id: crypto.randomUUID(),
+              executingHealthCenterId,
+              solicitingHealthCenterId: s.id,
+              procedureGroupId,
+              monthlyQuota: assignedQuota,
+              usedQuota: 0,
+              isManualAdjustment: false,
+              updatedAt: new Date().toISOString(),
+            });
+        }
+      }
+    }
+
+    if (applyToAllProcedures) {
+      const procs = await this.db.query.procedures.findMany({
+        where: eq(schema.procedures.procedureGroupId, procedureGroupId),
+      });
+      for (const p of procs) {
+        await this.rebalanceQuotas(executingHealthCenterId, p.id, changedSolicitingId, clampedVal);
+      }
+    }
+
+    return this.getGroupQuotasMatrix(executingHealthCenterId, procedureGroupId);
   }
 
   async rebalanceQuotas(executingHealthCenterId: string, procedureId: string, changedSolicitingId: string, newManualQuota: number) {
