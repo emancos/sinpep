@@ -520,6 +520,36 @@ export const procedureGroupSolicitorQuotas = pgTable("procedure_group_solicitor_
   }).onUpdate("cascade").onDelete("cascade")
 ]);
 
+export const quotaReallocations = pgTable("quota_reallocations", {
+  id: uuid().primaryKey().notNull(),
+  executingHealthCenterId: uuid("executing_health_center_id").notNull(),
+  procedureId: uuid("procedure_id"),
+  procedureGroupId: uuid("procedure_group_id"),
+  reallocatedSlots: integer("reallocated_slots").notNull(),
+  sourceSolicitors: jsonb("source_solicitors").notNull(),
+  targetSolicitors: jsonb("target_solicitors").notNull(),
+  strategy: text().default('DEMAND_QUEUE').notNull(),
+  triggeredBy: text("triggered_by").default('MANUAL').notNull(),
+  justification: text(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  foreignKey({
+    columns: [table.executingHealthCenterId],
+    foreignColumns: [healthCenters.id],
+    name: "quota_reallocations_executing_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.procedureId],
+    foreignColumns: [procedures.id],
+    name: "quota_reallocations_procedure_fkey"
+  }).onUpdate("cascade").onDelete("set null"),
+  foreignKey({
+    columns: [table.procedureGroupId],
+    foreignColumns: [procedureGroups.id],
+    name: "quota_reallocations_group_fkey"
+  }).onUpdate("cascade").onDelete("set null"),
+]);
+
 export const procedureVariants = pgTable("procedure_variants", {
   id: uuid().primaryKey().notNull(),
   procedureId: uuid("procedure_id").notNull(),
@@ -606,6 +636,21 @@ export const procedureGroupSolicitorQuotasRelations = relations(procedureGroupSo
   }),
   procedureGroup: one(procedureGroups, {
     fields: [procedureGroupSolicitorQuotas.procedureGroupId],
+    references: [procedureGroups.id],
+  }),
+}));
+
+export const quotaReallocationsRelations = relations(quotaReallocations, ({ one }) => ({
+  executingHealthCenter: one(healthCenters, {
+    fields: [quotaReallocations.executingHealthCenterId],
+    references: [healthCenters.id],
+  }),
+  procedure: one(procedures, {
+    fields: [quotaReallocations.procedureId],
+    references: [procedures.id],
+  }),
+  procedureGroup: one(procedureGroups, {
+    fields: [quotaReallocations.procedureGroupId],
     references: [procedureGroups.id],
   }),
 }));

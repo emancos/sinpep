@@ -109,6 +109,22 @@ export class DatabaseMigrationService implements OnModuleInit {
         );
       `);
 
+      await this.db.execute(sql`
+        CREATE TABLE IF NOT EXISTS quota_reallocations (
+          id UUID PRIMARY KEY NOT NULL,
+          executing_health_center_id UUID NOT NULL REFERENCES health_centers(id) ON UPDATE CASCADE ON DELETE CASCADE,
+          procedure_id UUID REFERENCES procedures(id) ON UPDATE CASCADE ON DELETE SET NULL,
+          procedure_group_id UUID REFERENCES procedure_groups(id) ON UPDATE CASCADE ON DELETE SET NULL,
+          reallocated_slots INTEGER NOT NULL DEFAULT 0,
+          source_solicitors JSONB NOT NULL DEFAULT '[]'::jsonb,
+          target_solicitors JSONB NOT NULL DEFAULT '[]'::jsonb,
+          strategy TEXT NOT NULL DEFAULT 'DEMAND_QUEUE',
+          triggered_by TEXT NOT NULL DEFAULT 'MANUAL',
+          justification TEXT,
+          created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+
       this.logger.log('Database migrations for procedures & quotas applied successfully.');
     } catch (error) {
       this.logger.error('Error applying procedure & quota database migrations', error);
