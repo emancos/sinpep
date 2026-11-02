@@ -1,15 +1,16 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database/schema';
 import { eq, ilike, or, and, asc, sql, notInArray } from 'drizzle-orm';
 import * as crypto from 'crypto';
-import axios from 'axios';
+import { IntegraSusService } from '../integra-sus/integra-sus.service';
 
 @Injectable()
 export class ProceduresService {
   constructor(
     @Inject('DATABASE_CONNECTION')
     private readonly db: NodePgDatabase<typeof schema>,
+    private readonly integraSusService: IntegraSusService,
   ) {}
 
   async findAll(params: any) {
@@ -145,7 +146,10 @@ export class ProceduresService {
   }
 
   async remove(id: string) {
-    await this.findOne(id);
+    const proc = await this.findOne(id);
+    if (proc.procedureGroupId) {
+      throw new BadRequestException('Procedimentos vinculados a um grupo não podem ser excluídos, apenas desativados.');
+    }
     await this.db.delete(schema.procedures)
       .where(eq(schema.procedures.id, id));
   }
@@ -163,142 +167,8 @@ export class ProceduresService {
   }
 
   // --- INTEGRA SUS API ---
-  private integraSusTokenCache: { token: string; expiresAt: number } | null = null;
-
-  private async getIntegraSusToken(apiUrl: string, clientId: string, clientSecret: string): Promise<string | null> {
-    const now = Date.now();
-    if (this.integraSusTokenCache && this.integraSusTokenCache.expiresAt > now + 60000) {
-      return this.integraSusTokenCache.token;
-    }
-
-    // Tentativa 1: JSON com client_id e client_secret
-    try {
-      const res = await axios.post(
-        `${apiUrl}/auth/token`,
-        { client_id: clientId, client_secret: clientSecret },
-        { timeout: 7000, headers: { 'Content-Type': 'application/json' } }
-      );
-      const token = res.data?.access_token || res.data?.token || res.data?.data?.access_token || res.data?.data?.token;
-      if (token) {
-        this.integraSusTokenCache = { token, expiresAt: now + (res.data?.expires_in ? res.data.expires_in * 1000 : 3600000) };
-        return token;
-      }
-    } catch (e1: any) {
-      // Tentativa 2: JSON com username e password
-      try {
-        const res = await axios.post(
-          `${apiUrl}/auth/token`,
-          { username: clientId, password: clientSecret },
-          { timeout: 7000, headers: { 'Content-Type': 'application/json' } }
-        );
-        const token = res.data?.access_token || res.data?.token || res.data?.data?.access_token || res.data?.data?.token;
-        if (token) {
-          this.integraSusTokenCache = { token, expiresAt: now + (res.data?.expires_in ? res.data.expires_in * 1000 : 3600000) };
-          return token;
-        }
-      } catch (e2: any) {
-        // Tentativa 3: x-www-form-urlencoded
-        try {
-          const params = new URLSearchParams();
-          params.append('grant_type', 'client_credentials');
-          params.append('client_id', clientId);
-          params.append('client_secret', clientSecret);
-          const res = await axios.post(
-            `${apiUrl}/auth/token`,
-            params.toString(),
-            {
-              timeout: 7000,
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
-              }
-            }
-          );
-          const token = res.data?.access_token || res.data?.token || res.data?.data?.access_token || res.data?.data?.token;
-          if (token) {
-            this.integraSusTokenCache = { token, expiresAt: now + (res.data?.expires_in ? res.data.expires_in * 1000 : 3600000) };
-            return token;
-          }
-        } catch {
-          console.warn('INTEGRA SUS Token authentication attempts failed. Will try request without token.');
-        }
-      }
-    }
-    return null;
-  }
-
   async searchIntegraSus(query: string) {
-    const clientId = process.env.SAUDE_API_CLIENT_ID;
-    const clientSecret = process.env.SAUDE_API_CLIENT_SECRET;
-    const apiUrl = (process.env.INTEGRA_SUS_URL || 'https://integra-sus.integrasistemas.tec.br').replace(/\/+$/, '');
-
-    const cleanQuery = query ? query.trim() : '';
-    if (!cleanQuery) return [];
-
-    let token: string | null = null;
-    if (clientId && clientSecret) {
-      token = await this.getIntegraSusToken(apiUrl, clientId, clientSecret);
-    }
-
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const isCode = /^\d{6,10}$/.test(cleanQuery);
-
-    // Se for código numérico de procedimento, busca direta por código
-    if (isCode) {
-      try {
-        const { data } = await axios.get(`${apiUrl}/procedimentos/${cleanQuery}`, {
-          headers,
-          timeout: 8000,
-        });
-        if (data) {
-          const item = data.data || data;
-          if (item && (item.codigo || item.co_procedimento || item.code || item.nome || item.no_procedimento)) {
-            return [item];
-          }
-        }
-      } catch (codeErr: any) {
-        if (codeErr?.response?.status !== 404) {
-          console.warn(`INTEGRA SUS direct code lookup failed (${cleanQuery}):`, codeErr?.response?.status || codeErr?.message);
-        }
-      }
-    }
-
-    // Busca textual geral via query params
-    try {
-      const { data } = await axios.get(`${apiUrl}/procedimentos`, {
-        params: { search: cleanQuery, page: 1, limit: 20 },
-        headers,
-        timeout: 8000,
-      });
-
-      if (Array.isArray(data)) {
-        return data;
-      }
-      if (Array.isArray(data?.data)) {
-        return data.data;
-      }
-      if (Array.isArray(data?.procedimentos)) {
-        return data.procedimentos;
-      }
-      if (Array.isArray(data?.results)) {
-        return data.results;
-      }
-      if (data && (data.codigo || data.co_procedimento || data.code)) {
-        return [data];
-      }
-      return [];
-    } catch (error: any) {
-      console.warn('INTEGRA SUS API search failed:', {
-        status: error?.response?.status,
-        data: error?.response?.data,
-        message: error?.message,
-      });
-      return [];
-    }
+    return this.integraSusService.searchProcedures(query);
   }
 
   // --- Preparo de Procedimentos ---
