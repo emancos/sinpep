@@ -623,7 +623,7 @@ export const ProcedureQuotasManager: React.FC<{
                             <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
                                 <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-200 dark:border-slate-800">
                                     <tr>
-                                        <th className="px-4 py-3">Unidade Solicitante (UBS)</th>
+                                        <th className="px-4 py-3">Unidade Solicitante</th>
                                         <th className="px-4 py-3">CNES</th>
                                         <th className="px-4 py-3 text-center">Tipo de Ajuste</th>
                                         <th className="px-4 py-3 text-center">Cota Mensal</th>
