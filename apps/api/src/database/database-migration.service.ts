@@ -81,6 +81,34 @@ export class DatabaseMigrationService implements OnModuleInit {
         );
       `);
 
+      await this.db.execute(sql`
+        CREATE TABLE IF NOT EXISTS health_center_procedure_groups (
+          id UUID PRIMARY KEY NOT NULL,
+          health_center_id UUID NOT NULL REFERENCES health_centers(id) ON UPDATE CASCADE ON DELETE CASCADE,
+          procedure_group_id UUID NOT NULL REFERENCES procedure_groups(id) ON UPDATE CASCADE ON DELETE CASCADE,
+          monthly_quantity INTEGER NOT NULL DEFAULT 0,
+          is_offered BOOLEAN NOT NULL DEFAULT true,
+          created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP(3) NOT NULL,
+          CONSTRAINT health_center_procedure_groups_unique UNIQUE (health_center_id, procedure_group_id)
+        );
+      `);
+
+      await this.db.execute(sql`
+        CREATE TABLE IF NOT EXISTS procedure_group_solicitor_quotas (
+          id UUID PRIMARY KEY NOT NULL,
+          executing_health_center_id UUID NOT NULL REFERENCES health_centers(id) ON UPDATE CASCADE ON DELETE CASCADE,
+          soliciting_health_center_id UUID NOT NULL REFERENCES health_centers(id) ON UPDATE CASCADE ON DELETE CASCADE,
+          procedure_group_id UUID NOT NULL REFERENCES procedure_groups(id) ON UPDATE CASCADE ON DELETE CASCADE,
+          monthly_quota INTEGER NOT NULL DEFAULT 0,
+          used_quota INTEGER NOT NULL DEFAULT 0,
+          is_manual_adjustment BOOLEAN NOT NULL DEFAULT false,
+          created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP(3) NOT NULL,
+          CONSTRAINT procedure_group_solicitor_quotas_unique UNIQUE (executing_health_center_id, soliciting_health_center_id, procedure_group_id)
+        );
+      `);
+
       this.logger.log('Database migrations for procedures & quotas applied successfully.');
     } catch (error) {
       this.logger.error('Error applying procedure & quota database migrations', error);

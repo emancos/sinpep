@@ -465,6 +465,61 @@ export const procedureSolicitorQuotas = pgTable("procedure_solicitor_quotas", {
   }).onUpdate("cascade").onDelete("cascade")
 ]);
 
+export const healthCenterProcedureGroups = pgTable("health_center_procedure_groups", {
+  id: uuid().primaryKey().notNull(),
+  healthCenterId: uuid("health_center_id").notNull(),
+  procedureGroupId: uuid("procedure_group_id").notNull(),
+  monthlyQuantity: integer("monthly_quantity").default(0).notNull(),
+  isOffered: boolean("is_offered").default(true).notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+  uniqueIndex("health_center_procedure_groups_unique").on(table.healthCenterId, table.procedureGroupId),
+  foreignKey({
+    columns: [table.healthCenterId],
+    foreignColumns: [healthCenters.id],
+    name: "health_center_procedure_groups_health_center_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.procedureGroupId],
+    foreignColumns: [procedureGroups.id],
+    name: "health_center_procedure_groups_procedure_group_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade")
+]);
+
+export const procedureGroupSolicitorQuotas = pgTable("procedure_group_solicitor_quotas", {
+  id: uuid().primaryKey().notNull(),
+  executingHealthCenterId: uuid("executing_health_center_id").notNull(),
+  solicitingHealthCenterId: uuid("soliciting_health_center_id").notNull(),
+  procedureGroupId: uuid("procedure_group_id").notNull(),
+  monthlyQuota: integer("monthly_quota").default(0).notNull(),
+  usedQuota: integer("used_quota").default(0).notNull(),
+  isManualAdjustment: boolean("is_manual_adjustment").default(false).notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+  uniqueIndex("procedure_group_solicitor_quotas_unique").on(
+    table.executingHealthCenterId,
+    table.solicitingHealthCenterId,
+    table.procedureGroupId
+  ),
+  foreignKey({
+    columns: [table.executingHealthCenterId],
+    foreignColumns: [healthCenters.id],
+    name: "procedure_group_solicitor_quotas_executing_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.solicitingHealthCenterId],
+    foreignColumns: [healthCenters.id],
+    name: "procedure_group_solicitor_quotas_soliciting_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.procedureGroupId],
+    foreignColumns: [procedureGroups.id],
+    name: "procedure_group_solicitor_quotas_group_fkey"
+  }).onUpdate("cascade").onDelete("cascade")
+]);
+
 export const procedureVariants = pgTable("procedure_variants", {
   id: uuid().primaryKey().notNull(),
   procedureId: uuid("procedure_id").notNull(),
@@ -526,6 +581,32 @@ export const procedureSolicitorQuotasRelations = relations(procedureSolicitorQuo
   procedure: one(procedures, {
     fields: [procedureSolicitorQuotas.procedureId],
     references: [procedures.id],
+  }),
+}));
+
+export const healthCenterProcedureGroupsRelations = relations(healthCenterProcedureGroups, ({ one }) => ({
+  healthCenter: one(healthCenters, {
+    fields: [healthCenterProcedureGroups.healthCenterId],
+    references: [healthCenters.id],
+  }),
+  procedureGroup: one(procedureGroups, {
+    fields: [healthCenterProcedureGroups.procedureGroupId],
+    references: [procedureGroups.id],
+  }),
+}));
+
+export const procedureGroupSolicitorQuotasRelations = relations(procedureGroupSolicitorQuotas, ({ one }) => ({
+  executingHealthCenter: one(healthCenters, {
+    fields: [procedureGroupSolicitorQuotas.executingHealthCenterId],
+    references: [healthCenters.id],
+  }),
+  solicitingHealthCenter: one(healthCenters, {
+    fields: [procedureGroupSolicitorQuotas.solicitingHealthCenterId],
+    references: [healthCenters.id],
+  }),
+  procedureGroup: one(procedureGroups, {
+    fields: [procedureGroupSolicitorQuotas.procedureGroupId],
+    references: [procedureGroups.id],
   }),
 }));
 
