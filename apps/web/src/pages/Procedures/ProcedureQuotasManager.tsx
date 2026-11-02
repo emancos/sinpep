@@ -328,20 +328,52 @@ export const ProcedureQuotasManager: React.FC<{
         <div className="space-y-6 max-w-6xl mx-auto">
             {/* Header & Seleção */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm space-y-4">
-                <div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Divide className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                        Distribuição e Matriz de Cotas Mensais
-                    </h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                        Defina a capacidade da unidade executante e o rateio automático/manual entre as unidades solicitantes (UBSs), por procedimento individual ou por grupo de procedimentos.
-                    </p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <Divide className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                            Distribuição e Matriz de Cotas Mensais
+                        </h2>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                            Defina a capacidade da unidade executante e o rateio automático/manual entre as unidades solicitantes (UBSs), por procedimento individual ou por grupo de procedimentos.
+                        </p>
+                    </div>
+
+                    {/* Alternador de Modo: Por Procedimento vs Por Grupo */}
+                    <div className="shrink-0 flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 self-start sm:self-center">
+                        <button
+                            type="button"
+                            onClick={() => setConfigMode('procedure')}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                                configMode === 'procedure'
+                                    ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                            }`}
+                            title="Configurar cotas de um procedimento específico"
+                        >
+                            <Activity className="w-3.5 h-3.5" />
+                            Procedimento
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setConfigMode('group')}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                                configMode === 'group'
+                                    ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                            }`}
+                            title="Configurar quantidade de vagas e cotas para todo o grupo de procedimentos"
+                        >
+                            <Layers className="w-3.5 h-3.5" />
+                            Grupo de Procedimentos
+                        </button>
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
                     {/* Seletor de Unidade Executante */}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                             1. Unidade Executante (Ofertante do Serviço) *
                         </label>
                         <select
@@ -359,41 +391,9 @@ export const ProcedureQuotasManager: React.FC<{
 
                     {/* Seletor de Procedimento ou Grupo */}
                     <div>
-                        <div className="flex items-center justify-between mb-1">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                                {configMode === 'group' ? '2. Grupo de Procedimentos *' : '2. Procedimento Clínico / Exame *'}
-                            </label>
-
-                            {/* Alternador de Modo: Por Procedimento vs Por Grupo */}
-                            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
-                                <button
-                                    type="button"
-                                    onClick={() => setConfigMode('procedure')}
-                                    className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
-                                        configMode === 'procedure'
-                                            ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
-                                            : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                                    }`}
-                                    title="Configurar cotas de um procedimento específico"
-                                >
-                                    <Activity className="w-3.5 h-3.5" />
-                                    Procedimento
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setConfigMode('group')}
-                                    className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
-                                        configMode === 'group'
-                                            ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
-                                            : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                                    }`}
-                                    title="Configurar quantidade de vagas e cotas para todo o grupo de procedimentos"
-                                >
-                                    <Layers className="w-3.5 h-3.5" />
-                                    Grupo de Procedimentos
-                                </button>
-                            </div>
-                        </div>
+                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                            {configMode === 'group' ? '2. Grupo de Procedimentos *' : '2. Procedimento Clínico / Exame *'}
+                        </label>
 
                         {configMode === 'procedure' ? (
                             <select
