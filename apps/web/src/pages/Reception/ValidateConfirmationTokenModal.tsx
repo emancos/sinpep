@@ -194,7 +194,7 @@ export const ValidateConfirmationTokenModal: React.FC<ValidateConfirmationTokenM
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-500 block">Unidade Solicitante (UBS):</span>
+                    <span className="text-gray-500 block">Unidade Solicitante:</span>
                     <span className="font-semibold text-gray-900 dark:text-white">
                       {validatedRequest.requestingHealthCenter?.name}
                     </span>
