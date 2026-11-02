@@ -267,10 +267,11 @@ export const MedicationsList: React.FC = () => {
         </div>
       )}
 
-      {/* Table Section */}
+      {/* Table & Cards Section */}
       {!isLoading && !isError && (
         <div className="bg-white shadow-md dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-md overflow-hidden backdrop-blur-md">
-          <div className="overflow-x-auto">
+          {/* Visualização Desktop: Tabela completa */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
@@ -421,6 +422,165 @@ export const MedicationsList: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Visualização Mobile: Cards estruturados e modernos */}
+          <div className="md:hidden space-y-3 p-3.5 bg-slate-50/50 dark:bg-slate-950/40">
+            {medicationsList.length > 0 ? (
+              medicationsList.map((med) => {
+                const rawName = decodeHtmlEntities(med.name);
+                const substanceDisplay = decodeHtmlEntities(med.substanceWithDosage || med.substanceDescription);
+                const labDisplay = decodeHtmlEntities(med.laboratory);
+                const compDisplay = decodeHtmlEntities(med.complement);
+
+                return (
+                  <div
+                    key={med.id}
+                    className={`p-4 rounded-xl border bg-white dark:bg-slate-900 shadow-xs space-y-3 transition-all ${
+                      !med.isActive
+                        ? 'border-slate-200 dark:border-slate-800 opacity-75 bg-slate-50/40 dark:bg-slate-950/40'
+                        : 'border-slate-200 dark:border-slate-800'
+                    }`}
+                  >
+                    {/* Top Row: Ícone + Nome do Medicamento + Status Badge */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                            med.isActive
+                              ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
+                              : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+                          }`}
+                        >
+                          <Pill className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4
+                            className={`font-bold text-sm leading-snug break-words ${
+                              med.isActive
+                                ? 'text-slate-900 dark:text-white'
+                                : 'text-slate-500 dark:text-slate-400 line-through'
+                            }`}
+                          >
+                            {rawName}
+                          </h4>
+                          {compDisplay && (
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 break-words line-clamp-2">
+                              {compDisplay}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Badge Status */}
+                      <div className="shrink-0">
+                        {med.isActive ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60 px-2 py-0.5 rounded-full">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Ativo
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200/80 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800/60 px-2 py-0.5 rounded-full">
+                            <ShieldAlert className="w-3 h-3" />
+                            Inativo
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Princípio Ativo & Dosagem */}
+                    {substanceDisplay && (
+                      <div className="p-2.5 rounded-lg bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100/80 dark:border-indigo-900/40">
+                        <span className="block text-[10px] uppercase font-bold tracking-wider text-indigo-500 dark:text-indigo-400 mb-0.5">
+                          Princípio Ativo & Dosagem
+                        </span>
+                        <p className="text-xs font-semibold text-indigo-950 dark:text-indigo-200 break-words">
+                          {substanceDisplay}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Metadados: Laboratório, Registro ANVISA e Categoria */}
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                      <div>
+                        <span className="block text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                          Laboratório
+                        </span>
+                        <span className="font-medium text-slate-700 dark:text-slate-300 break-words mt-0.5 block">
+                          {labDisplay || <span className="text-slate-400 italic">Não informado</span>}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                          Registro ANVISA
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                          <span className="font-mono text-xs text-slate-700 dark:text-slate-300">
+                            {med.registrationNumber || '-'}
+                          </span>
+                          {med.category && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60">
+                              {decodeHtmlEntities(med.category)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Rodapé com Ações Rápidas */}
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(med)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 border border-indigo-200/80 dark:border-indigo-800/50 transition-colors cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Ver Detalhes</span>
+                      </button>
+
+                      {isAdmin && (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(med)}
+                            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700/80 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+                            title="Editar medicamento"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleActive(med)}
+                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                              med.isActive
+                                ? 'border-amber-200 dark:border-amber-800/60 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                                : 'border-teal-200 dark:border-teal-800/60 text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/40'
+                            }`}
+                            title={med.isActive ? "Desabilitar" : "Habilitar"}
+                          >
+                            <Power className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(med)}
+                            className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-800/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                            title="Excluir Definitivamente"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="py-12 text-center text-slate-400 text-sm">
+                Nenhum medicamento encontrado.
+              </div>
+            )}
           </div>
           <TablePagination
             page={page}
