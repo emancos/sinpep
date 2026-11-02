@@ -7,7 +7,11 @@ import {
     useUpdateExecutingOffer,
     useUpdateExecutingGroupOffer,
     useAutoDistributeQuotas,
-    useRebalanceQuotas
+    useRebalanceQuotas,
+    usePreviewReallocateIdleQuotas,
+    useExecuteReallocateIdleQuotas,
+    useIdleReallocationHistory,
+    type ReallocateIdleResult
 } from '../../hooks/useProcedures';
 import { toast } from 'sonner';
 import {
@@ -20,7 +24,16 @@ import {
     Layers,
     Activity,
     CheckSquare,
-    Square
+    Square,
+    ArrowRightLeft,
+    History,
+    Sparkles,
+    AlertCircle,
+    X,
+    TrendingDown,
+    TrendingUp,
+    ChevronDown,
+    ChevronUp
 } from 'lucide-react';
 
 export type QuotaConfigMode = 'procedure' | 'group';
@@ -110,6 +123,20 @@ export const ProcedureQuotasManager: React.FC<{
     const updateExecutingGroupOfferMutation = useUpdateExecutingGroupOffer();
     const autoDistributeMutation = useAutoDistributeQuotas();
     const rebalanceMutation = useRebalanceQuotas();
+    const previewReallocateMutation = usePreviewReallocateIdleQuotas();
+    const executeReallocateMutation = useExecuteReallocateIdleQuotas();
+    const { data: historyData, isLoading: loadingHistory, refetch: refetchHistory } = useIdleReallocationHistory(selectedExecutingId);
+
+    // Modais de Remanejamento e Histórico
+    const [showReallocateModal, setShowReallocateModal] = useState<boolean>(false);
+    const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
+    const [reallocateStrategy, setReallocateStrategy] = useState<'DEMAND_QUEUE' | 'EQUAL'>('DEMAND_QUEUE');
+    const [safetyMargin, setSafetyMargin] = useState<number>(0);
+    const [reallocateJustification, setReallocateJustification] = useState<string>(
+        'Remanejamento automático de vagas ociosas para atendimento de demandas reprimidas'
+    );
+    const [previewData, setPreviewData] = useState<ReallocateIdleResult | null>(null);
+    const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
 
     // Estados locais de edição
     const [executingCapacity, setExecutingCapacity] = useState<number>(0);
@@ -244,6 +271,46 @@ export const ProcedureQuotasManager: React.FC<{
                 }
             });
         }
+    };
+
+    const handleOpenReallocateModal = () => {
+        setShowReallocateModal(true);
+        triggerPreview(reallocateStrategy, safetyMargin);
+    };
+
+    const triggerPreview = (strategy: 'DEMAND_QUEUE' | 'EQUAL', margin: number) => {
+        if (!selectedExecutingId) return;
+        previewReallocateMutation.mutate({
+            executingHealthCenterId: selectedExecutingId,
+            procedureId: configMode === 'procedure' ? selectedProcedureId : undefined,
+            procedureGroupId: configMode === 'group' ? selectedGroupId : undefined,
+            strategy,
+            safetyMarginPerUnit: margin,
+        }, {
+            onSuccess: (data) => setPreviewData(data),
+            onError: (err: any) => toast.error(err?.response?.data?.message || 'Erro ao simular remanejamento de vagas ociosas.')
+        });
+    };
+
+    const handleConfirmReallocation = () => {
+        if (!selectedExecutingId) return;
+        executeReallocateMutation.mutate({
+            executingHealthCenterId: selectedExecutingId,
+            procedureId: configMode === 'procedure' ? selectedProcedureId : undefined,
+            procedureGroupId: configMode === 'group' ? selectedGroupId : undefined,
+            strategy: reallocateStrategy,
+            safetyMarginPerUnit: safetyMargin,
+            justification: reallocateJustification.trim(),
+        }, {
+            onSuccess: (data) => {
+                toast.success(`Remanejamento efetuado! ${data.reallocatedSlots} vaga(s) ociosa(s) redistribuída(s) com sucesso.`);
+                setShowReallocateModal(false);
+                setPreviewData(null);
+                refetchMatrix();
+                refetchHistory();
+            },
+            onError: (err: any) => toast.error(err?.response?.data?.message || 'Erro ao executar remanejamento de vagas.')
+        });
     };
 
     const selectedProcedureObj = proceduresData?.data?.find(p => p.id === selectedProcedureId);
@@ -408,9 +475,29 @@ export const ProcedureQuotasManager: React.FC<{
                     <div className="flex flex-wrap items-center gap-2">
                         <button
                             type="button"
+                            onClick={handleOpenReallocateModal}
+                            className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm cursor-pointer"
+                            title="Remanejar vagas ociosas para unidades com pacientes em fila de espera"
+                        >
+                            <ArrowRightLeft className="w-3.5 h-3.5" />
+                            Remanejar Vagas Ociosas
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setShowHistoryModal(true)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+                            title="Ver histórico de auditoria de remanejamentos"
+                        >
+                            <History className="w-3.5 h-3.5 text-slate-500" />
+                            Histórico
+                        </button>
+
+                        <button
+                            type="button"
                             onClick={handleSaveExecutingCapacity}
                             disabled={isSaving}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                            className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
                         >
                             <Save className="w-3.5 h-3.5" />
                             {isSaving ? 'Salvando...' : 'Salvar Capacidade'}
@@ -420,7 +507,7 @@ export const ProcedureQuotasManager: React.FC<{
                             type="button"
                             onClick={handleAutoDistribute}
                             disabled={autoDistributeMutation.isPending || executingCapacity <= 0}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
                         >
                             <RefreshCw className={`w-3.5 h-3.5 ${autoDistributeMutation.isPending ? 'animate-spin' : ''}`} />
                             Distribuir Igualmente
@@ -620,6 +707,413 @@ export const ProcedureQuotasManager: React.FC<{
                     </div>
                 )}
             </div>
+
+            {/* Modal: Remanejamento Automático de Vagas Ociosas */}
+            {showReallocateModal && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        {/* Modal Header */}
+                        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-slate-900 dark:to-slate-850">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-2 rounded-lg bg-purple-600 text-white shadow-xs">
+                                    <ArrowRightLeft className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                                        Remanejamento Automático de Vagas Ociosas
+                                    </h3>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        Identifica sobras não utilizadas e redistribui para unidades com fila reprimida.
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowReallocateModal(false);
+                                    setPreviewData(null);
+                                }}
+                                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-6 space-y-5 overflow-y-auto flex-1">
+                            {/* Escopo do Remanejamento */}
+                            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-lg border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between">
+                                <div>
+                                    <span className="font-semibold text-slate-500 uppercase text-[10px] block">Unidade Executante:</span>
+                                    <strong className="text-slate-900 dark:text-white">{selectedExecutingObj?.name}</strong>
+                                </div>
+                                <div className="text-right">
+                                    <span className="font-semibold text-slate-500 uppercase text-[10px] block">
+                                        {configMode === 'group' ? 'Grupo Selecionado:' : 'Procedimento Selecionado:'}
+                                    </span>
+                                    <strong className="text-purple-700 dark:text-purple-400">
+                                        {configMode === 'group' ? selectedGroupObj?.name : selectedProcedureObj?.name}
+                                    </strong>
+                                </div>
+                            </div>
+
+                            {/* Parâmetros de Configuração */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                        Estratégia de Redistribuição
+                                    </label>
+                                    <select
+                                        value={reallocateStrategy}
+                                        onChange={(e) => {
+                                            const newStrat = e.target.value as 'DEMAND_QUEUE' | 'EQUAL';
+                                            setReallocateStrategy(newStrat);
+                                            triggerPreview(newStrat, safetyMargin);
+                                        }}
+                                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-xs font-semibold text-slate-900 dark:text-white focus:border-purple-500 focus:outline-none"
+                                    >
+                                        <option value="DEMAND_QUEUE">Priorizar Fila de Espera (Demanda Reprimida)</option>
+                                        <option value="EQUAL">Distribuição Igualitária entre as demais UBSs</option>
+                                    </select>
+                                    <span className="text-[11px] text-slate-400 mt-0.5 block">
+                                        {reallocateStrategy === 'DEMAND_QUEUE'
+                                            ? 'Distribui vagas proporcionalmente ao volume de pacientes aguardando regulação/agendamento.'
+                                            : 'Distribui as vagas ociosas igualmente entre as outras unidades solicitantes.'}
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                        Margem de Segurança por UBS (Vagas Mínimas Preservadas)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        value={safetyMargin}
+                                        onChange={(e) => {
+                                            const val = Math.max(0, parseInt(e.target.value) || 0);
+                                            setSafetyMargin(val);
+                                            triggerPreview(reallocateStrategy, val);
+                                        }}
+                                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-xs font-semibold text-slate-900 dark:text-white focus:border-purple-500 focus:outline-none"
+                                        placeholder="Ex: 0"
+                                    />
+                                    <span className="text-[11px] text-slate-400 mt-0.5 block">
+                                        Garante que cada unidade com sobra mantenha essa quantidade mínima de saldo reserva.
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Campo de Justificativa */}
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                    Justificativa do Remanejamento (Auditoria) *
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    value={reallocateJustification}
+                                    onChange={(e) => setReallocateJustification(e.target.value)}
+                                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-xs text-slate-900 dark:text-white focus:border-purple-500 focus:outline-none resize-none"
+                                    placeholder="Informe o motivo deste remanejamento para registro no histórico..."
+                                />
+                            </div>
+
+                            {/* Simulação / Preview dos Resultados */}
+                            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                                        <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                        Simulação de Impacto (Pré-visualização)
+                                    </h4>
+                                    <button
+                                        type="button"
+                                        onClick={() => triggerPreview(reallocateStrategy, safetyMargin)}
+                                        disabled={previewReallocateMutation.isPending}
+                                        className="text-xs text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 font-semibold cursor-pointer"
+                                    >
+                                        <RefreshCw className={`w-3 h-3 ${previewReallocateMutation.isPending ? 'animate-spin' : ''}`} />
+                                        Recalcular
+                                    </button>
+                                </div>
+
+                                {previewReallocateMutation.isPending ? (
+                                    <div className="py-8 text-center text-slate-400 flex flex-col items-center justify-center gap-2">
+                                        <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                                        <span className="text-xs">Analisando saldos e fila de espera...</span>
+                                    </div>
+                                ) : previewData ? (
+                                    <div className="space-y-4">
+                                        {/* Cards Métricas */}
+                                        <div className="grid grid-cols-3 gap-3">
+                                            <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-100 dark:border-purple-900/40 text-center">
+                                                <span className="text-[10px] uppercase font-bold text-purple-600 dark:text-purple-400 block">
+                                                    Pool Ocioso Identificado
+                                                </span>
+                                                <span className="text-xl font-extrabold text-purple-700 dark:text-purple-300">
+                                                    {previewData.totalIdlePool}
+                                                </span>
+                                                <span className="text-[10px] text-purple-500 block">vagas sem consumo</span>
+                                            </div>
+
+                                            <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-900/40 text-center">
+                                                <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 block">
+                                                    Fila Reprimida Ativa
+                                                </span>
+                                                <span className="text-xl font-extrabold text-blue-700 dark:text-blue-300">
+                                                    {previewData.pendingRequestsTotal}
+                                                </span>
+                                                <span className="text-[10px] text-blue-500 block">pacientes aguardando</span>
+                                            </div>
+
+                                            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-100 dark:border-emerald-900/40 text-center">
+                                                <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 block">
+                                                    Vagas a Remanejar
+                                                </span>
+                                                <span className="text-xl font-extrabold text-emerald-700 dark:text-emerald-300">
+                                                    {previewData.reallocatedSlots}
+                                                </span>
+                                                <span className="text-[10px] text-emerald-500 block">redistribuição efetiva</span>
+                                            </div>
+                                        </div>
+
+                                        {previewData.totalIdlePool === 0 ? (
+                                            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-lg text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                                                <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                                                <span>Não foram encontradas vagas ociosas para remanejamento neste momento. Todas as cotas alocadas estão consumidas ou possuem solicitações próprias em andamento.</span>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                                {/* Cedentes (Origem) */}
+                                                <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-2 bg-rose-50/20 dark:bg-rose-950/10">
+                                                    <div className="font-bold text-rose-800 dark:text-rose-400 flex items-center gap-1">
+                                                        <TrendingDown className="w-3.5 h-3.5 text-rose-600" />
+                                                        Unidades Cedentes ({previewData.sourceSolicitors.length})
+                                                    </div>
+                                                    <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+                                                        {previewData.sourceSolicitors.map((src) => (
+                                                            <div
+                                                                key={src.healthCenterId}
+                                                                className="p-2 bg-white dark:bg-slate-900 rounded border border-rose-100 dark:border-slate-800 flex justify-between items-center"
+                                                            >
+                                                                <div>
+                                                                    <div className="font-semibold text-slate-900 dark:text-white truncate max-w-[180px]">
+                                                                        {src.name}
+                                                                    </div>
+                                                                    <div className="text-[10px] text-slate-400">
+                                                                        Cota: {src.currentQuota} | Usadas: {src.usedQuota} | Fila: {src.pendingRequests}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="text-right">
+                                                                    <span className="text-xs font-bold text-rose-600 dark:text-rose-400 block">
+                                                                        -{src.deducted}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-slate-400">
+                                                                        Nova: {src.newQuota}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* Beneficiadas (Destino) */}
+                                                <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-2 bg-emerald-50/20 dark:bg-emerald-950/10">
+                                                    <div className="font-bold text-emerald-800 dark:text-emerald-400 flex items-center gap-1">
+                                                        <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                                                        Unidades Beneficiadas ({previewData.targetSolicitors.length})
+                                                    </div>
+                                                    <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+                                                        {previewData.targetSolicitors.map((tgt) => (
+                                                            <div
+                                                                key={tgt.healthCenterId}
+                                                                className="p-2 bg-white dark:bg-slate-900 rounded border border-emerald-100 dark:border-slate-800 flex justify-between items-center"
+                                                            >
+                                                                <div>
+                                                                    <div className="font-semibold text-slate-900 dark:text-white truncate max-w-[180px]">
+                                                                        {tgt.name}
+                                                                    </div>
+                                                                    <div className="text-[10px] text-slate-400">
+                                                                        Cota atual: {tgt.currentQuota} | Demanda: {tgt.pendingDemand}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="text-right">
+                                                                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">
+                                                                        +{tgt.added}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-slate-400">
+                                                                        Nova: {tgt.newQuota}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowReallocateModal(false);
+                                    setPreviewData(null);
+                                }}
+                                className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-md text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            >
+                                Cancelar
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleConfirmReallocation}
+                                disabled={
+                                    executeReallocateMutation.isPending ||
+                                    !previewData ||
+                                    previewData.reallocatedSlots === 0 ||
+                                    !reallocateJustification.trim()
+                                }
+                                className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                            >
+                                <ArrowRightLeft className={`w-3.5 h-3.5 ${executeReallocateMutation.isPending ? 'animate-spin' : ''}`} />
+                                {executeReallocateMutation.isPending ? 'Aplicando Remanejamento...' : 'Confirmar e Aplicar Remanejamento'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Histórico de Auditoria de Remanejamentos */}
+            {showHistoryModal && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-850">
+                            <div className="flex items-center gap-2">
+                                <History className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                <div>
+                                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                                        Histórico de Remanejamentos de Vagas
+                                    </h3>
+                                    <p className="text-xs text-slate-500">
+                                        Registro de auditoria dos remanejamentos automáticos e manuais de vagas ociosas.
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowHistoryModal(false)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto flex-1 space-y-3">
+                            {loadingHistory ? (
+                                <div className="py-12 text-center text-slate-400 flex flex-col items-center justify-center gap-2">
+                                    <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                                    <span className="text-xs">Carregando histórico...</span>
+                                </div>
+                            ) : !historyData || historyData.length === 0 ? (
+                                <div className="py-12 text-center text-slate-400 text-sm">
+                                    Nenhum remanejamento realizado até o momento para esta unidade executante.
+                                </div>
+                            ) : (
+                                historyData.map((item) => {
+                                    const isExpanded = expandedHistoryId === item.id;
+                                    const dateStr = new Date(item.createdAt).toLocaleString('pt-BR');
+                                    const sources = Array.isArray(item.sourceSolicitors) ? item.sourceSolicitors : [];
+                                    const targets = Array.isArray(item.targetSolicitors) ? item.targetSolicitors : [];
+
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50/50 dark:bg-slate-950/40 space-y-3"
+                                        >
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">
+                                                        {item.reallocatedSlots} Vaga(s)
+                                                    </span>
+                                                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                                                        {item.procedure?.name || item.procedureGroup?.name || 'Procedimento Geral'}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400">
+                                                        ({item.strategy === 'DEMAND_QUEUE' ? 'Fila de Espera' : 'Igualitária'})
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex items-center gap-3 text-xs text-slate-500">
+                                                    <span>{dateStr}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setExpandedHistoryId(isExpanded ? null : item.id)}
+                                                        className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5 font-semibold cursor-pointer"
+                                                    >
+                                                        {isExpanded ? (
+                                                            <>Ocultar detalhes <ChevronUp className="w-3.5 h-3.5" /></>
+                                                        ) : (
+                                                            <>Ver detalhes <ChevronDown className="w-3.5 h-3.5" /></>
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {item.justification && (
+                                                <p className="text-xs text-slate-600 dark:text-slate-300 italic bg-white dark:bg-slate-900 p-2 rounded border border-slate-100 dark:border-slate-800">
+                                                    "{item.justification}"
+                                                </p>
+                                            )}
+
+                                            {isExpanded && (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 text-xs border-t border-slate-200 dark:border-slate-800">
+                                                    <div className="space-y-1">
+                                                        <span className="font-bold text-rose-700 dark:text-rose-400 block text-[11px]">
+                                                            Cedentes ({sources.length}):
+                                                        </span>
+                                                        {sources.map((s: any, idx: number) => (
+                                                            <div key={idx} className="flex justify-between text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-1.5 rounded">
+                                                                <span className="truncate max-w-[200px]">{s.name}</span>
+                                                                <span className="font-bold text-rose-600">-{s.deducted}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    <div className="space-y-1">
+                                                        <span className="font-bold text-emerald-700 dark:text-emerald-400 block text-[11px]">
+                                                            Beneficiadas ({targets.length}):
+                                                        </span>
+                                                        {targets.map((t: any, idx: number) => (
+                                                            <div key={idx} className="flex justify-between text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-1.5 rounded">
+                                                                <span className="truncate max-w-[200px]">{t.name}</span>
+                                                                <span className="font-bold text-emerald-600">+{t.added}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+
+                        <div className="px-6 py-3 border-t border-slate-100 dark:border-slate-800 flex justify-end bg-slate-50 dark:bg-slate-900/60">
+                            <button
+                                type="button"
+                                onClick={() => setShowHistoryModal(false)}
+                                className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-md text-xs font-semibold transition-colors cursor-pointer"
+                            >
+                                Fechar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

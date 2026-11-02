@@ -644,3 +644,127 @@ export const useSyncSisregCatalog = () => {
     },
   });
 };
+
+export interface ReallocationSourceSolicitor {
+  healthCenterId: string;
+  name: string;
+  cnes?: string | null;
+  currentQuota: number;
+  usedQuota: number;
+  idle: number;
+  pendingRequests: number;
+  deducted: number;
+  newQuota: number;
+}
+
+export interface ReallocationTargetSolicitor {
+  healthCenterId: string;
+  name: string;
+  cnes?: string | null;
+  currentQuota: number;
+  added: number;
+  newQuota: number;
+  pendingDemand: number;
+}
+
+export interface ReallocateIdleResult {
+  success: boolean;
+  dryRun: boolean;
+  totalIdlePool: number;
+  reallocatedSlots: number;
+  pendingRequestsTotal: number;
+  sourceSolicitors: ReallocationSourceSolicitor[];
+  targetSolicitors: ReallocationTargetSolicitor[];
+}
+
+export interface ReallocationHistoryItem {
+  id: string;
+  executingHealthCenterId: string;
+  procedureId: string | null;
+  procedureGroupId: string | null;
+  reallocatedSlots: number;
+  sourceSolicitors: any;
+  targetSolicitors: any;
+  strategy: 'DEMAND_QUEUE' | 'EQUAL';
+  triggeredBy: 'MANUAL' | 'SCHEDULED_AUTOMATIC';
+  justification: string | null;
+  createdAt: string;
+  executingHealthCenter?: { id: string; name: string; cnes: string };
+  procedure?: { id: string; code: string; name: string };
+  procedureGroup?: { id: string; name: string; groupCode?: string };
+}
+
+export const usePreviewReallocateIdleQuotas = () => {
+  const token = useAuthStore((state) => state.token);
+
+  return useMutation<
+    ReallocateIdleResult,
+    Error,
+    {
+      executingHealthCenterId: string;
+      procedureId?: string;
+      procedureGroupId?: string;
+      strategy?: 'DEMAND_QUEUE' | 'EQUAL';
+      safetyMarginPerUnit?: number;
+    }
+  >({
+    mutationFn: async (payload) => {
+      const response = await axios.post(`${apiUrl}/procedures/quotas/reallocate-idle/preview`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data;
+    },
+  });
+};
+
+export const useExecuteReallocateIdleQuotas = () => {
+  const token = useAuthStore((state) => state.token);
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    ReallocateIdleResult,
+    Error,
+    {
+      executingHealthCenterId: string;
+      procedureId?: string;
+      procedureGroupId?: string;
+      strategy?: 'DEMAND_QUEUE' | 'EQUAL';
+      safetyMarginPerUnit?: number;
+      justification?: string;
+    }
+  >({
+    mutationFn: async (payload) => {
+      const response = await axios.post(`${apiUrl}/procedures/quotas/reallocate-idle`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data;
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: ['procedures-quotas-matrix', vars.executingHealthCenterId, vars.procedureId, vars.procedureGroupId],
+      });
+      queryClient.invalidateQueries({ queryKey: ['reallocation-history', vars.executingHealthCenterId] });
+      queryClient.invalidateQueries({ queryKey: ['procedures'] });
+      queryClient.invalidateQueries({ queryKey: ['procedure-groups'] });
+    },
+  });
+};
+
+export const useIdleReallocationHistory = (executingHealthCenterId?: string, limit: number = 20) => {
+  const token = useAuthStore((state) => state.token);
+
+  return useQuery<ReallocationHistoryItem[]>({
+    queryKey: ['reallocation-history', executingHealthCenterId, limit],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (executingHealthCenterId) params.append('executingHealthCenterId', executingHealthCenterId);
+      if (limit) params.append('limit', String(limit));
+
+      const response = await axios.get(`${apiUrl}/procedures/quotas/reallocate-idle/history?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data;
+    },
+    enabled: !!token,
+  });
+};
