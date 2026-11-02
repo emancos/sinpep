@@ -1,4 +1,5 @@
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTranslation } from 'react-i18next';
 import {
@@ -41,6 +42,18 @@ export const Layout = () => {
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSwitchProfileOpen, setIsSwitchProfileOpen] = useState(false);
+
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const handleLogout = () => {
+    setUserMenuOpen(false);
+    sessionStorage.removeItem('redirect_after_login');
+    sessionStorage.setItem('explicit_logout', 'true');
+    queryClient.clear();
+    logout();
+    navigate('/login', { replace: true });
+  };
 
   const toggleMenu = (path: string) => {
     setExpandedMenus(prev => ({ ...prev, [path]: !prev[path] }));
@@ -394,10 +407,7 @@ export const Layout = () => {
 
                     <button
                       type="button"
-                      onClick={() => {
-                        setUserMenuOpen(false);
-                        logout();
-                      }}
+                      onClick={handleLogout}
                       className="px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center gap-2.5 text-left transition-colors cursor-pointer"
                     >
                       <LogOut className="w-4 h-4" />
@@ -411,7 +421,7 @@ export const Layout = () => {
             {/* Logout Button (Sair) - exact match to mockup image */}
             <button
               type="button"
-              onClick={logout}
+              onClick={handleLogout}
               className="h-9 px-3.5 flex items-center gap-1.5 rounded-lg bg-[#E52222] hover:bg-[#CC1E1E] text-white font-bold text-sm shadow-sm transition-all duration-200 cursor-pointer active:scale-95 shrink-0"
               title={t('Logout')}
             >

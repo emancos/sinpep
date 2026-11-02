@@ -176,6 +176,8 @@ export const useAuthStore = create<AuthState>((set) => {
                 localStorage.removeItem('app_base_permissions');
                 localStorage.removeItem('app_base_active_profile');
                 localStorage.removeItem('app_base_available_profiles');
+                sessionStorage.removeItem('redirect_after_login');
+                sessionStorage.setItem('explicit_logout', 'true');
             } catch (e) {
                 console.error('Failed to clear auth state from localStorage:', e);
             }

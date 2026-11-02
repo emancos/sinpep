@@ -22,20 +22,10 @@ export const ProtectedRoute = ({ requiredPermission }: ProtectedRouteProps) => {
 
   // 1. Verificação local imediata do token
   const isExpired = isTokenExpired(token);
-
-  if (!isAuthenticated || !token || isExpired) {
-    if (token && isExpired) {
-      handleUnauthorizedSession();
-    } else {
-      const currentPath = location.pathname + location.search;
-      if (currentPath && currentPath !== '/login') {
-        sessionStorage.setItem('redirect_after_login', currentPath);
-      }
-    }
-    return <Navigate to="/login" replace />;
-  }
+  const isValidSession = Boolean(isAuthenticated && token && !isExpired);
 
   // 2. Validação no backend via GET /auth/me vinculada ao token atual
+  // Chamada de hook sempre incondicional no topo para cumprir as Regras de Hooks do React
   const { data: profile, isLoading, isError } = useQuery({
     queryKey: ['auth-me', token],
     queryFn: async () => {
@@ -44,17 +34,31 @@ export const ProtectedRoute = ({ requiredPermission }: ProtectedRouteProps) => {
       });
       return response.data;
     },
-    enabled: !!token && !isExpired,
+    enabled: isValidSession,
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
 
   useEffect(() => {
     // Só sincroniza caso o profile retornado corresponda ao perfil ativo atual da sessão
-    if (profile && (!activeProfile?.id || profile.activeProfile?.id === activeProfile?.id)) {
+    if (isValidSession && profile && (!activeProfile?.id || profile.activeProfile?.id === activeProfile?.id)) {
       syncSession(profile, profile.permissions, profile.activeProfile, profile.availableProfiles);
     }
-  }, [profile, activeProfile?.id, syncSession]);
+  }, [isValidSession, profile, activeProfile?.id, syncSession]);
+
+  // Se a sessão for inválida (logout, sem token ou expirado), redireciona imediatamente para login
+  if (!isValidSession) {
+    if (token && isExpired) {
+      handleUnauthorizedSession();
+    } else {
+      const isExplicitLogout = sessionStorage.getItem('explicit_logout');
+      const currentPath = location.pathname + location.search;
+      if (!isExplicitLogout && currentPath && currentPath !== '/login') {
+        sessionStorage.setItem('redirect_after_login', currentPath);
+      }
+    }
+    return <Navigate to="/login" replace />;
+  }
 
   if (isError) {
     handleUnauthorizedSession();

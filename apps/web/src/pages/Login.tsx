@@ -57,6 +57,7 @@ export const Login: React.FC = () => {
     // Se já estiver autenticado com token válido, redireciona diretamente
     useEffect(() => {
         if (isAuthenticated && token && !isTokenExpired(token)) {
+            sessionStorage.removeItem('explicit_logout');
             const redirectUrl = sessionStorage.getItem('redirect_after_login') || '/';
             sessionStorage.removeItem('redirect_after_login');
             navigate(redirectUrl, { replace: true });
@@ -104,6 +105,7 @@ export const Login: React.FC = () => {
                 });
 
                 login(accessToken, user, permissions || user.permissions || [], activeProfile, availableProfiles);
+                sessionStorage.removeItem('explicit_logout');
                 const redirectUrl = sessionStorage.getItem('redirect_after_login') || '/';
                 sessionStorage.removeItem('redirect_after_login');
                 navigate(redirectUrl, { replace: true });
@@ -173,6 +175,7 @@ export const Login: React.FC = () => {
 
             toast.success(`Acessando como ${finalActiveProfile.name}...`);
 
+            sessionStorage.removeItem('explicit_logout');
             const savedRedirect = sessionStorage.getItem('redirect_after_login') || '/';
             sessionStorage.removeItem('redirect_after_login');
 
