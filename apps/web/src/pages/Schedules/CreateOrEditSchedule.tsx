@@ -112,6 +112,45 @@ export const CreateOrEditSchedule: React.FC = () => {
     }
   }, [existingSchedule, isEditing]);
 
+  // Auto-reconciliação e auto-seleção quando as opções dependentes mudam
+  useEffect(() => {
+    if (!deps) return;
+
+    // Se o estabelecimento selecionado não for mais válido
+    if (healthCenterId && !isCoordinator && deps.healthCenters.length > 0 && !deps.healthCenters.some((c) => c.id === healthCenterId)) {
+      setHealthCenterId('');
+    }
+
+    // Se o procedimento selecionado não for compatível com as opções filtradas, limpa
+    if (procedureId && deps.procedures.length > 0 && !deps.procedures.some((p) => p.id === procedureId)) {
+      setProcedureId('');
+    }
+
+    // Se o médico selecionado não for compatível com as opções filtradas, limpa
+    if (doctorId && deps.doctors.length > 0 && !deps.doctors.some((d) => d.id === doctorId)) {
+      setDoctorId('');
+    }
+
+    // Se o CBO selecionado não for compatível com as opções filtradas, limpa
+    if (cbo && deps.cbos.length > 0 && !deps.cbos.some((c) => c.cbo === cbo)) {
+      setCbo('');
+    }
+
+    // Auto-preenchimento quando há exatamente 1 opção disponível
+    if (!healthCenterId && deps.healthCenters.length === 1 && (doctorId || procedureId || cbo)) {
+      setHealthCenterId(deps.healthCenters[0].id);
+    }
+    if (!cbo && deps.cbos.length === 1 && (doctorId || procedureId)) {
+      setCbo(deps.cbos[0].cbo);
+    }
+    if (!procedureId && deps.procedures.length === 1 && (doctorId || cbo)) {
+      setProcedureId(deps.procedures[0].id);
+    }
+    if (!doctorId && deps.doctors.length === 1 && (procedureId || cbo)) {
+      setDoctorId(deps.doctors[0].id);
+    }
+  }, [deps, healthCenterId, procedureId, doctorId, cbo, isCoordinator]);
+
   // Se vigência inicial e final forem iguais, seleciona o dia automaticamente
   useEffect(() => {
     if (startDate && endDate && startDate === endDate && selectedDays.length === 0) {

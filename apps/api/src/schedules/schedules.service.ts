@@ -70,6 +70,73 @@ export class SchedulesService {
   }
 
   /**
+   * Helper: Verifica compatibilidade semântica e por radical entre Especialidade/CBO e Procedimento de Consulta
+   */
+  private isProcedureCompatibleWithSpecialty(
+    procedureName: string,
+    specialtyName: string,
+    cbo?: string | null,
+  ): boolean {
+    const normProc = procedureName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+    const normSpec = specialtyName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+
+    // Mapeamento direto de CBOs conhecidos para raízes de procedimentos de consulta
+    const directMap: Record<string, string[]> = {
+      '225135': ['DERMATO'], // Dermatologia
+      '225120': ['CARDIO'], // Cardiologia
+      '225112': ['NEURO'], // Neurologia
+      '225285': ['UROLO'], // Urologia
+      '225136': ['REUMATO'], // Reumatologia
+      '225203': ['ANGIO', 'VASCULAR'], // Angiologia
+      '225270': ['ORTOPED', 'TRAUMATO'], // Ortopedia
+      '225180': ['GERIAT'], // Geriatria
+      '225155': ['ENDOCRINO'], // Endocrinologia
+      '225165': ['GASTRO'], // Gastroenterologia
+      '225225': ['OFTALMO'], // Oftalmologia
+      '225275': ['OTORRINO'], // Otorrinolaringologia
+      '225124': ['PEDIAT'], // Pediatria
+      '225133': ['PSIQUIAT'], // Psiquiatria
+      '225250': ['GINECO', 'OBSTETR'], // Ginecologia / Obstetrícia
+      '225125': ['CLINIC', 'GERAL'], // Clínica Médica
+    };
+
+    if (cbo && directMap[cbo]) {
+      if (directMap[cbo].some((term) => normProc.includes(term))) {
+        return true;
+      }
+    }
+
+    // Extrai radicais significativos da especialidade (ex: CARDIOLOGISTA -> CARDIOLOG)
+    const words = normSpec
+      .replace(/\b(MEDICO|MEDICA|CIRURGIAO|CIRURGIA|CLINICO|ESPECIALISTA|DE|DA|DO|DOS|DAS|E|EM)\b/g, ' ')
+      .split(/\s+/)
+      .map((w) => w.trim())
+      .filter((w) => w.length >= 3);
+
+    for (const word of words) {
+      let root = word;
+      if (root.endsWith('ISTA') || root.endsWith('LOGO') || root.endsWith('LOGA')) {
+        root = root.slice(0, -4);
+      } else if (root.endsWith('ICO') || root.endsWith('ICA')) {
+        root = root.slice(0, -3);
+      } else if (root.endsWith('IA')) {
+        root = root.slice(0, -2);
+      }
+      if (root.length >= 3 && normProc.includes(root)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * 1. Endpoints de dependências reativas dos 4 selects (Estabelecimento, Procedimento, Profissional, CBO)
    */
   async getDependencies(filters: {
@@ -79,19 +146,19 @@ export class SchedulesService {
     cbo?: string;
   }) {
     // 1.1 Estabelecimentos Executantes
-    const healthCentersQuery = this.db.query.healthCenters.findMany({
+    const allCenters = await this.db.query.healthCenters.findMany({
       where: eq(schema.healthCenters.stExecutante, true),
       orderBy: [asc(schema.healthCenters.name)],
     });
 
     // 1.2 Procedimentos
-    const proceduresQuery = this.db.query.procedures.findMany({
+    const allProcedures = await this.db.query.procedures.findMany({
       where: eq(schema.procedures.isActive, true),
       orderBy: [asc(schema.procedures.name)],
     });
 
     // 1.3 Profissionais (Médicos com usuários ativos)
-    const doctorsQuery = this.db.query.doctors.findMany({
+    const allDoctors = await this.db.query.doctors.findMany({
       where: eq(schema.doctors.isActive, true),
       with: {
         user: true,
@@ -106,64 +173,149 @@ export class SchedulesService {
     });
 
     // 1.4 Especialidades com CBO
-    const specialtiesQuery = this.db.query.specialties.findMany({
+    const allSpecialties = await this.db.query.specialties.findMany({
       where: eq(schema.specialties.isActive, true),
       orderBy: [asc(schema.specialties.name)],
     });
 
-    const [allCenters, allProcedures, allDoctors, allSpecialties] = await Promise.all([
-      healthCentersQuery,
-      proceduresQuery,
-      doctorsQuery,
-      specialtiesQuery,
-    ]);
-
-    // Cruzamento e filtragem condicional
+    // Listas base para refinamento
     let filteredCenters = allCenters;
-    let filteredProcedures = allProcedures;
     let filteredDoctors = allDoctors;
-    let cbosList = allSpecialties
-      .filter((s) => !!s.cbo)
-      .map((s) => ({
-        cbo: s.cbo!,
-        specialtyId: s.id,
-        name: s.name,
-        label: `${s.cbo} - ${s.name}`,
-      }));
+    let filteredProcedures = allProcedures;
+    let filteredCbos = allSpecialties.filter((s) => !!s.cbo);
 
-    // Se filtrou por Profissional (doctorId)
-    if (filters.doctorId) {
-      const selectedDoctor = allDoctors.find((d) => d.id === filters.doctorId);
-      if (selectedDoctor) {
-        // CBOs do médico selecionado
-        const doctorCbos = selectedDoctor.doctorSpecialties
-          ?.map((ds) => ds.specialty.cbo)
-          .filter(Boolean);
-        if (doctorCbos && doctorCbos.length > 0) {
-          cbosList = cbosList.filter((c) => doctorCbos.includes(c.cbo));
-        }
+    // =========================================================================
+    // REGRA 1: Filtro por Estabelecimento Executante (healthCenterId)
+    // =========================================================================
+    if (filters.healthCenterId) {
+      // Médicos vinculados à unidade executante selecionada
+      filteredDoctors = filteredDoctors.filter(
+        (d) => d.user?.healthCenterId === filters.healthCenterId,
+      );
 
-        // Procedimentos que este médico realiza
-        const doctorProcIds = selectedDoctor.doctorProcedures?.map((dp) => dp.procedureId) || [];
-        if (doctorProcIds.length > 0) {
-          filteredProcedures = filteredProcedures.filter((p) => doctorProcIds.includes(p.id));
-        }
+      // CBOs dos médicos vinculados a esta unidade
+      const unitCbos = new Set<string>();
+      const unitSpecialties: typeof allSpecialties = [];
+      filteredDoctors.forEach((d) => {
+        d.doctorSpecialties?.forEach((ds) => {
+          if (ds.specialty.cbo) {
+            unitCbos.add(ds.specialty.cbo);
+            unitSpecialties.push(ds.specialty);
+          }
+        });
+      });
+
+      if (unitCbos.size > 0) {
+        filteredCbos = filteredCbos.filter((s) => unitCbos.has(s.cbo!));
+
+        // Procedimentos de consulta compatíveis com as especialidades dos médicos da unidade
+        filteredProcedures = filteredProcedures.filter((proc) => {
+          const isExplicitDoctorProc = filteredDoctors.some((d) =>
+            d.doctorProcedures?.some((dp) => dp.procedureId === proc.id),
+          );
+          if (isExplicitDoctorProc) return true;
+
+          return unitSpecialties.some((spec) =>
+            this.isProcedureCompatibleWithSpecialty(proc.name, spec.name, spec.cbo),
+          );
+        });
+      } else {
+        filteredCbos = [];
+        filteredProcedures = [];
       }
     }
 
-    // Se filtrou por Procedimento (procedureId)
-    if (filters.procedureId) {
-      // Médicos que realizam o procedimento
-      filteredDoctors = filteredDoctors.filter((d) =>
-        d.doctorProcedures?.some((dp) => dp.procedureId === filters.procedureId),
-      );
+    // =========================================================================
+    // REGRA 2: Filtro por Profissional (doctorId)
+    // =========================================================================
+    if (filters.doctorId) {
+      const selectedDoc = allDoctors.find((d) => d.id === filters.doctorId);
+      if (selectedDoc) {
+        // Estabelecimento executante do médico
+        if (selectedDoc.user?.healthCenterId) {
+          filteredCenters = filteredCenters.filter((c) => c.id === selectedDoc.user?.healthCenterId);
+        }
+
+        // CBOs específicos do médico
+        const docCbos = new Set(
+          selectedDoc.doctorSpecialties?.map((ds) => ds.specialty.cbo).filter(Boolean) as string[],
+        );
+        if (docCbos.size > 0) {
+          filteredCbos = filteredCbos.filter((s) => docCbos.has(s.cbo!));
+        }
+
+        // Procedimentos compatíveis com o médico
+        const docSpecs = selectedDoc.doctorSpecialties?.map((ds) => ds.specialty) || [];
+        filteredProcedures = filteredProcedures.filter((proc) => {
+          const isExplicit = selectedDoc.doctorProcedures?.some((dp) => dp.procedureId === proc.id);
+          if (isExplicit) return true;
+          return docSpecs.some((spec) =>
+            this.isProcedureCompatibleWithSpecialty(proc.name, spec.name, spec.cbo),
+          );
+        });
+      }
     }
 
-    // Se filtrou por CBO
+    // =========================================================================
+    // REGRA 3: Filtro por CBO (cbo)
+    // =========================================================================
     if (filters.cbo) {
+      const targetSpecialty = allSpecialties.find((s) => s.cbo === filters.cbo);
+
+      // Médicos que possuem esse CBO
       filteredDoctors = filteredDoctors.filter((d) =>
         d.doctorSpecialties?.some((ds) => ds.specialty.cbo === filters.cbo),
       );
+
+      // Estabelecimentos que possuem médicos com esse CBO
+      const centersWithDoctor = new Set(
+        filteredDoctors.map((d) => d.user?.healthCenterId).filter(Boolean),
+      );
+      if (centersWithDoctor.size > 0 && !filters.healthCenterId) {
+        filteredCenters = filteredCenters.filter((c) => centersWithDoctor.has(c.id));
+      }
+
+      // Procedimentos de consulta compatíveis com esse CBO
+      if (targetSpecialty) {
+        filteredProcedures = filteredProcedures.filter((proc) =>
+          this.isProcedureCompatibleWithSpecialty(proc.name, targetSpecialty.name, targetSpecialty.cbo),
+        );
+      }
+    }
+
+    // =========================================================================
+    // REGRA 4: Filtro por Procedimento (procedureId)
+    // =========================================================================
+    if (filters.procedureId) {
+      const selectedProc = allProcedures.find((p) => p.id === filters.procedureId);
+      if (selectedProc) {
+        // Encontra especialidades compatíveis com este procedimento
+        const matchingSpecs = allSpecialties.filter((spec) =>
+          this.isProcedureCompatibleWithSpecialty(selectedProc.name, spec.name, spec.cbo),
+        );
+        const matchingCbos = new Set(matchingSpecs.map((s) => s.cbo).filter(Boolean) as string[]);
+
+        if (matchingCbos.size > 0) {
+          filteredCbos = filteredCbos.filter((s) => matchingCbos.has(s.cbo!));
+        }
+
+        // Médicos compatíveis (possuem especialidade compatível ou vínculo explícito)
+        filteredDoctors = filteredDoctors.filter((d) => {
+          const hasExplicit = d.doctorProcedures?.some((dp) => dp.procedureId === selectedProc.id);
+          if (hasExplicit) return true;
+          return d.doctorSpecialties?.some((ds) =>
+            this.isProcedureCompatibleWithSpecialty(selectedProc.name, ds.specialty.name, ds.specialty.cbo),
+          );
+        });
+
+        // Estabelecimentos que possuem médicos compatíveis
+        const centersWithDoc = new Set(
+          filteredDoctors.map((d) => d.user?.healthCenterId).filter(Boolean),
+        );
+        if (centersWithDoc.size > 0 && !filters.healthCenterId) {
+          filteredCenters = filteredCenters.filter((c) => centersWithDoc.has(c.id));
+        }
+      }
     }
 
     // Formata retorno amigável
@@ -178,15 +330,20 @@ export class SchedulesService {
         id: p.id,
         code: p.code,
         name: p.name,
-        label: `${p.code} - ${p.name}`,
+        label: `${p.code ? p.code + ' - ' : ''}${p.name}`,
       })),
       doctors: filteredDoctors.map((d) => ({
         id: d.id,
         name: d.user?.name || `Dr. CRM ${d.crm}`,
         crm: `${d.crm || ''}${d.crmState ? '/' + d.crmState : ''}`,
-        label: `${d.user?.name || 'Profissional'} (CRM: ${d.crm || 'N/I'})`,
+        label: `${d.user?.name || 'Profissional'}${d.crm ? ` (CRM: ${d.crm})` : ''}`,
       })),
-      cbos: cbosList,
+      cbos: filteredCbos.map((s) => ({
+        cbo: s.cbo!,
+        specialtyId: s.id,
+        name: s.name,
+        label: `${s.cbo} - ${s.name}`,
+      })),
     };
   }
 

@@ -10,6 +10,7 @@ scripts/*
 !scripts/migrate-municipality-brandings.ts
 !scripts/migrate-schedules.ts
 !scripts/seed-schedule-permissions.ts
+!scripts/seed-consultation-procedures-and-doctors.ts
 !scripts/seed-receptionist-profile.ts
 node_modules/
 dist/
