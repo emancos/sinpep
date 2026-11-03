@@ -8,6 +8,8 @@ scripts/*
 !scripts/seed-anvisa-medications.ts
 !scripts/migrate-medications.ts
 !scripts/migrate-municipality-brandings.ts
+!scripts/migrate-schedules.ts
+!scripts/seed-schedule-permissions.ts
 !scripts/seed-receptionist-profile.ts
 node_modules/
 dist/

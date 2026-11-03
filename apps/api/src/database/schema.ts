@@ -401,7 +401,7 @@ export const procedurePreparations = pgTable("procedure_preparations", {
   requiresCompanion: boolean("requires_companion").default(false).notNull(),
   medicationInstructions: text("medication_instructions"),
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
-  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 }, (table) => [
   foreignKey({
     columns: [table.procedureId],
@@ -417,7 +417,7 @@ export const healthCenterProcedures = pgTable("health_center_procedures", {
   monthlyQuantity: integer("monthly_quantity").default(0).notNull(),
   isOffered: boolean("is_offered").default(true).notNull(),
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
-  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 }, (table) => [
   uniqueIndex("health_center_procedures_unique").on(table.healthCenterId, table.procedureId),
   foreignKey({
@@ -441,7 +441,7 @@ export const procedureSolicitorQuotas = pgTable("procedure_solicitor_quotas", {
   usedQuota: integer("used_quota").default(0).notNull(),
   isManualAdjustment: boolean("is_manual_adjustment").default(false).notNull(),
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
-  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 }, (table) => [
   uniqueIndex("procedure_solicitor_quotas_unique").on(
     table.executingHealthCenterId,
@@ -472,7 +472,7 @@ export const healthCenterProcedureGroups = pgTable("health_center_procedure_grou
   monthlyQuantity: integer("monthly_quantity").default(0).notNull(),
   isOffered: boolean("is_offered").default(true).notNull(),
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
-  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 }, (table) => [
   uniqueIndex("health_center_procedure_groups_unique").on(table.healthCenterId, table.procedureGroupId),
   foreignKey({
@@ -496,7 +496,7 @@ export const procedureGroupSolicitorQuotas = pgTable("procedure_group_solicitor_
   usedQuota: integer("used_quota").default(0).notNull(),
   isManualAdjustment: boolean("is_manual_adjustment").default(false).notNull(),
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
-  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 }, (table) => [
   uniqueIndex("procedure_group_solicitor_quotas_unique").on(
     table.executingHealthCenterId,
@@ -691,7 +691,7 @@ export const medicalRecords = pgTable("medical_records", {
   isActive: boolean("is_active").default(true).notNull(),
 
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
-  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 }, (table) => [
   foreignKey({
     columns: [table.patientId],
@@ -750,7 +750,7 @@ export const attendanceQueue = pgTable("attendance_queue", {
   priority: text().default('CONVENCIONAL').notNull(),
   status: text().default('AGUARDANDO').notNull(),
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
-  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 }, (table) => [
   foreignKey({
     columns: [table.patientId],
@@ -790,7 +790,7 @@ export const roomAllocations = pgTable("room_allocations", {
   date: text().notNull(),
   allocatedBy: uuid("allocated_by"),
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
-  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 }, (table) => [
   uniqueIndex("room_allocations_room_date_idx").on(table.roomId, table.date),
   uniqueIndex("room_allocations_spec_date_idx").on(table.specialtyName, table.date),
@@ -965,7 +965,7 @@ export const regulationRequests = pgTable("regulation_requests", {
   tokenValidatedByUserId: uuid("token_validated_by_user_id"),
 
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
-  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 }, (table) => [
   uniqueIndex("regulation_requests_protocol_key").using("btree", table.protocolNumber.asc().nullsLast().op("text_ops")),
   foreignKey({
@@ -1175,10 +1175,164 @@ export const municipalityBrandings = pgTable("municipality_brandings", {
   isDefault: boolean("is_default").default(false).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
-  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 }, (table) => [
   uniqueIndex("municipality_brandings_slug_key").using("btree", table.slug.asc().nullsLast().op("text_ops")),
 ]);
+
+// ==========================================
+// AGENDAS & ESCALAS DE ATENDIMENTO (REGULAÇÃO)
+// ==========================================
+
+export const scheduleSlotTypeEnum = pgEnum("schedule_slot_type", [
+  "PRIMEIRA_VEZ",
+  "RETORNO",
+  "RESERVA_REGULADOR"
+]);
+
+export const scheduleSlotStatusEnum = pgEnum("schedule_slot_status", [
+  "DISPONIVEL",
+  "AGENDADO",
+  "CANCELADO",
+  "BLOQUEADO"
+]);
+
+export const schedules = pgTable("schedules", {
+  id: uuid("id").primaryKey().notNull(),
+  executingHealthCenterId: uuid("executing_health_center_id").notNull(),
+  procedureId: uuid("procedure_id").notNull(),
+  doctorId: uuid("doctor_id").notNull(),
+  cbo: text("cbo").notNull(),
+  
+  startDate: text("start_date").notNull(), // YYYY-MM-DD
+  endDate: text("end_date").notNull(), // YYYY-MM-DD (máx. 180 dias)
+  startTime: text("start_time").notNull(), // HH:mm
+  endTime: text("end_time").notNull(), // HH:mm
+  
+  daysOfWeek: text("days_of_week").array().notNull(), // ['QUARTA', 'SEXTA']
+  
+  firstTimeQuantity: integer("first_time_quantity").default(0).notNull(),
+  firstTimeMinutes: integer("first_time_minutes").default(0).notNull(),
+  returnQuantity: integer("return_quantity").default(0).notNull(),
+  returnMinutes: integer("return_minutes").default(0).notNull(),
+  regulatorReservedQuantity: integer("regulator_reserved_quantity").default(0).notNull(),
+  regulatorReservedMinutes: integer("regulator_reserved_minutes").default(0).notNull(),
+  
+  autoSlotSplit: boolean("auto_slot_split").default(false).notNull(),
+  isLocalSchedule: boolean("is_local_schedule").default(false).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  notes: text("notes"),
+  blockedDates: text("blocked_dates").array().default(sql`ARRAY[]::text[]`),
+  
+  createdByUserId: uuid("created_by_user_id").notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  index("schedules_executing_center_idx").on(table.executingHealthCenterId),
+  index("schedules_doctor_idx").on(table.doctorId),
+  index("schedules_procedure_idx").on(table.procedureId),
+  foreignKey({
+    columns: [table.executingHealthCenterId],
+    foreignColumns: [healthCenters.id],
+    name: "schedules_executing_health_center_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.procedureId],
+    foreignColumns: [procedures.id],
+    name: "schedules_procedure_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.doctorId],
+    foreignColumns: [doctors.id],
+    name: "schedules_doctor_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.createdByUserId],
+    foreignColumns: [users.id],
+    name: "schedules_created_by_user_id_fkey"
+  }).onUpdate("cascade").onDelete("restrict"),
+]);
+
+export const scheduleSlots = pgTable("schedule_slots", {
+  id: uuid("id").primaryKey().notNull(),
+  scheduleId: uuid("schedule_id").notNull(),
+  date: text("date").notNull(), // YYYY-MM-DD
+  time: text("time").notNull(), // HH:mm
+  slotType: scheduleSlotTypeEnum("slot_type").notNull(),
+  status: scheduleSlotStatusEnum("status").default("DISPONIVEL").notNull(),
+  
+  regulationRequestId: uuid("regulation_request_id"),
+  patientId: uuid("patient_id"),
+  bookedByUserId: uuid("booked_by_user_id"),
+  bookedAt: timestamp("booked_at", { precision: 3, mode: 'string' }),
+  
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  index("schedule_slots_schedule_idx").on(table.scheduleId),
+  index("schedule_slots_date_idx").on(table.date),
+  index("schedule_slots_status_idx").on(table.status),
+  foreignKey({
+    columns: [table.scheduleId],
+    foreignColumns: [schedules.id],
+    name: "schedule_slots_schedule_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.regulationRequestId],
+    foreignColumns: [regulationRequests.id],
+    name: "schedule_slots_regulation_request_id_fkey"
+  }).onUpdate("cascade").onDelete("set null"),
+  foreignKey({
+    columns: [table.patientId],
+    foreignColumns: [patients.id],
+    name: "schedule_slots_patient_id_fkey"
+  }).onUpdate("cascade").onDelete("set null"),
+  foreignKey({
+    columns: [table.bookedByUserId],
+    foreignColumns: [users.id],
+    name: "schedule_slots_booked_by_user_id_fkey"
+  }).onUpdate("cascade").onDelete("set null"),
+]);
+
+export const schedulesRelations = relations(schedules, ({ one, many }) => ({
+  executingHealthCenter: one(healthCenters, {
+    fields: [schedules.executingHealthCenterId],
+    references: [healthCenters.id],
+  }),
+  procedure: one(procedures, {
+    fields: [schedules.procedureId],
+    references: [procedures.id],
+  }),
+  doctor: one(doctors, {
+    fields: [schedules.doctorId],
+    references: [doctors.id],
+  }),
+  createdByUser: one(users, {
+    fields: [schedules.createdByUserId],
+    references: [users.id],
+  }),
+  slots: many(scheduleSlots),
+}));
+
+export const scheduleSlotsRelations = relations(scheduleSlots, ({ one }) => ({
+  schedule: one(schedules, {
+    fields: [scheduleSlots.scheduleId],
+    references: [schedules.id],
+  }),
+  regulationRequest: one(regulationRequests, {
+    fields: [scheduleSlots.regulationRequestId],
+    references: [regulationRequests.id],
+  }),
+  patient: one(patients, {
+    fields: [scheduleSlots.patientId],
+    references: [patients.id],
+  }),
+  bookedByUser: one(users, {
+    fields: [scheduleSlots.bookedByUserId],
+    references: [users.id],
+  }),
+}));
+
 
 
 

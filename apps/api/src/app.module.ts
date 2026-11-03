@@ -22,6 +22,7 @@ import { RoomsModule } from './rooms/rooms.module';
 import { MedicationsModule } from './medications/medications.module';
 import { RegulationModule } from './regulation/regulation.module';
 import { BrandingsModule } from './brandings/brandings.module';
+import { SchedulesModule } from './schedules/schedules.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { BrandingsModule } from './brandings/brandings.module';
     MedicationsModule,
     RegulationModule,
     BrandingsModule,
+    SchedulesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
