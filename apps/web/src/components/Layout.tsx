@@ -19,7 +19,8 @@ import {
   Building2,
   Send,
   Layers,
-  ShieldCheck
+  ShieldCheck,
+  Calendar
 } from 'lucide-react';
 import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
@@ -76,6 +77,9 @@ export const Layout = () => {
     ] : []),
     ...((permissions.includes('regulation-operator:read') || isAdmin) ? [
       { name: 'Central de Regulação', path: '/regulation/inbox', icon: Layers },
+    ] : []),
+    ...((permissions.includes('schedules:read') || isAdmin) ? [
+      { name: 'Agendas & Escalas', path: '/schedules', icon: Calendar },
     ] : []),
     ...((permissions.includes('rooms:read') || isAdmin) && !isDoctor ? [
       { name: 'Ambulatórios', path: '/rooms', icon: Building2 },
