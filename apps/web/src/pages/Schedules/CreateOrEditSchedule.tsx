@@ -2,9 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Calendar,
-  Clock,
   Building2,
-  User,
   Stethoscope,
   Scissors,
   Activity,
@@ -13,7 +11,6 @@ import {
   Save,
   ArrowLeft,
   Loader2,
-  CheckCircle2,
   Info,
   X,
 } from 'lucide-react';

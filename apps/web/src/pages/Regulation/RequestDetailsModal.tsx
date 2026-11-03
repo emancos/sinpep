@@ -18,11 +18,14 @@ import {
   Check,
   CalendarCheck,
   ArrowRightLeft,
+  Printer,
 } from 'lucide-react';
 import type { RegulationRequest } from '../../services/regulation';
 import { apiUrl } from '../../services/api';
 import { useAuthStore } from '../../store/useAuthStore';
 import { BookSlotModal } from './BookSlotModal';
+import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
+import { useAvailableSlots } from '../../hooks/useSchedules';
 import { toast } from 'sonner';
 
 interface RequestDetailsModalProps {
@@ -34,9 +37,14 @@ interface RequestDetailsModalProps {
 export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen, onClose, request }) => {
   const [copiedToken, setCopiedToken] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [printModalOpen, setPrintModalOpen] = useState(false);
 
   const permissions = useAuthStore((state) => state.permissions);
   const activeProfile = useAuthStore((state) => state.activeProfile);
+
+  const procedureId = request?.procedureId || request?.procedure?.id || undefined;
+  const { data: availableSlots = [] } = useAvailableSlots(procedureId);
+  const hasAvailableSlots = availableSlots.length > 0;
 
   if (!isOpen || !request) return null;
 
@@ -400,7 +408,7 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
                 </Link>
               )}
 
-            {canBook && (
+            {canBook && hasAvailableSlots && (
               <button
                 type="button"
                 onClick={() => setBookingOpen(true)}
@@ -410,6 +418,15 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
                 <span>Agendar Vaga na Escala</span>
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => setPrintModalOpen(true)}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-98"
+            >
+              <Printer className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+              <span>Imprimir Ficha</span>
+            </button>
           </div>
 
           <button
@@ -422,8 +439,8 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
         </div>
       </div>
 
-      {/* Modal de Agendamento em Vagas Abertas da Escala */}
-      {bookingOpen && (
+      {/* Modal de Agendamento em Vagas Abertas da Escala (Apenas se houver vagas disponíveis) */}
+      {bookingOpen && hasAvailableSlots && (
         <BookSlotModal
           isOpen={bookingOpen}
           onClose={() => setBookingOpen(false)}
@@ -432,6 +449,15 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
             setBookingOpen(false);
             onClose();
           }}
+        />
+      )}
+
+      {/* Modal de Impressão da Ficha de Solicitação */}
+      {printModalOpen && (
+        <RegulationRequestPrintModal
+          isOpen={printModalOpen}
+          onClose={() => setPrintModalOpen(false)}
+          request={request}
         />
       )}
     </div>

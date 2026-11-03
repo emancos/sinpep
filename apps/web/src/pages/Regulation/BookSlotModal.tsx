@@ -10,10 +10,12 @@ import {
   AlertCircle,
   AlertTriangle,
   Loader2,
+  Printer,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { RegulationRequest } from '../../services/regulation';
 import { useAvailableSlots, useBookSlot, type ScheduleSlot } from '../../hooks/useSchedules';
+import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
 
 interface BookSlotModalProps {
   isOpen: boolean;
@@ -40,6 +42,7 @@ export const BookSlotModal: React.FC<BookSlotModalProps> = ({
   const [selectedCenterFilter, setSelectedCenterFilter] = useState<string>('ALL');
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('');
   const [selectedSlotId, setSelectedSlotId] = useState<string>('');
+  const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
 
   const procedureId = request?.procedureId || request?.procedure?.id || undefined;
 
@@ -224,10 +227,18 @@ export const BookSlotModal: React.FC<BookSlotModalProps> = ({
               <h4 className="font-bold text-slate-700 dark:text-slate-300 text-sm">
                 Nenhuma vaga aberta disponível
               </h4>
-              <p className="text-xs max-w-sm mx-auto mt-1">
+              <p className="text-xs max-w-sm mx-auto mt-1 mb-4">
                 Não há vagas ativas cadastradas para o procedimento solicitado no momento. Solicite a um Coordenador
                 de Unidade ou Administrador a abertura de uma nova escala.
               </p>
+              <button
+                type="button"
+                onClick={() => setShowPrintModal(true)}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-sm transition inline-flex items-center gap-1.5 cursor-pointer active:scale-98"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Imprimir Ficha de Solicitação</span>
+              </button>
             </div>
           ) : filteredSlots.length === 0 ? (
             <div className="py-8 text-center text-slate-400">
@@ -399,6 +410,15 @@ export const BookSlotModal: React.FC<BookSlotModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modal de Impressão da Ficha de Solicitação */}
+      {showPrintModal && (
+        <RegulationRequestPrintModal
+          isOpen={showPrintModal}
+          onClose={() => setShowPrintModal(false)}
+          request={request}
+        />
+      )}
     </div>
   );
 };

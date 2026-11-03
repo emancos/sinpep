@@ -6,20 +6,15 @@ import {
   ArrowRight,
   Save,
   FileText,
-  Calendar,
-  Clock,
   User,
-  CheckCircle2,
   AlertTriangle,
   Paperclip,
   Download,
   Search,
-  Building2,
   History,
   Stethoscope,
   Activity,
   Scissors,
-  Layers,
   Loader2,
   X,
   Info,
@@ -40,7 +35,7 @@ export const ChangeProcedurePage: React.FC = () => {
 
   // Grupos e Procedimentos
   const { data: procedureGroupsData } = useProcedureGroups();
-  const { data: proceduresData, isLoading: isLoadingProcedures } = useProcedures({
+  const { data: proceduresData } = useProcedures({
     page: 1,
     limit: 500,
   });

@@ -12,6 +12,7 @@ import {
   Stethoscope,
   Key,
   ArrowRightLeft,
+  Printer,
 } from 'lucide-react';
 import {
   useRegulationInbox,
@@ -26,6 +27,7 @@ import { EvaluateRegulationModal } from './EvaluateRegulationModal';
 import { ScheduleRegulationModal } from './ScheduleRegulationModal';
 import { RequestDetailsModal } from './RequestDetailsModal';
 import { BookSlotModal } from './BookSlotModal';
+import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
 import { toast } from 'sonner';
 
 export const OperatorInbox: React.FC = () => {
@@ -41,6 +43,7 @@ export const OperatorInbox: React.FC = () => {
   const [schedulingRequest, setSchedulingRequest] = useState<RegulationRequest | null>(null);
   const [slotBookingRequest, setSlotBookingRequest] = useState<RegulationRequest | null>(null);
   const [detailsRequest, setDetailsRequest] = useState<RegulationRequest | null>(null);
+  const [printingRequest, setPrintingRequest] = useState<RegulationRequest | null>(null);
 
   // Cancel Schedule Modal
   const [cancelingScheduleRequest, setCancelingScheduleRequest] = useState<RegulationRequest | null>(null);
@@ -419,6 +422,15 @@ export const OperatorInbox: React.FC = () => {
                     <span>Detalhes</span>
                   </button>
 
+                  <button
+                    onClick={() => setPrintingRequest(req)}
+                    className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-md flex items-center gap-1 cursor-pointer"
+                    title="Imprimir Ficha de Solicitação"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Imprimir</span>
+                  </button>
+
                   {req.status === 'PENDENTE_REGULACAO' && (
                     <button
                       onClick={() => setEvaluatingRequest(req)}
@@ -516,6 +528,14 @@ export const OperatorInbox: React.FC = () => {
 
                       <td className="px-4 py-3 text-right space-x-1.5 whitespace-nowrap">
                         <button
+                          onClick={() => setPrintingRequest(req)}
+                          title="Imprimir Ficha de Solicitação"
+                          className="p-1.5 text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+
+                        <button
                           onClick={() => setDetailsRequest(req)}
                           title="Ver Detalhes e Pareceres"
                           className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
@@ -610,6 +630,14 @@ export const OperatorInbox: React.FC = () => {
         onClose={() => setDetailsRequest(null)}
         request={detailsRequest}
       />
+
+      {printingRequest && (
+        <RegulationRequestPrintModal
+          isOpen={!!printingRequest}
+          onClose={() => setPrintingRequest(null)}
+          request={printingRequest}
+        />
+      )}
 
       {/* Modal Cancelar Agendamento com Justificativa Obrigatória e cantos rounded-md */}
       {cancelingScheduleRequest && (

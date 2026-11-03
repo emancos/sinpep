@@ -22,11 +22,14 @@ import {
   Plus,
   RefreshCw,
   Building2,
+  Printer,
+  AlertCircle,
 } from 'lucide-react';
 import { useProcedures, useProcedureGroups } from '../../hooks/useProcedures';
 import { useCreateRegulationRequest } from '../../hooks/useRegulation';
 import { useAuthStore } from '../../store/useAuthStore';
 import { BookSlotModal } from './BookSlotModal';
+import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
 import { apiUrl } from '../../services/api';
 import type { RegulationRequest } from '../../services/regulation';
 import axios from 'axios';
@@ -78,6 +81,9 @@ export const CreateRegulationRequest: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [createdRequestForBooking, setCreatedRequestForBooking] = useState<RegulationRequest | null>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
+  const [completedRequest, setCompletedRequest] = useState<RegulationRequest | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   // =========================================================================
   // ETAPA 1: Paciente & Anamnese
@@ -493,9 +499,29 @@ export const CreateRegulationRequest: React.FC = () => {
       const canScheduleDirectly =
         isAdmin || isRegulator || isCoordinator || (!requiresRegulation && isSolicitor);
 
-      if (canScheduleDirectly && created) {
+      // Verifica se existem escalas/vagas abertas disponíveis para o procedimento solicitado
+      const targetProcId = created?.procedureId || selectedProcedures[0];
+      let hasAvailableSlots = false;
+
+      if (targetProcId) {
+        try {
+          const slotsRes = await axios.get(`${apiUrl}/schedules/available-slots`, {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { procedureId: targetProcId },
+          });
+          hasAvailableSlots = Array.isArray(slotsRes.data) && slotsRes.data.length > 0;
+        } catch {
+          hasAvailableSlots = false;
+        }
+      }
+
+      if (canScheduleDirectly && hasAvailableSlots && created) {
         setCreatedRequestForBooking(created);
         setShowBookingModal(true);
+      } else if (created) {
+        // Se NÃO existirem agendas disponíveis: exibe tela de sucesso apenas com a opção de impressão da ficha!
+        setCompletedRequest(created);
+        setShowSuccessModal(true);
       } else {
         navigate('/regulation/solicitor');
       }
@@ -2308,19 +2334,113 @@ export const CreateRegulationRequest: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Agendamento em Vaga de Escala Aberta */}
+      {/* Modal de Agendamento em Vaga de Escala Aberta (Apenas se houver vagas disponíveis) */}
       {showBookingModal && createdRequestForBooking && (
         <BookSlotModal
           isOpen={showBookingModal}
           onClose={() => {
             setShowBookingModal(false);
-            navigate('/regulation/solicitor');
+            setCompletedRequest(createdRequestForBooking);
+            setShowSuccessModal(true);
           }}
           request={createdRequestForBooking}
           onSuccess={() => {
             setShowBookingModal(false);
-            navigate('/regulation/solicitor');
+            setCompletedRequest(createdRequestForBooking);
+            setShowSuccessModal(true);
           }}
+        />
+      )}
+
+      {/* Modal de Conclusão / Protocolo Realizado (exibido quando não há vagas ou após agendamento) */}
+      {showSuccessModal && completedRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 text-center space-y-4">
+            <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-inner">
+              <Check className="w-8 h-8 stroke-[3]" />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                Solicitação Protocolada com Sucesso!
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                A solicitação foi registrada no sistema de regulação municipal.
+              </p>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800 text-left text-xs space-y-1.5">
+              <div className="flex justify-between items-center pb-1.5 border-b border-slate-200 dark:border-slate-700">
+                <span className="text-slate-500 font-semibold">Protocolo:</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+                  #{completedRequest.protocolNumber}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-semibold">Paciente:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[240px]">
+                  {completedRequest.patient?.name}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-semibold">Procedimento:</span>
+                <span className="font-semibold text-blue-600 dark:text-blue-400 truncate max-w-[240px]">
+                  {completedRequest.procedure
+                    ? `${completedRequest.procedure.code} - ${completedRequest.procedure.name}`
+                    : completedRequest.specialty?.name}
+                </span>
+              </div>
+              <div className="flex justify-between items-center pt-1 border-t border-slate-200 dark:border-slate-700">
+                <span className="text-slate-500 font-semibold">Situação:</span>
+                <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                  {completedRequest.status === 'AGENDADA'
+                    ? 'AGENDADA NA ESCALA'
+                    : 'AGUARDANDO ABERTURA DE VAGAS / REGULAÇÃO'}
+                </span>
+              </div>
+            </div>
+
+            {completedRequest.status !== 'AGENDADA' && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-lg text-left text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <span>
+                  Não há vagas ou agendas abertas disponíveis para este procedimento no momento.
+                  A solicitação permanecerá na fila de regulação para agendamento oportuno.
+                </span>
+              </div>
+            )}
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center gap-2 justify-center">
+              <button
+                type="button"
+                onClick={() => setShowPrintModal(true)}
+                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-98"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Imprimir Ficha de Solicitação</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  navigate('/regulation/solicitor');
+                }}
+                className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition cursor-pointer"
+              >
+                Concluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Impressão da Ficha de Solicitação */}
+      {showPrintModal && (completedRequest || createdRequestForBooking) && (
+        <RegulationRequestPrintModal
+          isOpen={showPrintModal}
+          onClose={() => setShowPrintModal(false)}
+          request={completedRequest || createdRequestForBooking}
         />
       )}
     </div>

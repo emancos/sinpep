@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Key,
   Calendar,
+  Printer,
 } from 'lucide-react';
 import {
   useRegulationMyCenter,
@@ -21,6 +22,7 @@ import type { RegulationRequest, RegulationRequestStatus } from '../../services/
 import { RequestDetailsModal } from './RequestDetailsModal';
 import { ResubmitReturnedModal } from './ResubmitReturnedModal';
 import { BookSlotModal } from './BookSlotModal';
+import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
 import { toast } from 'sonner';
 
 export const SolicitorInbox: React.FC = () => {
@@ -34,6 +36,7 @@ export const SolicitorInbox: React.FC = () => {
   const [selectedDetailsRequest, setSelectedDetailsRequest] = useState<RegulationRequest | null>(null);
   const [selectedResubmitRequest, setSelectedResubmitRequest] = useState<RegulationRequest | null>(null);
   const [bookingSlotRequest, setBookingSlotRequest] = useState<RegulationRequest | null>(null);
+  const [printingRequest, setPrintingRequest] = useState<RegulationRequest | null>(null);
 
   // Cancel modal state
   const [cancelModalRequest, setCancelModalRequest] = useState<RegulationRequest | null>(null);
@@ -389,6 +392,15 @@ export const SolicitorInbox: React.FC = () => {
                     <Eye className="w-3.5 h-3.5" />
                     <span>Detalhes</span>
                   </button>
+
+                  <button
+                    onClick={() => setPrintingRequest(req)}
+                    title="Imprimir Ficha de Solicitação"
+                    className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md flex items-center gap-1 cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                    <span>Imprimir</span>
+                  </button>
                 </div>
               </div>
             ))}
@@ -463,6 +475,14 @@ export const SolicitorInbox: React.FC = () => {
                         )}
 
                         <button
+                          onClick={() => setPrintingRequest(req)}
+                          title="Imprimir Ficha de Solicitação"
+                          className="p-1.5 text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+
+                        <button
                           onClick={() => setSelectedDetailsRequest(req)}
                           title="Ver Detalhes e Auditoria"
                           className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition"
@@ -524,6 +544,14 @@ export const SolicitorInbox: React.FC = () => {
         }}
         request={selectedResubmitRequest}
       />
+
+      {printingRequest && (
+        <RegulationRequestPrintModal
+          isOpen={!!printingRequest}
+          onClose={() => setPrintingRequest(null)}
+          request={printingRequest}
+        />
+      )}
 
       {/* Modal de Cancelamento com Justificativa Obrigatória e cantos rounded-md */}
       {cancelModalRequest && (
