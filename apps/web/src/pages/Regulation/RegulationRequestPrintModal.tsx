@@ -196,8 +196,8 @@ export const RegulationRequestPrintModal: React.FC<RegulationRequestPrintModalPr
                 <span className="text-[10px] font-bold uppercase text-slate-500 block">Situação Atual:</span>
                 <span
                   className={`text-xs font-bold px-2 py-0.5 rounded border ${isScheduled
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                      : 'bg-blue-100 text-blue-800 border-blue-300'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-blue-100 text-blue-800 border-blue-300'
                     }`}
                 >
                   {isScheduled ? 'AGENDADA NA ESCALA' : 'PENDENTE DE REGULAÇÃO'}
@@ -395,23 +395,8 @@ export const RegulationRequestPrintModal: React.FC<RegulationRequestPrintModalPr
           </div>
         </div>
 
-        {/* 8. ASSINATURAS E RODAPÉ */}
+        {/* 8.RODAPÉ */}
         <div className="pt-8 pb-2 border-t border-slate-300 mt-6 grid grid-cols-2 gap-8 text-center text-xs">
-          <div>
-            <div className="border-b border-slate-400 w-3/4 mx-auto mb-1"></div>
-            <span className="font-bold text-slate-800 text-[11px] block">
-              {requesterName}
-            </span>
-            <span className="text-[10px] text-slate-500 block">Profissional Solicitante / Carimbo</span>
-          </div>
-
-          <div>
-            <div className="border-b border-slate-400 w-3/4 mx-auto mb-1"></div>
-            <span className="font-bold text-slate-800 text-[11px] block">
-              {patientName}
-            </span>
-            <span className="text-[10px] text-slate-500 block">Assinatura do Paciente / Responsável</span>
-          </div>
         </div>
       </div>
     </div>
