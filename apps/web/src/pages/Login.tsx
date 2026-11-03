@@ -8,11 +8,6 @@ import {
     Loader,
     Sun,
     Moon,
-    FileText,
-    Users,
-    Building2,
-    Network,
-    Pill,
     ShieldCheck,
     Stethoscope,
     CalendarCheck,
@@ -27,6 +22,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { isTokenExpired } from '../utils/token';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { LoginHeroBranding } from './Login/LoginHeroBranding';
 
 interface PendingAuth {
     accessToken: string;
@@ -247,119 +243,8 @@ export const Login: React.FC = () => {
                 </button>
             </div>
 
-            {/* Left Column: Informações e Soluções */}
-            <div className="w-full lg:w-1/2 xl:w-5/12 bg-gradient-to-br from-[#003366] via-[#002852] to-[#001c3a] text-white p-8 sm:p-10 lg:p-12 xl:p-14 flex flex-col justify-between relative overflow-hidden border-b lg:border-b-0 lg:border-r border-slate-700/50">
-                {/* Subtle background decoration */}
-                <div className="absolute top-[-15%] right-[-15%] w-80 h-80 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
-                <div className="absolute bottom-[-15%] left-[-15%] w-80 h-80 rounded-full bg-teal-500/10 blur-3xl pointer-events-none" />
-
-                {/* Top: Brasão da Unidade */}
-                <div className="relative z-10 flex items-center gap-4">
-                    <img
-                        src="/brasao.png"
-                        alt="Brasão da Unidade"
-                        className="h-16 sm:h-20 w-auto object-contain drop-shadow"
-                    />
-                    <div>
-                        <span className="text-[11px] uppercase tracking-wider font-semibold text-blue-200 block">
-                            Unidade de Saúde
-                        </span>
-                        <h2 className="text-base sm:text-lg font-bold text-white leading-tight">
-                            Rede de Atenção à Saúde
-                        </h2>
-                    </div>
-                </div>
-
-                {/* Middle: Identidade e Soluções do Sistema */}
-                <div className="relative z-10 my-8 sm:my-10 space-y-6">
-                    <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-blue-100 text-xs font-medium backdrop-blur-sm border border-white/15 mb-3">
-                            <ShieldCheck className="w-3.5 h-3.5 text-blue-300" />
-                            <span>Gestão Clínica e Assistencial</span>
-                        </div>
-                        <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                            {import.meta.env.VITE_APP_NAME || 'SINPeP'}
-                        </h1>
-                        <p className="text-sm text-blue-100/80 mt-1.5 leading-relaxed max-w-lg">
-                            Sistema Integrado de Prontuário Eletrônico do Paciente para suporte ao atendimento ambulatorial e fluxos assistenciais.
-                        </p>
-                    </div>
-
-                    <div className="space-y-4 pt-2">
-                        <span className="text-xs uppercase tracking-wider text-blue-200/90 font-semibold block">
-                            Soluções do Sistema
-                        </span>
-
-                        <div className="space-y-3">
-                            <div className="flex items-start gap-3">
-                                <div className="p-2 rounded-md bg-white/10 text-blue-200 shrink-0 border border-white/10 mt-0.5">
-                                    <FileText className="w-4 h-4" />
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-semibold text-white">Prontuário Eletrônico do Paciente</h4>
-                                    <p className="text-xs text-blue-100/75 mt-0.5 leading-relaxed">
-                                        Histórico dos atendimentos, evolução clínica, hipóteses diagnósticas (CID-10) e prescrições.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-start gap-3">
-                                <div className="p-2 rounded-md bg-white/10 text-blue-200 shrink-0 border border-white/10 mt-0.5">
-                                    <Users className="w-4 h-4" />
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-semibold text-white">Recepção e Fila de Atendimento</h4>
-                                    <p className="text-xs text-blue-100/75 mt-0.5 leading-relaxed">
-                                        Acolhimento de pacientes, triagem por prioridades e encaminhamento para as salas.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-start gap-3">
-                                <div className="p-2 rounded-md bg-white/10 text-blue-200 shrink-0 border border-white/10 mt-0.5">
-                                    <Building2 className="w-4 h-4" />
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-semibold text-white">Ambulatórios e Salas</h4>
-                                    <p className="text-xs text-blue-100/75 mt-0.5 leading-relaxed">
-                                        Organização de consultórios, escalas de profissionais e alocação por especialidades.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-start gap-3">
-                                <div className="p-2 rounded-md bg-white/10 text-blue-200 shrink-0 border border-white/10 mt-0.5">
-                                    <Network className="w-4 h-4" />
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-semibold text-white">Integração com UBS e Regulação</h4>
-                                    <p className="text-xs text-blue-100/75 mt-0.5 leading-relaxed">
-                                        Fluxo unificado entre solicitação municipal, regulação de cotas e execução do atendimento.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-start gap-3">
-                                <div className="p-2 rounded-md bg-white/10 text-blue-200 shrink-0 border border-white/10 mt-0.5">
-                                    <Pill className="w-4 h-4" />
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-semibold text-white">Catálogo de Medicamentos</h4>
-                                    <p className="text-xs text-blue-100/75 mt-0.5 leading-relaxed">
-                                        Consulta padronizada de substâncias, apresentações e dosagens com base na ANVISA.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Bottom: Aviso de uso restrito */}
-                <div className="relative z-10 pt-4 border-t border-white/15 text-2xs text-blue-100/70 flex items-center justify-between">
-                    <span>Acesso restrito a profissionais autorizados</span>
-                    <span>Uso Institucional</span>
-                </div>
-            </div>
+            {/* Left Column: Informações e Soluções (Personalização Dinâmica por Município) */}
+            <LoginHeroBranding />
 
             {/* Right Column: Formulário de Login OU Seleção de Perfil */}
             <div className="w-full lg:w-1/2 xl:w-7/12 flex items-center justify-center p-6 sm:p-10 lg:p-12 xl:p-16">
