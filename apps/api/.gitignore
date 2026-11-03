@@ -13,6 +13,7 @@ scripts/*
 !scripts/seed-schedule-permissions.ts
 !scripts/seed-consultation-procedures-and-doctors.ts
 !scripts/seed-receptionist-profile.ts
+!scripts/alter-regulation-requests-cid10.ts
 node_modules/
 dist/
 .agents/
