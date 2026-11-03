@@ -49,7 +49,8 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
   const activeProfile = useAuthStore((state) => state.activeProfile);
 
   const procedureId = request?.procedureId || request?.procedure?.id || undefined;
-  const { data: availableSlots = [] } = useAvailableSlots(procedureId);
+  const procedureGroupId = request?.procedureGroupId || request?.procedureGroup?.id || undefined;
+  const { data: availableSlots = [] } = useAvailableSlots(procedureId, { procedureGroupId });
   const hasAvailableSlots = availableSlots.length > 0;
 
   if (!isOpen || !request) return null;

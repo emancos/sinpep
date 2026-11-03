@@ -74,11 +74,13 @@ export class SchedulesController {
   @Permissions('schedules:book', 'schedules:read')
   async getAvailableSlots(
     @Req() req: any,
-    @Query('procedureId') procedureId: string,
+    @Query('procedureId') procedureId?: string,
+    @Query('procedureGroupId') procedureGroupId?: string,
     @Query('executingHealthCenterId') executingHealthCenterId?: string,
     @Query('date') date?: string,
   ) {
     return this.schedulesService.getAvailableSlots(req.user, procedureId, {
+      procedureGroupId,
       executingHealthCenterId,
       date,
     });

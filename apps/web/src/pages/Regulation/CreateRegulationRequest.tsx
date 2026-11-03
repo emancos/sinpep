@@ -502,13 +502,17 @@ export const CreateRegulationRequest: React.FC = () => {
 
       // Verifica se existem escalas/vagas abertas disponíveis para o procedimento solicitado
       const targetProcId = created?.procedureId || selectedProcedures[0];
+      const targetGroupId = created?.procedureGroupId || procedureGroupId || undefined;
       let hasAvailableSlots = false;
 
-      if (targetProcId) {
+      if (targetProcId || targetGroupId) {
         try {
           const slotsRes = await axios.get(`${apiUrl}/schedules/available-slots`, {
             headers: { Authorization: `Bearer ${token}` },
-            params: { procedureId: targetProcId },
+            params: {
+              procedureId: targetProcId || undefined,
+              procedureGroupId: targetGroupId || undefined,
+            },
           });
           hasAvailableSlots = Array.isArray(slotsRes.data) && slotsRes.data.length > 0;
         } catch {

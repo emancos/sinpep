@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, and, or, ilike, desc, asc, inArray, sql, not } from 'drizzle-orm';
+import { eq, and, or, ilike, desc, asc, inArray, sql, not, gte } from 'drizzle-orm';
 import * as schema from '../database';
 import { randomUUID } from 'crypto';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
@@ -1001,24 +1001,42 @@ export class SchedulesService {
    */
   async getAvailableSlots(
     user: AuthUser,
-    procedureId: string,
+    procedureId?: string,
     filters?: {
+      procedureGroupId?: string;
       executingHealthCenterId?: string;
       date?: string;
     },
   ) {
-    const isCoordinator = user.activeProfileName === 'Coordenador de Unidade';
-    const isSolicitor = user.activeProfileName?.includes('Solicitante') || user.permissions.includes('regulation-solicitor:read');
+    const isAdmin = user.permissions.includes('admin:access') || user.activeProfileName === 'Administrador';
+    const isRegulator = user.activeProfileName?.includes('Regulador') || user.permissions.includes('regulation-operator:read');
+    const isCoordinator = !isAdmin && !isRegulator && user.activeProfileName === 'Coordenador de Unidade';
+    const isSolicitor = !isAdmin && !isRegulator && (user.activeProfileName?.includes('Solicitante') || user.permissions.includes('regulation-solicitor:read'));
 
     // 1. Identifica o procedimento solicitado e seu grupo
-    const targetProcedure = await this.db.query.procedures.findFirst({
-      where: eq(schema.procedures.id, procedureId),
-    });
+    let targetProcedure: any = null;
+    let targetGroupId = filters?.procedureGroupId;
+
+    if (procedureId) {
+      targetProcedure = await this.db.query.procedures.findFirst({
+        where: eq(schema.procedures.id, procedureId),
+      });
+      if (targetProcedure?.procedureGroupId) {
+        targetGroupId = targetProcedure.procedureGroupId;
+      }
+    }
 
     // 2. Monta condições de busca de agendas ativas
-    const procConditions = [eq(schema.schedules.procedureId, procedureId)];
-    if (targetProcedure?.procedureGroupId) {
-      procConditions.push(eq(schema.schedules.procedureGroupId, targetProcedure.procedureGroupId));
+    const procConditions = [];
+    if (procedureId) {
+      procConditions.push(eq(schema.schedules.procedureId, procedureId));
+    }
+    if (targetGroupId) {
+      procConditions.push(eq(schema.schedules.procedureGroupId, targetGroupId));
+    }
+
+    if (procConditions.length === 0) {
+      return [];
     }
 
     const scheduleConditions = [
@@ -1057,11 +1075,12 @@ export class SchedulesService {
     }
 
     const scheduleIds = schedules.map((s) => s.id);
+    const todayStr = new Date().toISOString().split('T')[0];
 
     const slotConditions = [
       inArray(schema.scheduleSlots.scheduleId, scheduleIds),
       eq(schema.scheduleSlots.status, 'DISPONIVEL'),
-      sql`${schema.scheduleSlots.date} >= CURRENT_DATE`,
+      gte(schema.scheduleSlots.date, todayStr),
     ];
 
     if (filters?.date) {
@@ -1093,7 +1112,7 @@ export class SchedulesService {
       let disabledReason: string | null = null;
 
       if (sch.procedureGroupId && sch.enabledProcedureIds && sch.enabledProcedureIds.length > 0) {
-        if (!sch.enabledProcedureIds.includes(procedureId)) {
+        if (procedureId && !sch.enabledProcedureIds.includes(procedureId)) {
           isProcedureDisabled = true;
           disabledReason = `O procedimento solicitado (${targetProcedure?.name || 'não identificado'}) foi desmarcado na oferta desta escala de atendimento pelo gestor.`;
         }

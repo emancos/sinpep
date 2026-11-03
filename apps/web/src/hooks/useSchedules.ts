@@ -239,20 +239,32 @@ export function useDeleteSchedule() {
   });
 }
 
-export function useAvailableSlots(procedureId?: string, filters?: { executingHealthCenterId?: string; date?: string }) {
+export function useAvailableSlots(
+  procedureId?: string,
+  filters?: {
+    procedureGroupId?: string;
+    executingHealthCenterId?: string;
+    date?: string;
+  },
+) {
   const token = useAuthStore((state) => state.token);
 
   return useQuery<ScheduleSlot[]>({
     queryKey: ['available-slots', procedureId, filters],
     queryFn: async () => {
-      if (!procedureId) return [];
+      if (!procedureId && !filters?.procedureGroupId) return [];
       const res = await axios.get(`${apiUrl}/schedules/available-slots`, {
         headers: { Authorization: `Bearer ${token}` },
-        params: { procedureId, ...filters },
+        params: {
+          procedureId: procedureId || undefined,
+          procedureGroupId: filters?.procedureGroupId || undefined,
+          executingHealthCenterId: filters?.executingHealthCenterId || undefined,
+          date: filters?.date || undefined,
+        },
       });
       return res.data;
     },
-    enabled: !!token && !!procedureId,
+    enabled: !!token && (!!procedureId || !!filters?.procedureGroupId),
   });
 }
 

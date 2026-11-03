@@ -53,7 +53,8 @@ export const RequestDetailsPage: React.FC = () => {
   const { data: request, isLoading, isError, refetch } = useRegulationRequest(id || null);
 
   const procedureId = request?.procedureId || request?.procedure?.id || undefined;
-  const { data: availableSlots = [] } = useAvailableSlots(procedureId);
+  const procedureGroupId = request?.procedureGroupId || request?.procedureGroup?.id || undefined;
+  const { data: availableSlots = [] } = useAvailableSlots(procedureId, { procedureGroupId });
   const hasAvailableSlots = availableSlots.length > 0;
 
   if (isLoading) {

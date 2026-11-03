@@ -45,8 +45,11 @@ export const BookSlotModal: React.FC<BookSlotModalProps> = ({
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
 
   const procedureId = request?.procedureId || request?.procedure?.id || undefined;
+  const procedureGroupId = request?.procedureGroupId || request?.procedureGroup?.id || undefined;
 
-  const { data: availableSlots = [], isLoading } = useAvailableSlots(procedureId);
+  const { data: availableSlots = [], isLoading } = useAvailableSlots(procedureId, {
+    procedureGroupId,
+  });
   const bookSlotMutation = useBookSlot();
 
   // Extrair unidades únicas disponíveis
