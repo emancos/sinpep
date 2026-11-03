@@ -47,19 +47,19 @@ export const CreateOrEditSchedule: React.FC = () => {
   // Vigência & Horários
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [startTime, setStartTime] = useState('07:00');
-  const [endTime, setEndTime] = useState('12:00');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
 
   // Oferta: Dias da Semana
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
 
   // Oferta: Quantidades e Minutos
-  const [firstTimeQty, setFirstTimeQty] = useState<number>(10);
-  const [firstTimeMins, setFirstTimeMins] = useState<number>(15);
-  const [returnQty, setReturnQty] = useState<number>(5);
-  const [returnMins, setReturnMins] = useState<number>(10);
-  const [regulatorQty, setRegulatorQty] = useState<number>(2);
-  const [regulatorMins, setRegulatorMins] = useState<number>(15);
+  const [firstTimeQty, setFirstTimeQty] = useState<number | string>('');
+  const [firstTimeMins, setFirstTimeMins] = useState<number | string>('');
+  const [returnQty, setReturnQty] = useState<number | string>('');
+  const [returnMins, setReturnMins] = useState<number | string>('');
+  const [regulatorQty, setRegulatorQty] = useState<number | string>('');
+  const [regulatorMins, setRegulatorMins] = useState<number | string>('');
 
   // Flags
   const [autoSlotSplit, setAutoSlotSplit] = useState(false);
@@ -189,15 +189,15 @@ export const CreateOrEditSchedule: React.FC = () => {
     setCbo('');
     setStartDate('');
     setEndDate('');
-    setStartTime('07:00');
-    setEndTime('12:00');
+    setStartTime('');
+    setEndTime('');
     setSelectedDays([]);
-    setFirstTimeQty(10);
-    setFirstTimeMins(15);
-    setReturnQty(5);
-    setReturnMins(10);
-    setRegulatorQty(2);
-    setRegulatorMins(15);
+    setFirstTimeQty('');
+    setFirstTimeMins('');
+    setReturnQty('');
+    setReturnMins('');
+    setRegulatorQty('');
+    setRegulatorMins('');
     setAutoSlotSplit(false);
     setIsLocalSchedule(false);
     setIsActive(true);
@@ -227,8 +227,18 @@ export const CreateOrEditSchedule: React.FC = () => {
       toast.error('Preencha a vigência inicial e final da escala.');
       return;
     }
+    if (!startTime || !endTime) {
+      toast.error('Informe a hora inicial e final do turno de atendimento.');
+      return;
+    }
     if (selectedDays.length === 0) {
       toast.error('Selecione ao menos um dia da semana para o atendimento.');
+      return;
+    }
+
+    const totalSlots = Number(firstTimeQty || 0) + Number(returnQty || 0) + Number(regulatorQty || 0);
+    if (totalSlots === 0) {
+      toast.error('Informe a quantidade de ao menos um tipo de vaga (1ª Vez, Retorno ou Reserva para Regulador).');
       return;
     }
 
@@ -594,7 +604,8 @@ export const CreateOrEditSchedule: React.FC = () => {
                           type="number"
                           min="0"
                           value={firstTimeQty}
-                          onChange={(e) => setFirstTimeQty(Math.max(0, parseInt(e.target.value) || 0))}
+                          onChange={(e) => setFirstTimeQty(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
+                          placeholder="0"
                           className="w-full px-3 py-1.5 text-sm rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-semibold"
                         />
                       </div>
@@ -602,9 +613,10 @@ export const CreateOrEditSchedule: React.FC = () => {
                         <label className="text-2xs text-slate-400 block mb-0.5">Minutos</label>
                         <input
                           type="number"
-                          min="1"
+                          min="0"
                           value={firstTimeMins}
-                          onChange={(e) => setFirstTimeMins(Math.max(1, parseInt(e.target.value) || 0))}
+                          onChange={(e) => setFirstTimeMins(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
+                          placeholder="0"
                           className="w-full px-3 py-1.5 text-sm rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
                         />
                       </div>
@@ -627,7 +639,8 @@ export const CreateOrEditSchedule: React.FC = () => {
                           type="number"
                           min="0"
                           value={returnQty}
-                          onChange={(e) => setReturnQty(Math.max(0, parseInt(e.target.value) || 0))}
+                          onChange={(e) => setReturnQty(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
+                          placeholder="0"
                           className="w-full px-3 py-1.5 text-sm rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-semibold"
                         />
                       </div>
@@ -635,9 +648,10 @@ export const CreateOrEditSchedule: React.FC = () => {
                         <label className="text-2xs text-slate-400 block mb-0.5">Minutos</label>
                         <input
                           type="number"
-                          min="1"
+                          min="0"
                           value={returnMins}
-                          onChange={(e) => setReturnMins(Math.max(1, parseInt(e.target.value) || 0))}
+                          onChange={(e) => setReturnMins(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
+                          placeholder="0"
                           className="w-full px-3 py-1.5 text-sm rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
                         />
                       </div>
@@ -660,7 +674,8 @@ export const CreateOrEditSchedule: React.FC = () => {
                           type="number"
                           min="0"
                           value={regulatorQty}
-                          onChange={(e) => setRegulatorQty(Math.max(0, parseInt(e.target.value) || 0))}
+                          onChange={(e) => setRegulatorQty(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
+                          placeholder="0"
                           className="w-full px-3 py-1.5 text-sm rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-semibold"
                         />
                       </div>
@@ -668,9 +683,10 @@ export const CreateOrEditSchedule: React.FC = () => {
                         <label className="text-2xs text-slate-400 block mb-0.5">Minutos</label>
                         <input
                           type="number"
-                          min="1"
+                          min="0"
                           value={regulatorMins}
-                          onChange={(e) => setRegulatorMins(Math.max(1, parseInt(e.target.value) || 0))}
+                          onChange={(e) => setRegulatorMins(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
+                          placeholder="0"
                           className="w-full px-3 py-1.5 text-sm rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
                         />
                       </div>
