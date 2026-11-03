@@ -142,22 +142,38 @@ export class SchedulesService {
   async getDependencies(filters: {
     healthCenterId?: string;
     procedureId?: string;
+    procedureGroupId?: string;
     doctorId?: string;
     cbo?: string;
+    scheduleType?: string; // 'CONSULTA' | 'EXAME' | 'PROCEDIMENTO'
   }) {
+    const scheduleType = filters.scheduleType || 'CONSULTA';
+
     // 1.1 Estabelecimentos Executantes
     const allCenters = await this.db.query.healthCenters.findMany({
       where: eq(schema.healthCenters.stExecutante, true),
       orderBy: [asc(schema.healthCenters.name)],
     });
 
-    // 1.2 Procedimentos
-    const allProcedures = await this.db.query.procedures.findMany({
+    // 1.2 Grupos de Procedimentos com seus procedimentos
+    const rawGroups = await this.db.query.procedureGroups.findMany({
+      where: eq(schema.procedureGroups.isActive, true),
+      with: {
+        procedures: {
+          where: eq(schema.procedures.isActive, true),
+          orderBy: [asc(schema.procedures.name)],
+        },
+      },
+      orderBy: [asc(schema.procedureGroups.name)],
+    });
+
+    // 1.3 Procedimentos
+    const rawProcedures = await this.db.query.procedures.findMany({
       where: eq(schema.procedures.isActive, true),
       orderBy: [asc(schema.procedures.name)],
     });
 
-    // 1.3 Profissionais (Médicos com usuários ativos)
+    // 1.4 Profissionais (Médicos com usuários ativos)
     const allDoctors = await this.db.query.doctors.findMany({
       where: eq(schema.doctors.isActive, true),
       with: {
@@ -172,16 +188,61 @@ export class SchedulesService {
       orderBy: [asc(schema.doctors.crm)],
     });
 
-    // 1.4 Especialidades com CBO
+    // 1.5 Especialidades com CBO
     const allSpecialties = await this.db.query.specialties.findMany({
       where: eq(schema.specialties.isActive, true),
       orderBy: [asc(schema.specialties.name)],
     });
 
-    // Listas base para refinamento
+    // Filtra procedimentos e grupos baseado no tipo de escala (CONSULTA, EXAME, PROCEDIMENTO)
+    let allProcedures = rawProcedures;
+    let allGroups = rawGroups;
+
+    if (scheduleType === 'CONSULTA') {
+      allProcedures = rawProcedures.filter(
+        (p) => p.code?.startsWith('03') || p.name.toUpperCase().startsWith('CONSULTA'),
+      );
+      allGroups = rawGroups.filter(
+        (g) => g.groupCode?.startsWith('03') || g.name.toUpperCase().includes('CONSULTA'),
+      );
+    } else if (scheduleType === 'EXAME') {
+      allProcedures = rawProcedures.filter(
+        (p) =>
+          p.code?.startsWith('02') ||
+          p.name.toUpperCase().includes('TOMOGRAFIA') ||
+          p.name.toUpperCase().includes('ULTRASSOM') ||
+          p.name.toUpperCase().includes('ULTRASONOGRAFIA') ||
+          p.name.toUpperCase().includes('RESSONANCIA') ||
+          p.name.toUpperCase().includes('RAIO-X') ||
+          p.name.toUpperCase().includes('EXAME'),
+      );
+      allGroups = rawGroups.filter(
+        (g) =>
+          g.groupCode?.startsWith('02') ||
+          g.name.toUpperCase().includes('EXAME') ||
+          g.name.toUpperCase().includes('TOMOGRAFIA') ||
+          g.name.toUpperCase().includes('ULTRASONOGRAFIA'),
+      );
+    } else if (scheduleType === 'PROCEDIMENTO') {
+      allProcedures = rawProcedures.filter(
+        (p) =>
+          !p.code?.startsWith('02') &&
+          !p.code?.startsWith('03') &&
+          !p.name.toUpperCase().startsWith('CONSULTA'),
+      );
+      allGroups = rawGroups.filter(
+        (g) =>
+          !g.groupCode?.startsWith('02') &&
+          !g.groupCode?.startsWith('03') &&
+          !g.name.toUpperCase().includes('CONSULTA'),
+      );
+    }
+
+    // Listas base para refinamento reativo
     let filteredCenters = allCenters;
     let filteredDoctors = allDoctors;
     let filteredProcedures = allProcedures;
+    let filteredGroups = allGroups;
     let filteredCbos = allSpecialties.filter((s) => !!s.cbo);
 
     // =========================================================================
@@ -208,25 +269,39 @@ export class SchedulesService {
       if (unitCbos.size > 0) {
         filteredCbos = filteredCbos.filter((s) => unitCbos.has(s.cbo!));
 
-        // Procedimentos de consulta compatíveis com as especialidades dos médicos da unidade
-        filteredProcedures = filteredProcedures.filter((proc) => {
-          const isExplicitDoctorProc = filteredDoctors.some((d) =>
-            d.doctorProcedures?.some((dp) => dp.procedureId === proc.id),
-          );
-          if (isExplicitDoctorProc) return true;
+        if (scheduleType === 'CONSULTA') {
+          // Procedimentos de consulta compatíveis com as especialidades dos médicos da unidade
+          filteredProcedures = filteredProcedures.filter((proc) => {
+            const isExplicitDoctorProc = filteredDoctors.some((d) =>
+              d.doctorProcedures?.some((dp) => dp.procedureId === proc.id),
+            );
+            if (isExplicitDoctorProc) return true;
 
-          return unitSpecialties.some((spec) =>
-            this.isProcedureCompatibleWithSpecialty(proc.name, spec.name, spec.cbo),
-          );
-        });
+            return unitSpecialties.some((spec) =>
+              this.isProcedureCompatibleWithSpecialty(proc.name, spec.name, spec.cbo),
+            );
+          });
+        }
       } else {
         filteredCbos = [];
-        filteredProcedures = [];
+        if (scheduleType === 'CONSULTA') {
+          filteredProcedures = [];
+        }
       }
     }
 
     // =========================================================================
-    // REGRA 2: Filtro por Profissional (doctorId)
+    // REGRA 2: Filtro por Grupo de Procedimentos (procedureGroupId)
+    // =========================================================================
+    if (filters.procedureGroupId) {
+      filteredGroups = filteredGroups.filter((g) => g.id === filters.procedureGroupId);
+      filteredProcedures = filteredProcedures.filter(
+        (p) => p.procedureGroupId === filters.procedureGroupId,
+      );
+    }
+
+    // =========================================================================
+    // REGRA 3: Filtro por Profissional (doctorId)
     // =========================================================================
     if (filters.doctorId) {
       const selectedDoc = allDoctors.find((d) => d.id === filters.doctorId);
@@ -244,20 +319,22 @@ export class SchedulesService {
           filteredCbos = filteredCbos.filter((s) => docCbos.has(s.cbo!));
         }
 
-        // Procedimentos compatíveis com o médico
-        const docSpecs = selectedDoc.doctorSpecialties?.map((ds) => ds.specialty) || [];
-        filteredProcedures = filteredProcedures.filter((proc) => {
-          const isExplicit = selectedDoc.doctorProcedures?.some((dp) => dp.procedureId === proc.id);
-          if (isExplicit) return true;
-          return docSpecs.some((spec) =>
-            this.isProcedureCompatibleWithSpecialty(proc.name, spec.name, spec.cbo),
-          );
-        });
+        // Se for consulta, procedimentos compatíveis com o médico
+        if (scheduleType === 'CONSULTA') {
+          const docSpecs = selectedDoc.doctorSpecialties?.map((ds) => ds.specialty) || [];
+          filteredProcedures = filteredProcedures.filter((proc) => {
+            const isExplicit = selectedDoc.doctorProcedures?.some((dp) => dp.procedureId === proc.id);
+            if (isExplicit) return true;
+            return docSpecs.some((spec) =>
+              this.isProcedureCompatibleWithSpecialty(proc.name, spec.name, spec.cbo),
+            );
+          });
+        }
       }
     }
 
     // =========================================================================
-    // REGRA 3: Filtro por CBO (cbo)
+    // REGRA 4: Filtro por CBO (cbo)
     // =========================================================================
     if (filters.cbo) {
       const targetSpecialty = allSpecialties.find((s) => s.cbo === filters.cbo);
@@ -276,7 +353,7 @@ export class SchedulesService {
       }
 
       // Procedimentos de consulta compatíveis com esse CBO
-      if (targetSpecialty) {
+      if (targetSpecialty && scheduleType === 'CONSULTA') {
         filteredProcedures = filteredProcedures.filter((proc) =>
           this.isProcedureCompatibleWithSpecialty(proc.name, targetSpecialty.name, targetSpecialty.cbo),
         );
@@ -284,7 +361,7 @@ export class SchedulesService {
     }
 
     // =========================================================================
-    // REGRA 4: Filtro por Procedimento (procedureId)
+    // REGRA 5: Filtro por Procedimento Individual (procedureId)
     // =========================================================================
     if (filters.procedureId) {
       const selectedProc = allProcedures.find((p) => p.id === filters.procedureId);
@@ -300,13 +377,15 @@ export class SchedulesService {
         }
 
         // Médicos compatíveis (possuem especialidade compatível ou vínculo explícito)
-        filteredDoctors = filteredDoctors.filter((d) => {
-          const hasExplicit = d.doctorProcedures?.some((dp) => dp.procedureId === selectedProc.id);
-          if (hasExplicit) return true;
-          return d.doctorSpecialties?.some((ds) =>
-            this.isProcedureCompatibleWithSpecialty(selectedProc.name, ds.specialty.name, ds.specialty.cbo),
-          );
-        });
+        if (scheduleType === 'CONSULTA') {
+          filteredDoctors = filteredDoctors.filter((d) => {
+            const hasExplicit = d.doctorProcedures?.some((dp) => dp.procedureId === selectedProc.id);
+            if (hasExplicit) return true;
+            return d.doctorSpecialties?.some((ds) =>
+              this.isProcedureCompatibleWithSpecialty(selectedProc.name, ds.specialty.name, ds.specialty.cbo),
+            );
+          });
+        }
 
         // Estabelecimentos que possuem médicos compatíveis
         const centersWithDoc = new Set(
@@ -326,10 +405,23 @@ export class SchedulesService {
         cnes: c.cnes,
         label: `${c.cnes ? c.cnes + ' - ' : ''}${c.name}`,
       })),
+      procedureGroups: filteredGroups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        groupCode: g.groupCode,
+        label: `${g.groupCode ? `[${g.groupCode}] ` : ''}${g.name}`,
+        procedures: (g.procedures || []).map((p) => ({
+          id: p.id,
+          code: p.code,
+          name: p.name,
+          label: `${p.code ? p.code + ' - ' : ''}${p.name}`,
+        })),
+      })),
       procedures: filteredProcedures.map((p) => ({
         id: p.id,
         code: p.code,
         name: p.name,
+        procedureGroupId: p.procedureGroupId,
         label: `${p.code ? p.code + ' - ' : ''}${p.name}`,
       })),
       doctors: filteredDoctors.map((d) => ({
@@ -540,6 +632,7 @@ export class SchedulesService {
       with: {
         executingHealthCenter: true,
         procedure: true,
+        procedureGroup: true,
         doctor: {
           with: { user: true },
         },
@@ -583,6 +676,7 @@ export class SchedulesService {
       with: {
         executingHealthCenter: true,
         procedure: true,
+        procedureGroup: true,
         doctor: {
           with: { user: true },
         },
@@ -625,6 +719,10 @@ export class SchedulesService {
       throw new BadRequestException('Unidade Executante não informada ou usuário sem unidade vinculada.');
     }
 
+    if (!dto.procedureId && !dto.procedureGroupId) {
+      throw new BadRequestException('É obrigatório informar o procedimento ou grupo de procedimentos.');
+    }
+
     // Validação de intervalo de datas (limite máximo de 180 dias / 6 meses)
     const startDate = new Date(`${dto.startDate}T00:00:00`);
     const endDate = new Date(`${dto.endDate}T00:00:00`);
@@ -653,6 +751,15 @@ export class SchedulesService {
       dto.daysOfWeek,
     );
 
+    // Se tiver procedureGroupId e enabledProcedureIds não informado, habilita todos os procedimentos do grupo
+    let enabledProcedureIds = dto.enabledProcedureIds || [];
+    if (dto.procedureGroupId && (!enabledProcedureIds || enabledProcedureIds.length === 0)) {
+      const groupProcs = await this.db.query.procedures.findMany({
+        where: eq(schema.procedures.procedureGroupId, dto.procedureGroupId),
+      });
+      enabledProcedureIds = groupProcs.map((p) => p.id);
+    }
+
     const scheduleId = randomUUID();
     const now = new Date().toISOString();
 
@@ -660,9 +767,12 @@ export class SchedulesService {
     await this.db.insert(schema.schedules).values({
       id: scheduleId,
       executingHealthCenterId,
-      procedureId: dto.procedureId,
+      scheduleType: dto.scheduleType || 'CONSULTA',
+      procedureId: dto.procedureId || null,
+      procedureGroupId: dto.procedureGroupId || null,
       doctorId: dto.doctorId,
       cbo: dto.cbo.trim(),
+      enabledProcedureIds,
       startDate: dto.startDate,
       endDate: dto.endDate,
       startTime: dto.startTime,
@@ -738,9 +848,12 @@ export class SchedulesService {
     await this.db
       .update(schema.schedules)
       .set({
-        procedureId: dto.procedureId || existing.procedureId,
+        scheduleType: dto.scheduleType || existing.scheduleType,
+        procedureId: dto.procedureId !== undefined ? (dto.procedureId || null) : existing.procedureId,
+        procedureGroupId: dto.procedureGroupId !== undefined ? (dto.procedureGroupId || null) : existing.procedureGroupId,
         doctorId,
         cbo: dto.cbo || existing.cbo,
+        enabledProcedureIds: dto.enabledProcedureIds !== undefined ? dto.enabledProcedureIds : existing.enabledProcedureIds,
         startDate,
         endDate,
         startTime,
@@ -897,9 +1010,19 @@ export class SchedulesService {
     const isCoordinator = user.activeProfileName === 'Coordenador de Unidade';
     const isSolicitor = user.activeProfileName?.includes('Solicitante') || user.permissions.includes('regulation-solicitor:read');
 
-    // Monta condições de busca de agendas ativas
+    // 1. Identifica o procedimento solicitado e seu grupo
+    const targetProcedure = await this.db.query.procedures.findFirst({
+      where: eq(schema.procedures.id, procedureId),
+    });
+
+    // 2. Monta condições de busca de agendas ativas
+    const procConditions = [eq(schema.schedules.procedureId, procedureId)];
+    if (targetProcedure?.procedureGroupId) {
+      procConditions.push(eq(schema.schedules.procedureGroupId, targetProcedure.procedureGroupId));
+    }
+
     const scheduleConditions = [
-      eq(schema.schedules.procedureId, procedureId),
+      or(...procConditions),
       eq(schema.schedules.isActive, true),
     ];
 
@@ -922,6 +1045,7 @@ export class SchedulesService {
       with: {
         executingHealthCenter: true,
         procedure: true,
+        procedureGroup: true,
         doctor: {
           with: { user: true },
         },
@@ -950,6 +1074,8 @@ export class SchedulesService {
         schedule: {
           with: {
             executingHealthCenter: true,
+            procedure: true,
+            procedureGroup: true,
             doctor: {
               with: { user: true },
             },
@@ -960,7 +1086,25 @@ export class SchedulesService {
       limit: 100,
     });
 
-    return slots;
+    // Enriquecimento com validação de procedimentos desabilitados pelo gestor na escala
+    return slots.map((slot) => {
+      const sch = slot.schedule;
+      let isProcedureDisabled = false;
+      let disabledReason: string | null = null;
+
+      if (sch.procedureGroupId && sch.enabledProcedureIds && sch.enabledProcedureIds.length > 0) {
+        if (!sch.enabledProcedureIds.includes(procedureId)) {
+          isProcedureDisabled = true;
+          disabledReason = `O procedimento solicitado (${targetProcedure?.name || 'não identificado'}) foi desmarcado na oferta desta escala de atendimento pelo gestor.`;
+        }
+      }
+
+      return {
+        ...slot,
+        isProcedureDisabled,
+        disabledReason,
+      };
+    });
   }
 
   /**
@@ -973,6 +1117,7 @@ export class SchedulesService {
         schedule: {
           with: {
             executingHealthCenter: true,
+            procedureGroup: true,
             doctor: { with: { user: true } },
           },
         },
@@ -997,6 +1142,19 @@ export class SchedulesService {
 
     if (!request) {
       throw new NotFoundException('Requisição de regulação não encontrada.');
+    }
+
+    // Validação de procedimento desabilitado na escala
+    if (
+      slot.schedule.procedureGroupId &&
+      slot.schedule.enabledProcedureIds &&
+      slot.schedule.enabledProcedureIds.length > 0 &&
+      request.procedureId &&
+      !slot.schedule.enabledProcedureIds.includes(request.procedureId)
+    ) {
+      throw new BadRequestException(
+        'Este agendamento não pode ser realizado pois o procedimento solicitado foi desabilitado na configuração desta escala de atendimento.',
+      );
     }
 
     const isCoordinator = user.activeProfileName === 'Coordenador de Unidade';

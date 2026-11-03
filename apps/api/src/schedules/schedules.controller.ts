@@ -32,14 +32,18 @@ export class SchedulesController {
   async getDependencies(
     @Query('healthCenterId') healthCenterId?: string,
     @Query('procedureId') procedureId?: string,
+    @Query('procedureGroupId') procedureGroupId?: string,
     @Query('doctorId') doctorId?: string,
     @Query('cbo') cbo?: string,
+    @Query('scheduleType') scheduleType?: string,
   ) {
     return this.schedulesService.getDependencies({
       healthCenterId,
       procedureId,
+      procedureGroupId,
       doctorId,
       cbo,
+      scheduleType,
     });
   }
 

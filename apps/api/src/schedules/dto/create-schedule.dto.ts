@@ -14,8 +14,21 @@ export class CreateScheduleDto {
   executingHealthCenterId: string;
 
   @IsString()
-  @IsNotEmpty()
-  procedureId: string;
+  @IsOptional()
+  scheduleType?: string; // 'CONSULTA' | 'EXAME' | 'PROCEDIMENTO'
+
+  @IsString()
+  @IsOptional()
+  procedureId?: string;
+
+  @IsString()
+  @IsOptional()
+  procedureGroupId?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  enabledProcedureIds?: string[];
 
   @IsString()
   @IsNotEmpty()

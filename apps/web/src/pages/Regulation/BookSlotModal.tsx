@@ -8,6 +8,7 @@ import {
   Check,
   CalendarCheck,
   AlertCircle,
+  AlertTriangle,
   Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -90,6 +91,14 @@ export const BookSlotModal: React.FC<BookSlotModalProps> = ({
   const handleConfirmBooking = async () => {
     if (!selectedSlotId) {
       toast.error('Selecione uma vaga disponível para agendar o atendimento.');
+      return;
+    }
+
+    if (selectedSlot?.isProcedureDisabled) {
+      toast.error(
+        selectedSlot.disabledReason ||
+          'Este agendamento não pode ser realizado pois o procedimento solicitado foi desabilitado na configuração desta escala.',
+      );
       return;
     }
 
@@ -248,6 +257,7 @@ export const BookSlotModal: React.FC<BookSlotModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                     {slots.map((slot) => {
                       const isSelected = selectedSlotId === slot.id;
+                      const isProcedureDisabled = Boolean(slot.isProcedureDisabled);
                       const typeBadge = SLOT_TYPE_LABELS[slot.slotType] || {
                         label: slot.slotType,
                         color: 'bg-slate-100 text-slate-700',
@@ -256,23 +266,57 @@ export const BookSlotModal: React.FC<BookSlotModalProps> = ({
                       return (
                         <div
                           key={slot.id}
-                          onClick={() => setSelectedSlotId(slot.id)}
-                          className={`p-3 rounded-lg border text-xs cursor-pointer transition relative flex flex-col justify-between ${
-                            isSelected
-                              ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-2 ring-emerald-500/30'
-                              : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
+                          onClick={() => {
+                            if (isProcedureDisabled) {
+                              toast.warning(
+                                slot.disabledReason ||
+                                  'O procedimento desta requisição foi desabilitado na oferta desta escala.',
+                              );
+                              return;
+                            }
+                            setSelectedSlotId(slot.id);
+                          }}
+                          className={`p-3 rounded-lg border text-xs transition relative flex flex-col justify-between ${
+                            isProcedureDisabled
+                              ? 'border-rose-200 dark:border-rose-900/60 bg-rose-50/20 dark:bg-rose-950/20 opacity-75 cursor-not-allowed'
+                              : isSelected
+                              ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-2 ring-emerald-500/30 cursor-pointer'
+                              : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900 cursor-pointer'
                           }`}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-1.5">
-                              <Clock className={`w-4 h-4 ${isSelected ? 'text-emerald-600' : 'text-slate-400'}`} />
-                              <span className="font-mono font-bold text-sm text-slate-900 dark:text-white">
+                              <Clock
+                                className={`w-4 h-4 ${
+                                  isProcedureDisabled
+                                    ? 'text-rose-400'
+                                    : isSelected
+                                    ? 'text-emerald-600'
+                                    : 'text-slate-400'
+                                }`}
+                              />
+                              <span
+                                className={`font-mono font-bold text-sm ${
+                                  isProcedureDisabled
+                                    ? 'text-slate-500 dark:text-slate-400 line-through'
+                                    : 'text-slate-900 dark:text-white'
+                                }`}
+                              >
                                 {slot.time}
                               </span>
                             </div>
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${typeBadge.color}`}>
-                              {typeBadge.label}
-                            </span>
+
+                            <div className="flex items-center gap-1">
+                              {isProcedureDisabled ? (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                                  Bloqueado
+                                </span>
+                              ) : (
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${typeBadge.color}`}>
+                                  {typeBadge.label}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           <div className="mt-2 text-[11px] space-y-0.5">
@@ -284,7 +328,15 @@ export const BookSlotModal: React.FC<BookSlotModalProps> = ({
                             </div>
                           </div>
 
-                          {isSelected && (
+                          {/* Alerta de motivo de bloqueio */}
+                          {isProcedureDisabled && (
+                            <div className="mt-2 text-[10px] text-rose-700 dark:text-rose-300 font-semibold bg-rose-100/70 dark:bg-rose-950/40 p-1.5 rounded border border-rose-200/80 dark:border-rose-900/50 flex items-start gap-1">
+                              <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                              <span>{slot.disabledReason || 'Procedimento desabilitado nesta escala.'}</span>
+                            </div>
+                          )}
+
+                          {isSelected && !isProcedureDisabled && (
                             <div className="absolute top-2 right-2">
                               <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center text-white">
                                 <Check className="w-3 h-3 stroke-[3]" />
@@ -329,7 +381,7 @@ export const BookSlotModal: React.FC<BookSlotModalProps> = ({
             <button
               type="button"
               onClick={handleConfirmBooking}
-              disabled={!selectedSlotId || bookSlotMutation.isPending}
+              disabled={!selectedSlotId || selectedSlot?.isProcedureDisabled || bookSlotMutation.isPending}
               className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer active:scale-98"
             >
               {bookSlotMutation.isPending ? (

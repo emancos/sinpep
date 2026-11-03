@@ -1,21 +1,28 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Calendar,
+  Clock,
   Building2,
+  User,
+  Stethoscope,
+  Scissors,
   Activity,
+  Layers,
   HelpCircle,
-  ArrowLeft,
   Save,
+  ArrowLeft,
   Loader2,
+  CheckCircle2,
   Info,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useScheduleDependencies,
+  useSchedule,
   useCreateSchedule,
   useUpdateSchedule,
-  useSchedule,
 } from '../../hooks/useSchedules';
 import { useAuthStore } from '../../store/useAuthStore';
 
@@ -38,9 +45,14 @@ export const CreateOrEditSchedule: React.FC = () => {
   const activeProfile = useAuthStore((state) => state.activeProfile);
   const isCoordinator = activeProfile?.name === 'Coordenador de Unidade';
 
-  // State dos 4 Selects Dependentes
+  // Tipo de Escala: CONSULTA | EXAME | PROCEDIMENTO
+  const [scheduleType, setScheduleType] = useState<'CONSULTA' | 'EXAME' | 'PROCEDIMENTO'>('CONSULTA');
+
+  // State dos Selects Dependentes
   const [healthCenterId, setHealthCenterId] = useState('');
   const [procedureId, setProcedureId] = useState('');
+  const [procedureGroupId, setProcedureGroupId] = useState('');
+  const [enabledProcedureIds, setEnabledProcedureIds] = useState<string[]>([]);
   const [doctorId, setDoctorId] = useState('');
   const [cbo, setCbo] = useState('');
 
@@ -80,8 +92,10 @@ export const CreateOrEditSchedule: React.FC = () => {
   const { data: deps, isLoading: isLoadingDeps } = useScheduleDependencies({
     healthCenterId: healthCenterId || undefined,
     procedureId: procedureId || undefined,
+    procedureGroupId: procedureGroupId || undefined,
     doctorId: doctorId || undefined,
     cbo: cbo || undefined,
+    scheduleType,
   });
 
   // Query da escala para edição
@@ -90,8 +104,11 @@ export const CreateOrEditSchedule: React.FC = () => {
   // Popula dados ao editar
   useEffect(() => {
     if (existingSchedule && isEditing) {
+      setScheduleType((existingSchedule.scheduleType as any) || 'CONSULTA');
       setHealthCenterId(existingSchedule.executingHealthCenterId);
-      setProcedureId(existingSchedule.procedureId);
+      setProcedureId(existingSchedule.procedureId || '');
+      setProcedureGroupId(existingSchedule.procedureGroupId || '');
+      setEnabledProcedureIds(existingSchedule.enabledProcedureIds || []);
       setDoctorId(existingSchedule.doctorId);
       setCbo(existingSchedule.cbo);
       setStartDate(existingSchedule.startDate);
@@ -112,7 +129,13 @@ export const CreateOrEditSchedule: React.FC = () => {
     }
   }, [existingSchedule, isEditing]);
 
-  // Auto-reconciliação e auto-seleção quando as opções dependentes mudam
+  // Grupo selecionado atual
+  const selectedGroup = useMemo(() => {
+    if (!procedureGroupId || !deps?.procedureGroups) return null;
+    return deps.procedureGroups.find((g) => g.id === procedureGroupId) || null;
+  }, [procedureGroupId, deps?.procedureGroups]);
+
+  // Reconciliação quando as opções dependentes mudam
   useEffect(() => {
     if (!deps) return;
 
@@ -121,35 +144,27 @@ export const CreateOrEditSchedule: React.FC = () => {
       setHealthCenterId('');
     }
 
-    // Se o procedimento selecionado não for compatível com as opções filtradas, limpa
+    // Se o procedimento selecionado não for compatível com as opções filtradas
     if (procedureId && deps.procedures.length > 0 && !deps.procedures.some((p) => p.id === procedureId)) {
       setProcedureId('');
     }
 
-    // Se o médico selecionado não for compatível com as opções filtradas, limpa
+    // Se o grupo de procedimento selecionado não for compatível
+    if (procedureGroupId && deps.procedureGroups.length > 0 && !deps.procedureGroups.some((g) => g.id === procedureGroupId)) {
+      setProcedureGroupId('');
+      setEnabledProcedureIds([]);
+    }
+
+    // Se o médico selecionado não for compatível com as opções filtradas
     if (doctorId && deps.doctors.length > 0 && !deps.doctors.some((d) => d.id === doctorId)) {
       setDoctorId('');
     }
 
-    // Se o CBO selecionado não for compatível com as opções filtradas, limpa
+    // Se o CBO selecionado não for compatível com as opções filtradas
     if (cbo && deps.cbos.length > 0 && !deps.cbos.some((c) => c.cbo === cbo)) {
       setCbo('');
     }
-
-    // Auto-preenchimento quando há exatamente 1 opção disponível
-    if (!healthCenterId && deps.healthCenters.length === 1 && (doctorId || procedureId || cbo)) {
-      setHealthCenterId(deps.healthCenters[0].id);
-    }
-    if (!cbo && deps.cbos.length === 1 && (doctorId || procedureId)) {
-      setCbo(deps.cbos[0].cbo);
-    }
-    if (!procedureId && deps.procedures.length === 1 && (doctorId || cbo)) {
-      setProcedureId(deps.procedures[0].id);
-    }
-    if (!doctorId && deps.doctors.length === 1 && (procedureId || cbo)) {
-      setDoctorId(deps.doctors[0].id);
-    }
-  }, [deps, healthCenterId, procedureId, doctorId, cbo, isCoordinator]);
+  }, [deps, healthCenterId, procedureId, procedureGroupId, doctorId, cbo, isCoordinator]);
 
   // Se vigência inicial e final forem iguais, seleciona o dia automaticamente
   useEffect(() => {
@@ -173,6 +188,82 @@ export const CreateOrEditSchedule: React.FC = () => {
 
   const createMutation = useCreateSchedule();
   const updateMutation = useUpdateSchedule();
+
+  // Handlers para troca de tipo e limpeza dinâmica
+  const handleScheduleTypeChange = (newType: 'CONSULTA' | 'EXAME' | 'PROCEDIMENTO') => {
+    if (scheduleType === newType) return;
+    setScheduleType(newType);
+    setProcedureId('');
+    setProcedureGroupId('');
+    setEnabledProcedureIds([]);
+    setDoctorId('');
+    setCbo('');
+    if (!isCoordinator) {
+      setHealthCenterId('');
+    }
+  };
+
+  const handleClearHealthCenter = () => {
+    setHealthCenterId('');
+    setProcedureId('');
+    setProcedureGroupId('');
+    setEnabledProcedureIds([]);
+    setDoctorId('');
+    setCbo('');
+  };
+
+  const handleClearProcedure = () => {
+    setProcedureId('');
+    setProcedureGroupId('');
+    setEnabledProcedureIds([]);
+    setDoctorId('');
+    setCbo('');
+  };
+
+  const handleClearDoctor = () => {
+    setDoctorId('');
+    setCbo('');
+  };
+
+  const handleClearCbo = () => {
+    setCbo('');
+    setDoctorId('');
+  };
+
+  const handleProcedureSelectChange = (val: string) => {
+    if (!val) {
+      handleClearProcedure();
+      return;
+    }
+    if (val.startsWith('GROUP:')) {
+      const gId = val.replace('GROUP:', '');
+      setProcedureGroupId(gId);
+      setProcedureId('');
+      const groupObj = deps?.procedureGroups.find((g) => g.id === gId);
+      const procIds = (groupObj?.procedures || []).map((p) => p.id);
+      setEnabledProcedureIds(procIds);
+    } else {
+      const pId = val.replace('PROC:', '');
+      setProcedureId(pId);
+      setProcedureGroupId('');
+      setEnabledProcedureIds([]);
+    }
+  };
+
+  const handleToggleProcedureItem = (procId: string) => {
+    setEnabledProcedureIds((prev) =>
+      prev.includes(procId) ? prev.filter((id) => id !== procId) : [...prev, procId],
+    );
+  };
+
+  const handleSelectAllGroupItems = () => {
+    if (!selectedGroup) return;
+    setEnabledProcedureIds(selectedGroup.procedures.map((p) => p.id));
+  };
+
+  const handleDeselectAllGroupItems = () => {
+    setEnabledProcedureIds([]);
+  };
 
   // Cálculo do tempo de turno e vagas em tempo real
   const calculationSummary = useMemo(() => {
@@ -220,10 +311,13 @@ export const CreateOrEditSchedule: React.FC = () => {
   };
 
   const handleReset = () => {
+    setScheduleType('CONSULTA');
     if (!isCoordinator) {
       setHealthCenterId('');
     }
     setProcedureId('');
+    setProcedureGroupId('');
+    setEnabledProcedureIds([]);
     setDoctorId('');
     setCbo('');
     setStartDate('');
@@ -250,8 +344,12 @@ export const CreateOrEditSchedule: React.FC = () => {
       toast.error('Selecione o Estabelecimento de Saúde.');
       return;
     }
-    if (!procedureId) {
-      toast.error('Selecione o Procedimento.');
+    if (!procedureId && !procedureGroupId) {
+      toast.error('Selecione o Procedimento ou Grupo de Procedimentos.');
+      return;
+    }
+    if (procedureGroupId && enabledProcedureIds.length === 0) {
+      toast.error('Selecione ao menos um procedimento do grupo para ofertar nesta escala.');
       return;
     }
     if (!doctorId) {
@@ -283,7 +381,10 @@ export const CreateOrEditSchedule: React.FC = () => {
 
     const payload = {
       executingHealthCenterId: healthCenterId,
-      procedureId,
+      scheduleType,
+      procedureId: procedureId || undefined,
+      procedureGroupId: procedureGroupId || undefined,
+      enabledProcedureIds: procedureGroupId ? enabledProcedureIds : undefined,
       doctorId,
       cbo,
       startDate,
@@ -300,51 +401,59 @@ export const CreateOrEditSchedule: React.FC = () => {
       autoSlotSplit,
       isLocalSchedule,
       isActive,
-      notes,
+      notes: notes.trim() || undefined,
     };
 
     try {
       if (isEditing && id) {
         await updateMutation.mutateAsync({ id, data: payload });
-        toast.success('Agenda atualizada com sucesso!');
+        toast.success('Escala de atendimento atualizada com sucesso!');
       } else {
         await createMutation.mutateAsync(payload);
-        toast.success('Agenda e escala de atendimento criadas com sucesso!');
+        toast.success('Escala de atendimento criada com sucesso!');
       }
       navigate('/schedules');
     } catch (err: any) {
-      const msg = err.response?.data?.message || 'Erro ao salvar escala de atendimento.';
-      toast.error(msg);
+      toast.error(
+        err.response?.data?.message || 'Falha ao salvar a escala de atendimento. Verifique conflitos de horário.',
+      );
     }
   };
 
-  if (isEditing && isLoadingExisting) {
+  if (isLoadingExisting && isEditing) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 space-y-3">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Carregando dados da agenda...</p>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
       </div>
     );
   }
 
+  // Monta o valor atual do select de procedimento/grupo
+  const currentProcedureValue = procedureGroupId
+    ? `GROUP:${procedureGroupId}`
+    : procedureId
+    ? `PROC:${procedureId}`
+    : '';
+
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-12">
+    <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+        <div className="flex items-center space-x-3">
           <Link
             to="/schedules"
-            className="p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            title="Voltar para a listagem"
+            className="p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
               {isEditing ? 'Editar Escala de Atendimento' : 'Nova Escala de Atendimento'}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              Defina o profissional, procedimento, dias de vigência e as cotas de vagas para agendamento.
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+              {isEditing
+                ? 'Atualize os dados e a vigência da escala'
+                : 'Defina a oferta de vagas, horário e profissional da unidade executante'}
             </p>
           </div>
         </div>
@@ -359,7 +468,7 @@ export const CreateOrEditSchedule: React.FC = () => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* ========================================================================= */}
-        {/* BLOCO 1: ESCALA (Cabeçalho com 4 Selects Dependentes + Vigência e Horas) */}
+        {/* BLOCO 1: ESCALA (Tipo de Escala + 4 Selects Dependentes + Vigência e Horas) */}
         {/* ========================================================================= */}
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           <div className="px-5 py-3.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
@@ -376,6 +485,51 @@ export const CreateOrEditSchedule: React.FC = () => {
           </div>
 
           <div className="p-5 sm:p-6 space-y-5">
+            {/* Seletor do Tipo de Escala: CONSULTA | EXAME | PROCEDIMENTO */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700/60">
+              <div className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                <span>Tipo de Escala:</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-slate-200/70 dark:bg-slate-800 p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => handleScheduleTypeChange('CONSULTA')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer ${
+                    scheduleType === 'CONSULTA'
+                      ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Stethoscope className="w-3.5 h-3.5" />
+                  CONSULTA
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleScheduleTypeChange('EXAME')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer ${
+                    scheduleType === 'EXAME'
+                      ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Activity className="w-3.5 h-3.5" />
+                  EXAME
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleScheduleTypeChange('PROCEDIMENTO')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer ${
+                    scheduleType === 'PROCEDIMENTO'
+                      ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Scissors className="w-3.5 h-3.5" />
+                  PROCEDIMENTO
+                </button>
+              </div>
+            </div>
+
             {/* Linha 1: 4 Selects Dependentes */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Estabelecimento */}
@@ -389,7 +543,7 @@ export const CreateOrEditSchedule: React.FC = () => {
                     disabled={isCoordinator && Boolean(user?.healthCenterId)}
                     value={healthCenterId}
                     onChange={(e) => setHealthCenterId(e.target.value)}
-                    className="w-full pl-3 pr-8 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-75 disabled:cursor-not-allowed truncate"
+                    className="w-full pl-3 pr-12 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-75 disabled:cursor-not-allowed truncate"
                   >
                     <option value="">Selecione o Estabelecimento...</option>
                     {deps?.healthCenters.map((c) => (
@@ -401,43 +555,62 @@ export const CreateOrEditSchedule: React.FC = () => {
                   {healthCenterId && !isCoordinator && (
                     <button
                       type="button"
-                      onClick={() => setHealthCenterId('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs cursor-pointer font-bold"
+                      onClick={handleClearHealthCenter}
+                      className="absolute right-7 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
                       title="Limpar seleção"
                     >
-                      ×
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* Procedimento */}
+              {/* Procedimento / Grupo */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Procedimento *
+                  {scheduleType === 'CONSULTA' ? 'Procedimento *' : 'Procedimento / Grupo *'}
                 </label>
                 <div className="relative">
                   <select
                     required
-                    value={procedureId}
-                    onChange={(e) => setProcedureId(e.target.value)}
-                    className="w-full pl-3 pr-8 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 truncate"
+                    value={currentProcedureValue}
+                    onChange={(e) => handleProcedureSelectChange(e.target.value)}
+                    className="w-full pl-3 pr-12 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 truncate"
                   >
-                    <option value="">Selecione o Procedimento...</option>
-                    {deps?.procedures.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.label}
-                      </option>
-                    ))}
+                    <option value="">
+                      {scheduleType === 'CONSULTA'
+                        ? 'Selecione o Procedimento...'
+                        : 'Selecione o Procedimento ou Grupo...'}
+                    </option>
+
+                    {/* Se não for consulta e existirem grupos, lista os grupos primeiro */}
+                    {scheduleType !== 'CONSULTA' && deps?.procedureGroups && deps.procedureGroups.length > 0 && (
+                      <optgroup label="Grupos de Procedimentos">
+                        {deps.procedureGroups.map((g) => (
+                          <option key={`GROUP:${g.id}`} value={`GROUP:${g.id}`}>
+                            {g.label} ({g.procedures.length} procedimentos)
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+
+                    {/* Procedimentos Individuais */}
+                    <optgroup label={scheduleType !== 'CONSULTA' ? 'Procedimentos Individuais' : 'Consultas'}>
+                      {deps?.procedures.map((p) => (
+                        <option key={`PROC:${p.id}`} value={`PROC:${p.id}`}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </optgroup>
                   </select>
-                  {procedureId && (
+                  {currentProcedureValue && (
                     <button
                       type="button"
-                      onClick={() => setProcedureId('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs cursor-pointer font-bold"
+                      onClick={handleClearProcedure}
+                      className="absolute right-7 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
                       title="Limpar seleção"
                     >
-                      ×
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
@@ -453,7 +626,7 @@ export const CreateOrEditSchedule: React.FC = () => {
                     required
                     value={doctorId}
                     onChange={(e) => setDoctorId(e.target.value)}
-                    className="w-full pl-3 pr-8 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 truncate"
+                    className="w-full pl-3 pr-12 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 truncate"
                   >
                     <option value="">Selecione o Profissional...</option>
                     {deps?.doctors.map((d) => (
@@ -465,11 +638,11 @@ export const CreateOrEditSchedule: React.FC = () => {
                   {doctorId && (
                     <button
                       type="button"
-                      onClick={() => setDoctorId('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs cursor-pointer font-bold"
+                      onClick={handleClearDoctor}
+                      className="absolute right-7 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
                       title="Limpar seleção"
                     >
-                      ×
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
@@ -485,7 +658,7 @@ export const CreateOrEditSchedule: React.FC = () => {
                     required
                     value={cbo}
                     onChange={(e) => setCbo(e.target.value)}
-                    className="w-full pl-3 pr-8 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 truncate"
+                    className="w-full pl-3 pr-12 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 truncate"
                   >
                     <option value="">Selecione o CBO...</option>
                     {deps?.cbos.map((c) => (
@@ -497,11 +670,11 @@ export const CreateOrEditSchedule: React.FC = () => {
                   {cbo && (
                     <button
                       type="button"
-                      onClick={() => setCbo('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs cursor-pointer font-bold"
+                      onClick={handleClearCbo}
+                      className="absolute right-7 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
                       title="Limpar seleção"
                     >
-                      ×
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
@@ -828,6 +1001,79 @@ export const CreateOrEditSchedule: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* ========================================================================= */}
+        {/* BLOCO 2.5: ITENS DO GRUPO OFERTADOS (Aparece se for selecionado um grupo) */}
+        {/* ========================================================================= */}
+        {selectedGroup && (
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-blue-200 dark:border-blue-900/50 shadow-sm overflow-hidden animate-in fade-in duration-200">
+            <div className="px-5 py-3.5 bg-blue-50/70 dark:bg-blue-950/30 border-b border-blue-100 dark:border-blue-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                  Itens do Grupo Ofertados Nesta Escala ({selectedGroup.name})
+                </span>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+                  {enabledProcedureIds.length} de {selectedGroup.procedures.length} selecionados
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSelectAllGroupItems}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold cursor-pointer"
+                >
+                  Selecionar Todos
+                </button>
+                <span className="text-slate-300 dark:text-slate-700">|</span>
+                <button
+                  type="button"
+                  onClick={handleDeselectAllGroupItems}
+                  className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-semibold cursor-pointer"
+                >
+                  Desmarcar Todos
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                Marque os procedimentos deste grupo que farão parte desta escala. Caso uma solicitação seja de um procedimento desmarcado, ela não poderá ser agendada nesta escala e o regulador será devidamente alertado.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-72 overflow-y-auto p-1">
+                {selectedGroup.procedures.map((proc) => {
+                  const isChecked = enabledProcedureIds.includes(proc.id);
+                  return (
+                    <label
+                      key={proc.id}
+                      className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition select-none ${
+                        isChecked
+                          ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/60 text-slate-900 dark:text-white'
+                          : 'bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 opacity-60'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => handleToggleProcedureItem(proc.id)}
+                        className="mt-0.5 rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="font-mono text-[11px] font-bold text-blue-600 dark:text-blue-400 block">
+                          {proc.code}
+                        </span>
+                        <span className="truncate block font-medium">
+                          {proc.name}
+                        </span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ========================================================================= */}
         {/* BLOCO 3: OBSERVAÇÃO */}

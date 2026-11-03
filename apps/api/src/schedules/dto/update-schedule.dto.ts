@@ -14,7 +14,20 @@ export class UpdateScheduleDto {
 
   @IsString()
   @IsOptional()
+  scheduleType?: string;
+
+  @IsString()
+  @IsOptional()
   procedureId?: string;
+
+  @IsString()
+  @IsOptional()
+  procedureGroupId?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  enabledProcedureIds?: string[];
 
   @IsString()
   @IsOptional()

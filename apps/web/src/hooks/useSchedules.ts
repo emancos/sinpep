@@ -4,9 +4,18 @@ import { useAuthStore } from '../store/useAuthStore';
 
 const apiUrl = (import.meta.env.VITE_API_URL as string) || 'http://localhost:3000';
 
+export interface ProcedureGroupItem {
+  id: string;
+  name: string;
+  groupCode?: string | null;
+  label: string;
+  procedures: { id: string; code: string; name: string; label: string }[];
+}
+
 export interface ScheduleDependencies {
   healthCenters: { id: string; name: string; cnes: string; label: string }[];
-  procedures: { id: string; code: string; name: string; label: string }[];
+  procedureGroups: ProcedureGroupItem[];
+  procedures: { id: string; code: string; name: string; procedureGroupId?: string; label: string }[];
   doctors: { id: string; name: string; crm: string; label: string }[];
   cbos: { cbo: string; specialtyId: string; name: string; label: string }[];
 }
@@ -22,12 +31,19 @@ export interface ScheduleSlot {
   patientId?: string | null;
   bookedByUserId?: string | null;
   bookedAt?: string | null;
+  isProcedureDisabled?: boolean;
+  disabledReason?: string | null;
   patient?: { id: string; name: string; cpf?: string; cns?: string };
   regulationRequest?: { id: string; protocolNumber: string };
   bookedByUser?: { id: string; name: string };
   schedule?: {
     id: string;
+    scheduleType?: 'CONSULTA' | 'EXAME' | 'PROCEDIMENTO';
+    procedureGroupId?: string | null;
+    enabledProcedureIds?: string[];
     executingHealthCenter?: { id: string; name: string; cnes: string };
+    procedure?: { id: string; code: string; name: string };
+    procedureGroup?: { id: string; name: string; groupCode?: string | null };
     doctor?: { id: string; user?: { name: string } };
   };
 }
@@ -35,9 +51,12 @@ export interface ScheduleSlot {
 export interface Schedule {
   id: string;
   executingHealthCenterId: string;
-  procedureId: string;
+  scheduleType?: 'CONSULTA' | 'EXAME' | 'PROCEDIMENTO';
+  procedureId?: string | null;
+  procedureGroupId?: string | null;
   doctorId: string;
   cbo: string;
+  enabledProcedureIds?: string[];
   startDate: string;
   endDate: string;
   startTime: string;
@@ -59,6 +78,7 @@ export interface Schedule {
   updatedAt: string;
   executingHealthCenter?: { id: string; name: string; cnes: string };
   procedure?: { id: string; code: string; name: string };
+  procedureGroup?: { id: string; name: string; groupCode?: string | null; procedures?: { id: string; name: string; code: string }[] };
   doctor?: { id: string; crm: string; crmState: string; user?: { name: string } };
   createdByUser?: { id: string; name: string };
   slots?: ScheduleSlot[];
@@ -70,8 +90,10 @@ export interface Schedule {
 export function useScheduleDependencies(filters: {
   healthCenterId?: string;
   procedureId?: string;
+  procedureGroupId?: string;
   doctorId?: string;
   cbo?: string;
+  scheduleType?: 'CONSULTA' | 'EXAME' | 'PROCEDIMENTO';
 }) {
   const token = useAuthStore((state) => state.token);
 

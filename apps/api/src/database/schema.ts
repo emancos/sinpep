@@ -1200,9 +1200,12 @@ export const scheduleSlotStatusEnum = pgEnum("schedule_slot_status", [
 export const schedules = pgTable("schedules", {
   id: uuid("id").primaryKey().notNull(),
   executingHealthCenterId: uuid("executing_health_center_id").notNull(),
-  procedureId: uuid("procedure_id").notNull(),
+  scheduleType: text("schedule_type").default('CONSULTA').notNull(),
+  procedureId: uuid("procedure_id"),
+  procedureGroupId: uuid("procedure_group_id"),
   doctorId: uuid("doctor_id").notNull(),
   cbo: text("cbo").notNull(),
+  enabledProcedureIds: text("enabled_procedure_ids").array().default(sql`ARRAY[]::text[]`),
   
   startDate: text("start_date").notNull(), // YYYY-MM-DD
   endDate: text("end_date").notNull(), // YYYY-MM-DD (máx. 180 dias)
@@ -1231,6 +1234,7 @@ export const schedules = pgTable("schedules", {
   index("schedules_executing_center_idx").on(table.executingHealthCenterId),
   index("schedules_doctor_idx").on(table.doctorId),
   index("schedules_procedure_idx").on(table.procedureId),
+  index("schedules_procedure_group_idx").on(table.procedureGroupId),
   foreignKey({
     columns: [table.executingHealthCenterId],
     foreignColumns: [healthCenters.id],
@@ -1241,6 +1245,11 @@ export const schedules = pgTable("schedules", {
     foreignColumns: [procedures.id],
     name: "schedules_procedure_id_fkey"
   }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.procedureGroupId],
+    foreignColumns: [procedureGroups.id],
+    name: "schedules_procedure_group_id_fkey"
+  }).onUpdate("cascade").onDelete("set null"),
   foreignKey({
     columns: [table.doctorId],
     foreignColumns: [doctors.id],
@@ -1302,6 +1311,10 @@ export const schedulesRelations = relations(schedules, ({ one, many }) => ({
   procedure: one(procedures, {
     fields: [schedules.procedureId],
     references: [procedures.id],
+  }),
+  procedureGroup: one(procedureGroups, {
+    fields: [schedules.procedureGroupId],
+    references: [procedureGroups.id],
   }),
   doctor: one(doctors, {
     fields: [schedules.doctorId],

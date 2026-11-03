@@ -9,6 +9,7 @@ scripts/*
 !scripts/migrate-medications.ts
 !scripts/migrate-municipality-brandings.ts
 !scripts/migrate-schedules.ts
+!scripts/migrate-schedules-groups.ts
 !scripts/seed-schedule-permissions.ts
 !scripts/seed-consultation-procedures-and-doctors.ts
 !scripts/seed-receptionist-profile.ts
