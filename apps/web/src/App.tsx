@@ -34,6 +34,7 @@ import { Reception } from './pages/Reception';
 import { WaitingList } from './pages/Reception/WaitingList';
 import { RoomsList } from './pages/Rooms';
 import { MedicationsList } from './pages/Medications';
+import { MunicipalitiesPage } from './pages/Municipalities';
 import { SolicitorInbox } from './pages/Regulation/SolicitorInbox';
 import { CreateRegulationRequest } from './pages/Regulation/CreateRegulationRequest';
 import { OperatorInbox } from './pages/Regulation/OperatorInbox';
@@ -81,6 +82,7 @@ function App() {
                     <Route path="/users/create" element={<CreateOrEditUser />} />
                     <Route path="/users/:id/edit" element={<CreateOrEditUser />} />
                     <Route path="/medications" element={<MedicationsList />} />
+                    <Route path="/municipalities" element={<MunicipalitiesPage />} />
                   </Route>
 
                   <Route element={<ProtectedRoute requiredPermission="health-centers:read" />}>

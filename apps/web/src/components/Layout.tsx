@@ -111,6 +111,9 @@ export const Layout = () => {
     ...(isAdmin ? [
       { name: 'Gestão de Utilizadores', path: '/users' },
     ] : []),
+    ...(isAdmin ? [
+      { name: 'Municípios & Identidade', path: '/municipalities' },
+    ] : []),
     ...(permissions.includes('reports:read') || isAdmin ? [
       { name: 'Relatórios & BI', path: '/reports' }
     ] : []),
