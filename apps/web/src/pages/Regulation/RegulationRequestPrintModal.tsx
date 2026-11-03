@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { RegulationRequest } from '../../services/regulation';
 import { useMunicipalityBranding } from '../../hooks/useMunicipalityBranding';
+import { formatCPF, formatCNS } from '../../utils/brazilianFormatters';
 
 export interface RegulationRequestPrintModalProps {
   isOpen: boolean;
@@ -35,8 +36,8 @@ export const RegulationRequestPrintModal: React.FC<RegulationRequestPrintModalPr
   // Extração e normalização dos dados do paciente
   const patient = request.patient;
   const patientName = patient?.name || 'Não identificado';
-  const patientCpf = patient?.cpf || 'Não informado';
-  const patientCns = patient?.cns || 'Não informado';
+  const patientCpf = formatCPF(patient?.cpf);
+  const patientCns = formatCNS(patient?.cns);
   const patientBirthDate = patient?.birthDate
     ? new Date(patient.birthDate).toLocaleDateString('pt-BR')
     : '';
@@ -194,11 +195,10 @@ export const RegulationRequestPrintModal: React.FC<RegulationRequestPrintModalPr
               <div className="text-right pl-3 border-l border-slate-300">
                 <span className="text-[10px] font-bold uppercase text-slate-500 block">Situação Atual:</span>
                 <span
-                  className={`text-xs font-bold px-2 py-0.5 rounded border ${
-                    isScheduled
+                  className={`text-xs font-bold px-2 py-0.5 rounded border ${isScheduled
                       ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                       : 'bg-blue-100 text-blue-800 border-blue-300'
-                  }`}
+                    }`}
                 >
                   {isScheduled ? 'AGENDADA NA ESCALA' : 'PENDENTE DE REGULAÇÃO'}
                 </span>

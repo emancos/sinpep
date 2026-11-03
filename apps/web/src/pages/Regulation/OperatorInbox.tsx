@@ -28,9 +28,18 @@ import { ScheduleRegulationModal } from './ScheduleRegulationModal';
 import { RequestDetailsModal } from './RequestDetailsModal';
 import { BookSlotModal } from './BookSlotModal';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
+import { useAuthStore } from '../../store/useAuthStore';
+import { formatCPF, formatCNS } from '../../utils/brazilianFormatters';
 import { toast } from 'sonner';
 
 export const OperatorInbox: React.FC = () => {
+  const permissions = useAuthStore((state) => state.permissions);
+  const activeProfile = useAuthStore((state) => state.activeProfile);
+  const isAdmin = permissions.includes('admin:access');
+  const isRegulator =
+    activeProfile?.name === 'Regulador (Central de Regulação)' ||
+    permissions.includes('regulation-operator:read');
+
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
@@ -367,13 +376,17 @@ export const OperatorInbox: React.FC = () => {
             {filteredRequests.map((req) => (
               <div
                 key={req.id}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-3.5 shadow-sm space-y-3"
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-3.5 shadow-sm space-y-3 overflow-hidden"
               >
                 {/* Topo do card: Protocolo e Status */}
                 <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
-                  <span className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400">
+                  <Link
+                    to={`/regulation/requests/${req.id}`}
+                    className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    title="Ver página de detalhes da solicitação"
+                  >
                     {req.protocolNumber}
-                  </span>
+                  </Link>
                   <div>{getStatusBadge(req.status)}</div>
                 </div>
 
@@ -382,8 +395,12 @@ export const OperatorInbox: React.FC = () => {
                   <div className="font-bold text-slate-900 dark:text-white text-sm">
                     {req.patient?.name}
                   </div>
-                  <div className="text-[11px] text-slate-500">
-                    CPF: {req.patient?.cpf || 'S/N'} • Origem: <span className="font-medium text-slate-700 dark:text-slate-300">{req.requestingHealthCenter?.name}</span>
+                  <div className="text-[11px] text-slate-500 font-mono">
+                    CPF: {formatCPF(req.patient?.cpf)}
+                    {req.patient?.cns && ` • CNS: ${formatCNS(req.patient?.cns)}`} • Origem:{' '}
+                    <span className="font-medium text-slate-700 dark:text-slate-300 font-sans">
+                      {req.requestingHealthCenter?.name}
+                    </span>
                   </div>
                   <div className="pt-1">
                     <span className="text-xs font-medium text-slate-800 dark:text-slate-200 block">
@@ -412,29 +429,39 @@ export const OperatorInbox: React.FC = () => {
                   )}
                 </div>
 
-                {/* Ações Regulatórias no rodapé do card móvel */}
-                <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <button
-                    onClick={() => setDetailsRequest(req)}
-                    className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-md flex items-center gap-1"
+                {/* Ações Regulatórias no rodapé do card móvel (responsivo e sem extrapolar o card) */}
+                <div className="flex flex-wrap items-center justify-end gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  {(isAdmin || isRegulator) && req.status !== 'CANCELADA' && req.status !== 'NEGADA' && (
+                    <Link
+                      to={`/regulation/requests/${req.id}/change-procedure`}
+                      title="Alterar Procedimento"
+                      className="p-1.5 text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-md inline-flex items-center shrink-0"
+                    >
+                      <ArrowRightLeft className="w-3.5 h-3.5" />
+                    </Link>
+                  )}
+
+                  <Link
+                    to={`/regulation/requests/${req.id}`}
+                    className="px-2 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-md flex items-center gap-1 shrink-0"
                   >
                     <Eye className="w-3.5 h-3.5" />
                     <span>Detalhes</span>
-                  </button>
+                  </Link>
 
                   <button
                     onClick={() => setPrintingRequest(req)}
-                    className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-md flex items-center gap-1 cursor-pointer"
+                    className="px-2 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-md flex items-center gap-1 cursor-pointer shrink-0"
                     title="Imprimir Ficha de Solicitação"
                   >
-                    <Printer className="w-3.5 h-3.5" />
+                    <Printer className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                     <span>Imprimir</span>
                   </button>
 
                   {req.status === 'PENDENTE_REGULACAO' && (
                     <button
                       onClick={() => setEvaluatingRequest(req)}
-                      className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md flex items-center gap-1 shadow-sm"
+                      className="px-2.5 py-1 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md flex items-center gap-1 shadow-sm shrink-0"
                     >
                       <Stethoscope className="w-3.5 h-3.5" />
                       <span>Avaliar</span>
@@ -444,7 +471,7 @@ export const OperatorInbox: React.FC = () => {
                   {req.status === 'PENDENTE_AGENDAMENTO' && (
                     <button
                       onClick={() => setSlotBookingRequest(req)}
-                      className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md flex items-center gap-1 shadow-sm transition cursor-pointer"
+                      className="px-2.5 py-1 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md flex items-center gap-1 shadow-sm transition cursor-pointer shrink-0"
                       title="Agendar vaga na escala de atendimento"
                     >
                       <Calendar className="w-3.5 h-3.5" />
@@ -455,7 +482,7 @@ export const OperatorInbox: React.FC = () => {
                   {req.status === 'AGENDADA' && (
                     <button
                       onClick={() => setCancelingScheduleRequest(req)}
-                      className="px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md flex items-center gap-1"
+                      className="px-2 py-1 text-[11px] font-semibold text-red-600 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md flex items-center gap-1 shrink-0"
                     >
                       <Ban className="w-3.5 h-3.5" />
                       <span>Cancelar</span>
@@ -486,12 +513,17 @@ export const OperatorInbox: React.FC = () => {
                   {filteredRequests.map((req) => (
                     <tr key={req.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
                       <td className="px-4 py-3 font-mono font-bold text-blue-600 dark:text-blue-400">
-                        {req.protocolNumber}
+                        <Link to={`/regulation/requests/${req.id}`} className="hover:underline">
+                          {req.protocolNumber}
+                        </Link>
                       </td>
 
                       <td className="px-4 py-3">
                         <div className="font-semibold text-slate-900 dark:text-white">{req.patient?.name}</div>
-                        <div className="text-[11px] text-slate-500">CPF: {req.patient?.cpf || 'S/N'}</div>
+                        <div className="text-[11px] text-slate-500 font-mono">
+                          CPF: {formatCPF(req.patient?.cpf)}
+                          {req.patient?.cns && ` • CNS: ${formatCNS(req.patient?.cns)}`}
+                        </div>
                       </td>
 
                       <td className="px-4 py-3">
@@ -535,20 +567,20 @@ export const OperatorInbox: React.FC = () => {
                           <Printer className="w-4 h-4" />
                         </button>
 
-                        <button
-                          onClick={() => setDetailsRequest(req)}
-                          title="Ver Detalhes e Pareceres"
-                          className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                        <Link
+                          to={`/regulation/requests/${req.id}`}
+                          title="Ver Detalhes da Solicitação"
+                          className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition inline-flex items-center cursor-pointer"
                         >
                           <Eye className="w-4 h-4" />
-                        </button>
+                        </Link>
 
-                        {/* Botão Alterar Procedimento (Médico Regulador) */}
-                        {req.status !== 'CANCELADA' && req.status !== 'NEGADA' && (
+                        {/* Botão Alterar Procedimento (Apenas ícone, somente Regulador/Administrador) */}
+                        {(isAdmin || isRegulator) && req.status !== 'CANCELADA' && req.status !== 'NEGADA' && (
                           <Link
                             to={`/regulation/requests/${req.id}/change-procedure`}
-                            title="Alterar / Substituir Procedimento da Solicitação"
-                            className="p-1.5 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition inline-flex items-center"
+                            title="Alterar Procedimento"
+                            className="p-1.5 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition inline-flex items-center cursor-pointer"
                           >
                             <ArrowRightLeft className="w-4 h-4" />
                           </Link>

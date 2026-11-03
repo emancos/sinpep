@@ -32,6 +32,7 @@ import { BookSlotModal } from './BookSlotModal';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
 import { apiUrl } from '../../services/api';
 import type { RegulationRequest } from '../../services/regulation';
+import { formatCPF, formatCNS } from '../../utils/brazilianFormatters';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -833,8 +834,8 @@ export const CreateRegulationRequest: React.FC = () => {
                                   {p.name}
                                 </div>
                                 <div className="text-[11px] text-slate-500 flex flex-wrap gap-x-3 mt-0.5">
-                                  <span>CPF: <strong>{p.cpf || 'S/N'}</strong></span>
-                                  {p.cns && <span>CNS: <strong>{p.cns}</strong></span>}
+                                  <span>CPF: <strong>{formatCPF(p.cpf)}</strong></span>
+                                  {p.cns && <span>CNS: <strong>{formatCNS(p.cns)}</strong></span>}
                                   {p.birthDate && <span>Nasc: {new Date(p.birthDate).toLocaleDateString('pt-BR')}</span>}
                                   {p.healthCenter?.name && <span>UBS: {p.healthCenter.name}</span>}
                                 </div>
@@ -875,10 +876,10 @@ export const CreateRegulationRequest: React.FC = () => {
                         </div>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400 mt-1">
                           <span>
-                            CPF: <strong className="text-slate-800 dark:text-slate-200">{selectedPatient.cpf || 'Não informado'}</strong>
+                            CPF: <strong className="text-slate-800 dark:text-slate-200">{formatCPF(selectedPatient.cpf)}</strong>
                           </span>
                           <span>
-                            CNS: <strong className="text-slate-800 dark:text-slate-200">{selectedPatient.cns || 'Não informado'}</strong>
+                            CNS: <strong className="text-slate-800 dark:text-slate-200">{formatCNS(selectedPatient.cns)}</strong>
                           </span>
                           {selectedPatient.birthDate && (
                             <span>
@@ -1972,8 +1973,8 @@ export const CreateRegulationRequest: React.FC = () => {
                 <span className="text-slate-400 block">Nome do Paciente:</span>
                 <strong className="text-slate-800 dark:text-slate-200 text-sm">{selectedPatient?.name}</strong>
                 <div className="flex flex-wrap gap-x-3 text-slate-500 mt-0.5">
-                  <span>CPF: <strong>{selectedPatient?.cpf || 'S/N'}</strong></span>
-                  <span>CNS: <strong>{selectedPatient?.cns || 'S/N'}</strong></span>
+                  <span>CPF: <strong>{formatCPF(selectedPatient?.cpf)}</strong></span>
+                  <span>CNS: <strong>{formatCNS(selectedPatient?.cns)}</strong></span>
                   {selectedPatient?.birthDate && <span>Nasc: {new Date(selectedPatient.birthDate).toLocaleDateString('pt-BR')}</span>}
                 </div>
               </div>
@@ -2256,12 +2257,12 @@ export const CreateRegulationRequest: React.FC = () => {
 
                 <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-md border border-slate-200 dark:border-slate-700/60">
                   <span className="text-slate-400 block">CPF:</span>
-                  <strong className="text-slate-800 dark:text-slate-100 text-sm">{selectedPatient.cpf || 'Não informado'}</strong>
+                  <strong className="text-slate-800 dark:text-slate-100 text-sm">{formatCPF(selectedPatient.cpf)}</strong>
                 </div>
 
                 <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-md border border-slate-200 dark:border-slate-700/60">
                   <span className="text-slate-400 block">Cartão Nacional de Saúde (CNS):</span>
-                  <strong className="text-slate-800 dark:text-slate-100 text-sm">{selectedPatient.cns || 'Não informado'}</strong>
+                  <strong className="text-slate-800 dark:text-slate-100 text-sm">{formatCNS(selectedPatient.cns)}</strong>
                 </div>
 
                 <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-md border border-slate-200 dark:border-slate-700/60">

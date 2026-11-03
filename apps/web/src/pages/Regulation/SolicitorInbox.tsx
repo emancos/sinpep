@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   Plus,
   Search,
@@ -13,6 +13,7 @@ import {
   Key,
   Calendar,
   Printer,
+  ArrowRightLeft,
 } from 'lucide-react';
 import {
   useRegulationMyCenter,
@@ -23,10 +24,18 @@ import { RequestDetailsModal } from './RequestDetailsModal';
 import { ResubmitReturnedModal } from './ResubmitReturnedModal';
 import { BookSlotModal } from './BookSlotModal';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
+import { useAuthStore } from '../../store/useAuthStore';
+import { formatCPF, formatCNS } from '../../utils/brazilianFormatters';
 import { toast } from 'sonner';
 
 export const SolicitorInbox: React.FC = () => {
   const navigate = useNavigate();
+  const permissions = useAuthStore((state) => state.permissions);
+  const activeProfile = useAuthStore((state) => state.activeProfile);
+  const isAdmin = permissions.includes('admin:access');
+  const isRegulator =
+    activeProfile?.name === 'Regulador (Central de Regulação)' ||
+    permissions.includes('regulation-operator:read');
 
   // States
   const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'RETURNED' | 'SCHEDULED' | 'FINISHED'>('ALL');
@@ -308,13 +317,17 @@ export const SolicitorInbox: React.FC = () => {
             {filteredRequests.map((req) => (
               <div
                 key={req.id}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-3.5 shadow-sm space-y-3"
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-3.5 shadow-sm space-y-3 overflow-hidden"
               >
                 {/* Topo do card: Protocolo e Status */}
                 <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
-                  <span className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400">
+                  <Link
+                    to={`/regulation/requests/${req.id}`}
+                    className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    title="Ver página de detalhes da solicitação"
+                  >
                     {req.protocolNumber}
-                  </span>
+                  </Link>
                   <div>{getStatusBadge(req.status)}</div>
                 </div>
 
@@ -323,8 +336,8 @@ export const SolicitorInbox: React.FC = () => {
                   <div className="font-bold text-slate-900 dark:text-white text-sm">
                     {req.patient?.name}
                   </div>
-                  <div className="text-[11px] text-slate-500">
-                    CPF: {req.patient?.cpf || 'S/N'} • CNS: {req.patient?.cns || 'S/N'}
+                  <div className="text-[11px] text-slate-500 font-mono">
+                    CPF: {formatCPF(req.patient?.cpf)} • CNS: {formatCNS(req.patient?.cns)}
                   </div>
                   <div className="pt-1">
                     <span className="text-xs font-medium text-slate-800 dark:text-slate-200 block">
@@ -353,12 +366,22 @@ export const SolicitorInbox: React.FC = () => {
                   )}
                 </div>
 
-                {/* Ações no rodapé do card móvel */}
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                {/* Ações no rodapé do card móvel (responsivo e sem extrapolar o card) */}
+                <div className="flex flex-wrap items-center justify-end gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  {(isAdmin || isRegulator) && req.status !== 'CANCELADA' && req.status !== 'NEGADA' && (
+                    <Link
+                      to={`/regulation/requests/${req.id}/change-procedure`}
+                      title="Alterar Procedimento"
+                      className="p-1.5 text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-md inline-flex items-center shrink-0"
+                    >
+                      <ArrowRightLeft className="w-3.5 h-3.5" />
+                    </Link>
+                  )}
+
                   {!req.procedure?.requiresRegulation && req.status === 'PENDENTE_REGULACAO' && (
                     <button
                       onClick={() => setBookingSlotRequest(req)}
-                      className="px-2.5 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-md flex items-center gap-1 cursor-pointer"
+                      className="px-2 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-md flex items-center gap-1 cursor-pointer shrink-0"
                     >
                       <Calendar className="w-3.5 h-3.5" />
                       <span>Agendar</span>
@@ -368,7 +391,7 @@ export const SolicitorInbox: React.FC = () => {
                   {req.status === 'DEVOLVIDA' && (
                     <button
                       onClick={() => setSelectedResubmitRequest(req)}
-                      className="px-2.5 py-1.5 text-xs font-semibold text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 rounded-md flex items-center gap-1"
+                      className="px-2 py-1 text-[11px] font-semibold text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 rounded-md flex items-center gap-1 shrink-0"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       <span>Reenviar</span>
@@ -378,25 +401,25 @@ export const SolicitorInbox: React.FC = () => {
                   {!['CANCELADA', 'NEGADA'].includes(req.status) && (
                     <button
                       onClick={() => setCancelModalRequest(req)}
-                      className="px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md flex items-center gap-1"
+                      className="px-2 py-1 text-[11px] font-semibold text-red-600 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md flex items-center gap-1 shrink-0"
                     >
                       <Ban className="w-3.5 h-3.5" />
                       <span>Cancelar</span>
                     </button>
                   )}
 
-                  <button
-                    onClick={() => setSelectedDetailsRequest(req)}
-                    className="px-3 py-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-md flex items-center gap-1"
+                  <Link
+                    to={`/regulation/requests/${req.id}`}
+                    className="px-2 py-1 text-[11px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-md flex items-center gap-1 shrink-0"
                   >
                     <Eye className="w-3.5 h-3.5" />
                     <span>Detalhes</span>
-                  </button>
+                  </Link>
 
                   <button
                     onClick={() => setPrintingRequest(req)}
                     title="Imprimir Ficha de Solicitação"
-                    className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md flex items-center gap-1 cursor-pointer"
+                    className="px-2 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md flex items-center gap-1 cursor-pointer shrink-0"
                   >
                     <Printer className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                     <span>Imprimir</span>
@@ -426,13 +449,15 @@ export const SolicitorInbox: React.FC = () => {
                   {filteredRequests.map((req) => (
                     <tr key={req.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
                       <td className="px-4 py-3 font-mono font-bold text-blue-600 dark:text-blue-400">
-                        {req.protocolNumber}
+                        <Link to={`/regulation/requests/${req.id}`} className="hover:underline">
+                          {req.protocolNumber}
+                        </Link>
                       </td>
 
                       <td className="px-4 py-3">
                         <div className="font-semibold text-slate-900 dark:text-white">{req.patient?.name}</div>
-                        <div className="text-[11px] text-slate-500">
-                          CPF: {req.patient?.cpf || 'S/N'} • CNS: {req.patient?.cns || 'S/N'}
+                        <div className="text-[11px] text-slate-500 font-mono">
+                          CPF: {formatCPF(req.patient?.cpf)} • CNS: {formatCNS(req.patient?.cns)}
                         </div>
                       </td>
 
@@ -463,7 +488,17 @@ export const SolicitorInbox: React.FC = () => {
                         {new Date(req.createdAt).toLocaleDateString('pt-BR')}
                       </td>
 
-                      <td className="px-4 py-3 text-right space-x-1.5">
+                      <td className="px-4 py-3 text-right space-x-1.5 whitespace-nowrap">
+                        {(isAdmin || isRegulator) && req.status !== 'CANCELADA' && req.status !== 'NEGADA' && (
+                          <Link
+                            to={`/regulation/requests/${req.id}/change-procedure`}
+                            title="Alterar Procedimento"
+                            className="p-1.5 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition inline-flex items-center cursor-pointer"
+                          >
+                            <ArrowRightLeft className="w-4 h-4" />
+                          </Link>
+                        )}
+
                         {!req.procedure?.requiresRegulation && req.status === 'PENDENTE_REGULACAO' && (
                           <button
                             onClick={() => setBookingSlotRequest(req)}
@@ -482,13 +517,13 @@ export const SolicitorInbox: React.FC = () => {
                           <Printer className="w-4 h-4" />
                         </button>
 
-                        <button
-                          onClick={() => setSelectedDetailsRequest(req)}
-                          title="Ver Detalhes e Auditoria"
-                          className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                        <Link
+                          to={`/regulation/requests/${req.id}`}
+                          title="Ver Detalhes da Solicitação"
+                          className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition inline-flex items-center cursor-pointer"
                         >
                           <Eye className="w-4 h-4" />
-                        </button>
+                        </Link>
 
                         {req.status === 'DEVOLVIDA' && (
                           <button

@@ -19,6 +19,7 @@ import {
   CalendarCheck,
   ArrowRightLeft,
   Printer,
+  ExternalLink,
 } from 'lucide-react';
 import type { RegulationRequest } from '../../services/regulation';
 import { apiUrl } from '../../services/api';
@@ -26,6 +27,11 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { BookSlotModal } from './BookSlotModal';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
 import { useAvailableSlots } from '../../hooks/useSchedules';
+import {
+  formatCPF,
+  formatCNS,
+  formatBirthDateAndGender,
+} from '../../utils/brazilianFormatters';
 import { toast } from 'sonner';
 
 interface RequestDetailsModalProps {
@@ -151,12 +157,23 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
               Criado em: {new Date(request.createdAt).toLocaleString('pt-BR')} • Solicitante: {request.requestingHealthCenter?.name || 'UBS'}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              to={`/regulation/requests/${request.id}`}
+              onClick={onClose}
+              className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1 text-xs font-semibold"
+              title="Abrir Página de Detalhes"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span className="hidden sm:inline">Página Completa</span>
+            </Link>
+            <button
+              onClick={onClose}
+              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -235,20 +252,20 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
               </div>
               <div>
                 <span className="text-slate-500 block">CPF:</span>
-                <span className="font-semibold text-slate-900 dark:text-white">
-                  {request.patient?.cpf || 'Não informado'}
+                <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                  {formatCPF(request.patient?.cpf)}
                 </span>
               </div>
               <div>
                 <span className="text-slate-500 block">CNS (Cartão SUS):</span>
-                <span className="font-semibold text-slate-900 dark:text-white">
-                  {request.patient?.cns || 'Não informado'}
+                <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                  {formatCNS(request.patient?.cns)}
                 </span>
               </div>
               <div>
                 <span className="text-slate-500 block">Nascimento / Sexo:</span>
                 <span className="font-semibold text-slate-900 dark:text-white">
-                  {request.patient?.birthDate || '-'} ({request.patient?.gender || '-'})
+                  {formatBirthDateAndGender(request.patient?.birthDate, request.patient?.gender)}
                 </span>
               </div>
             </div>
@@ -401,6 +418,7 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
               request.status !== 'NEGADA' && (
                 <Link
                   to={`/regulation/requests/${request.id}/change-procedure`}
+                  onClick={onClose}
                   className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <ArrowRightLeft className="w-3.5 h-3.5" />
