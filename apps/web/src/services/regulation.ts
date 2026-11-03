@@ -204,6 +204,22 @@ export const regulationService = {
     return data;
   },
 
+  async changeProcedure(
+    id: string,
+    payload: {
+      newProcedureId?: string;
+      newProcedureGroupId?: string;
+      newType?: RegulationRequestType;
+      newSpecialtyId?: string;
+      justification: string;
+      adjustedPriority?: RegulationRequestPriority;
+      adjustedCid10?: string;
+    },
+  ): Promise<RegulationRequest> {
+    const { data } = await api.patch<RegulationRequest>(`/regulation/requests/${id}/change-procedure`, payload);
+    return data;
+  },
+
   async scheduleRequest(
     id: string,
     payload: {

@@ -120,6 +120,35 @@ export const useEvaluateRegulationRequest = () => {
   });
 };
 
+export const useChangeRegulationProcedure = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: {
+        newProcedureId?: string;
+        newProcedureGroupId?: string;
+        newType?: RegulationRequestType;
+        newSpecialtyId?: string;
+        justification: string;
+        adjustedPriority?: RegulationRequestPriority;
+        adjustedCid10?: string;
+      };
+    }) => regulationService.changeProcedure(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['regulation'] });
+      toast.success('Procedimento alterado com sucesso! A alteração foi gravada no histórico da requisição.');
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.message || 'Erro ao alterar procedimento da solicitação';
+      toast.error(msg);
+    },
+  });
+};
+
 export const useScheduleRegulationRequest = () => {
   const queryClient = useQueryClient();
   return useMutation({

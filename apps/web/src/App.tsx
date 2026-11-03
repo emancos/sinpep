@@ -38,6 +38,7 @@ import { MunicipalitiesPage } from './pages/Municipalities';
 import { SolicitorInbox } from './pages/Regulation/SolicitorInbox';
 import { CreateRegulationRequest } from './pages/Regulation/CreateRegulationRequest';
 import { OperatorInbox } from './pages/Regulation/OperatorInbox';
+import { ChangeProcedurePage } from './pages/Regulation/ChangeProcedurePage';
 import { SchedulesPage } from './pages/Schedules';
 import { CreateOrEditSchedule } from './pages/Schedules/CreateOrEditSchedule';
 import './App.css';
@@ -71,6 +72,7 @@ function App() {
                   </Route>
                   <Route element={<ProtectedRoute requiredPermission="regulation-operator:read" />}>
                     <Route path="/regulation/inbox" element={<OperatorInbox />} />
+                    <Route path="/regulation/requests/:id/change-procedure" element={<ChangeProcedurePage />} />
                   </Route>
 
                   {/* Agendas & Escalas de Atendimento */}

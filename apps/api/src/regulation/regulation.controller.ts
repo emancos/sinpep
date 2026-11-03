@@ -123,6 +123,16 @@ export class RegulationController {
     return this.regulationService.evaluateRequest(id, decision, justification, adjustedPriority, req.user);
   }
 
+  @Patch('requests/:id/change-procedure')
+  @Permissions('regulation-operator:evaluate')
+  async changeProcedure(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
+    return this.regulationService.changeProcedure(id, body, req.user);
+  }
+
   @Post('requests/:id/schedule')
   @Permissions('regulation-operator:schedule')
   async scheduleRequest(

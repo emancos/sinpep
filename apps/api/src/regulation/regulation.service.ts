@@ -518,6 +518,143 @@ export class RegulationService {
     return this.findOne(id);
   }
 
+  async changeProcedure(
+    id: string,
+    body: {
+      newProcedureId?: string;
+      newProcedureGroupId?: string;
+      newType?: 'CONSULTA' | 'EXAME' | 'PROCEDIMENTO';
+      newSpecialtyId?: string;
+      justification: string;
+      adjustedPriority?: any;
+      adjustedCid10?: string;
+    },
+    user: any,
+  ) {
+    if (!body.justification || body.justification.trim().length < 5) {
+      throw new BadRequestException('A justificativa da alteração de procedimento é obrigatória (mínimo de 5 caracteres).');
+    }
+    if (!body.newProcedureId && !body.newProcedureGroupId && !body.newSpecialtyId) {
+      throw new BadRequestException('Informe o novo procedimento, grupo de procedimentos ou especialidade.');
+    }
+
+    const existing = await this.findOne(id);
+    if (!existing) {
+      throw new NotFoundException('Solicitação de regulação não encontrada');
+    }
+
+    if (existing.status === 'NEGADA' || existing.status === 'CANCELADA') {
+      throw new BadRequestException(`Não é possível alterar o procedimento de uma solicitação com status ${existing.status}.`);
+    }
+
+    // Busca detalhes do novo procedimento para descrição no histórico
+    let newProcName = 'Procedimento não especificado';
+    let newProcCode = '';
+    let procedureGroupId = body.newProcedureGroupId || null;
+
+    if (body.newProcedureId) {
+      const newProc = await this.db.query.procedures.findFirst({
+        where: eq(schema.procedures.id, body.newProcedureId),
+      });
+      if (newProc) {
+        newProcName = newProc.name;
+        newProcCode = newProc.code || '';
+        procedureGroupId = procedureGroupId || newProc.procedureGroupId || null;
+      }
+    } else if (body.newProcedureGroupId) {
+      const group = await this.db.query.procedureGroups.findFirst({
+        where: eq(schema.procedureGroups.id, body.newProcedureGroupId),
+      });
+      if (group) {
+        newProcName = `[GRUPO] ${group.name}`;
+      }
+    } else if (body.newSpecialtyId) {
+      const specialty = await this.db.query.specialties.findFirst({
+        where: eq(schema.specialties.id, body.newSpecialtyId),
+      });
+      if (specialty) {
+        newProcName = `[ESPECIALIDADE] ${specialty.name}`;
+      }
+    }
+
+    // Descrição do procedimento anterior
+    const prevProcDesc = existing.procedure
+      ? `${existing.procedure.code ? existing.procedure.code + ' - ' : ''}${existing.procedure.name}`
+      : existing.procedureGroup
+      ? `[GRUPO] ${existing.procedureGroup.name}`
+      : existing.specialty
+      ? `[ESPECIALIDADE] ${existing.specialty.name}`
+      : 'Não especificado';
+
+    const newProcDesc = `${newProcCode ? newProcCode + ' - ' : ''}${newProcName}`;
+
+    const now = new Date();
+
+    // Se já estava agendada na escala, desfaz agendamento para evitar inconsistência clínica de agendamento em procedimento antigo
+    let newStatus = existing.status;
+    let scheduledWarning = '';
+    if (existing.status === 'AGENDADA') {
+      newStatus = 'PENDENTE_REGULACAO';
+      scheduledWarning = ' (Atenção: O agendamento prévio na escala foi liberado/cancelado devido à substituição do procedimento)';
+
+      // Libera vaga na escala
+      await this.db
+        .update(schema.scheduleSlots)
+        .set({
+          status: 'DISPONIVEL',
+          regulationRequestId: null,
+          patientId: null,
+          bookedByUserId: null,
+          bookedAt: null,
+          updatedAt: now.toISOString(),
+        })
+        .where(eq(schema.scheduleSlots.regulationRequestId, existing.id));
+    }
+
+    // Atualiza a solicitação
+    await this.db
+      .update(schema.regulationRequests)
+      .set({
+        type: body.newType || existing.type,
+        procedureId: body.newProcedureId || null,
+        procedureGroupId: procedureGroupId,
+        specialtyId: body.newSpecialtyId || existing.specialtyId,
+        priority: body.adjustedPriority || existing.priority,
+        cid10: body.adjustedCid10 ? body.adjustedCid10.trim() : existing.cid10,
+        status: newStatus,
+        scheduledDate: existing.status === 'AGENDADA' ? null : existing.scheduledDate,
+        scheduledTime: existing.status === 'AGENDADA' ? null : existing.scheduledTime,
+        confirmationToken: existing.status === 'AGENDADA' ? null : existing.confirmationToken,
+        updatedAt: now.toISOString(),
+      })
+      .where(eq(schema.regulationRequests.id, id));
+
+    // Formata o registro do histórico de auditoria
+    const historyText = `ALTERAÇÃO DE PROCEDIMENTO: De "${prevProcDesc}" para "${newProcDesc}". Justificativa do Regulador: ${body.justification.trim()}${scheduledWarning}`;
+
+    await this.db.insert(schema.regulationStatusHistory).values({
+      id: crypto.randomUUID(),
+      requestId: id,
+      previousStatus: existing.status,
+      newStatus: newStatus,
+      justification: historyText,
+      actionByUserId: user.id,
+      createdAt: now.toISOString(),
+    });
+
+    // Notificação em tempo real via WebSocket
+    this.eventsGateway.server?.emit('regulation_updated', {
+      type: 'PROCEDURE_CHANGED',
+      requestId: id,
+      protocolNumber: existing.protocolNumber,
+      previousProcedure: prevProcDesc,
+      newProcedure: newProcDesc,
+      justification: body.justification.trim(),
+    });
+
+    return this.findOne(id);
+  }
+
   async scheduleRequest(id: string, payload: any, user: any) {
     const { executingHealthCenterId, targetDate, targetTime, quotaId, justification } = payload;
 

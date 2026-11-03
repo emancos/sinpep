@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Search,
   Clock,
@@ -10,6 +11,7 @@ import {
   Ban,
   Stethoscope,
   Key,
+  ArrowRightLeft,
 } from 'lucide-react';
 import {
   useRegulationInbox,
@@ -520,6 +522,17 @@ export const OperatorInbox: React.FC = () => {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
+
+                        {/* Botão Alterar Procedimento (Médico Regulador) */}
+                        {req.status !== 'CANCELADA' && req.status !== 'NEGADA' && (
+                          <Link
+                            to={`/regulation/requests/${req.id}/change-procedure`}
+                            title="Alterar / Substituir Procedimento da Solicitação"
+                            className="p-1.5 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition inline-flex items-center"
+                          >
+                            <ArrowRightLeft className="w-4 h-4" />
+                          </Link>
+                        )}
 
                         {/* Botão Avaliar (quando pendente de regulação) */}
                         {req.status === 'PENDENTE_REGULACAO' && (

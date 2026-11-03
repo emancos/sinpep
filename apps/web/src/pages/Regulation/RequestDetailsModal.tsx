@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   X,
   FileText,
@@ -16,6 +17,7 @@ import {
   Copy,
   Check,
   CalendarCheck,
+  ArrowRightLeft,
 } from 'lucide-react';
 import type { RegulationRequest } from '../../services/regulation';
 import { apiUrl } from '../../services/api';
@@ -338,34 +340,66 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
             </h4>
 
             <div className="space-y-3 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-700">
-              {request.statusHistory?.map((hist, idx) => (
-                <div key={hist.id || idx} className="relative pl-7 text-xs">
-                  <div className="absolute left-1.5 top-1 w-3.5 h-3.5 rounded-full bg-blue-500 border-2 border-white dark:border-slate-900" />
-                  <div className="flex items-center space-x-2">
-                    <span className="font-bold text-slate-900 dark:text-white">
-                      {hist.newStatus.replace('_', ' ')}
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      {new Date(hist.createdAt).toLocaleString('pt-BR')}
-                    </span>
-                    {hist.actionByUser && (
-                      <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
-                        por {hist.actionByUser.name}
+              {request.statusHistory?.map((hist, idx) => {
+                const isProcChange = hist.justification.startsWith('ALTERAÇÃO DE PROCEDIMENTO:');
+
+                return (
+                  <div key={hist.id || idx} className="relative pl-7 text-xs">
+                    <div
+                      className={`absolute left-1.5 top-1 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-900 ${
+                        isProcChange ? 'bg-indigo-600' : 'bg-blue-500'
+                      }`}
+                    />
+                    <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                      {isProcChange ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 flex items-center gap-1">
+                          <ArrowRightLeft className="w-3 h-3" /> ALTERAÇÃO DE PROCEDIMENTO
+                        </span>
+                      ) : (
+                        <span className="font-bold text-slate-900 dark:text-white">
+                          {hist.newStatus.replace('_', ' ')}
+                        </span>
+                      )}
+                      <span className="text-[11px] text-slate-400">
+                        {new Date(hist.createdAt).toLocaleString('pt-BR')}
                       </span>
-                    )}
+                      {hist.actionByUser && (
+                        <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+                          por {hist.actionByUser.name}
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className={`mt-1 p-2 rounded-md border text-slate-700 dark:text-slate-300 text-xs italic ${
+                        isProcChange
+                          ? 'bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-900/50 font-medium not-italic'
+                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-800'
+                      }`}
+                    >
+                      "{hist.justification}"
+                    </div>
                   </div>
-                  <div className="mt-1 p-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-300 italic">
-                    "{hist.justification}"
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50">
-          <div>
+          <div className="flex items-center gap-2">
+            {(isAdmin || isRegulator || isCoordinator) &&
+              request.status !== 'CANCELADA' &&
+              request.status !== 'NEGADA' && (
+                <Link
+                  to={`/regulation/requests/${request.id}/change-procedure`}
+                  className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5" />
+                  <span>Alterar Procedimento</span>
+                </Link>
+              )}
+
             {canBook && (
               <button
                 type="button"
