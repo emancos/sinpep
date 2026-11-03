@@ -1155,5 +1155,31 @@ export const regulationQuotasRelations = relations(regulationQuotas, ({ one }) =
   }),
 }));
 
+export const municipalityBrandings = pgTable("municipality_brandings", {
+  id: uuid("id").primaryKey().notNull(),
+  slug: text("slug").notNull(),
+  name: text("name").notNull(),
+  fullName: text("full_name").notNull(),
+  department: text("department").notNull(),
+  networkName: text("network_name").default("Rede de Atenção à Saúde").notNull(),
+  systemTitle: text("system_title").default("SINPeP").notNull(),
+  systemSubtitle: text("system_subtitle").notNull(),
+  description: text("description"),
+  badgeText: text("badge_text").default("Gestão Clínica e Assistencial").notNull(),
+  coatOfArmsUrl: text("coat_of_arms_url").notNull(),
+  logoUrl: text("logo_url"),
+  primaryGradientStart: text("primary_gradient_start").default("#003366").notNull(),
+  primaryGradientEnd: text("primary_gradient_end").default("#001c3a").notNull(),
+  footerText: text("footer_text").default("Acesso restrito a profissionais autorizados • Uso Institucional"),
+  supportContact: text("support_contact"),
+  isDefault: boolean("is_default").default(false).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+  uniqueIndex("municipality_brandings_slug_key").using("btree", table.slug.asc().nullsLast().op("text_ops")),
+]);
+
+
 
 

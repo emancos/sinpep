@@ -21,6 +21,7 @@ import { ReceptionModule } from './reception/reception.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { MedicationsModule } from './medications/medications.module';
 import { RegulationModule } from './regulation/regulation.module';
+import { BrandingsModule } from './brandings/brandings.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { RegulationModule } from './regulation/regulation.module';
     RoomsModule,
     MedicationsModule,
     RegulationModule,
+    BrandingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
