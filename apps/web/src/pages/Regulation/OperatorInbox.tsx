@@ -23,6 +23,7 @@ import type {
 import { EvaluateRegulationModal } from './EvaluateRegulationModal';
 import { ScheduleRegulationModal } from './ScheduleRegulationModal';
 import { RequestDetailsModal } from './RequestDetailsModal';
+import { BookSlotModal } from './BookSlotModal';
 import { toast } from 'sonner';
 
 export const OperatorInbox: React.FC = () => {
@@ -36,6 +37,7 @@ export const OperatorInbox: React.FC = () => {
   // Modals
   const [evaluatingRequest, setEvaluatingRequest] = useState<RegulationRequest | null>(null);
   const [schedulingRequest, setSchedulingRequest] = useState<RegulationRequest | null>(null);
+  const [slotBookingRequest, setSlotBookingRequest] = useState<RegulationRequest | null>(null);
   const [detailsRequest, setDetailsRequest] = useState<RegulationRequest | null>(null);
 
   // Cancel Schedule Modal
@@ -427,11 +429,12 @@ export const OperatorInbox: React.FC = () => {
 
                   {req.status === 'PENDENTE_AGENDAMENTO' && (
                     <button
-                      onClick={() => setSchedulingRequest(req)}
-                      className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md flex items-center gap-1 shadow-sm"
+                      onClick={() => setSlotBookingRequest(req)}
+                      className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md flex items-center gap-1 shadow-sm transition cursor-pointer"
+                      title="Agendar vaga na escala de atendimento"
                     >
                       <Calendar className="w-3.5 h-3.5" />
-                      <span>Agendar</span>
+                      <span>Agendar Vaga</span>
                     </button>
                   )}
 
@@ -532,11 +535,11 @@ export const OperatorInbox: React.FC = () => {
                         {/* Botão Agendar (quando pendente de agendamento) */}
                         {req.status === 'PENDENTE_AGENDAMENTO' && (
                           <button
-                            onClick={() => setSchedulingRequest(req)}
+                            onClick={() => setSlotBookingRequest(req)}
                             className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md shadow-sm transition inline-flex items-center gap-1 cursor-pointer"
                           >
                             <Calendar className="w-3.5 h-3.5" />
-                            <span>Agendar</span>
+                            <span>Agendar Vaga</span>
                           </button>
                         )}
 
@@ -577,6 +580,16 @@ export const OperatorInbox: React.FC = () => {
           refetch();
         }}
         request={schedulingRequest}
+      />
+
+      <BookSlotModal
+        isOpen={!!slotBookingRequest}
+        onClose={() => {
+          setSlotBookingRequest(null);
+          refetch();
+        }}
+        request={slotBookingRequest}
+        onSuccess={() => refetch()}
       />
 
       <RequestDetailsModal

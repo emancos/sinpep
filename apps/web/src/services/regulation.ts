@@ -88,6 +88,7 @@ export interface RegulationRequest {
     id: string;
     code: string;
     name: string;
+    requiresRegulation?: boolean;
   };
   procedureGroup?: {
     id: string;

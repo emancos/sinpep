@@ -26,7 +26,9 @@ import {
 import { useProcedures, useProcedureGroups } from '../../hooks/useProcedures';
 import { useCreateRegulationRequest } from '../../hooks/useRegulation';
 import { useAuthStore } from '../../store/useAuthStore';
+import { BookSlotModal } from './BookSlotModal';
 import { apiUrl } from '../../services/api';
+import type { RegulationRequest } from '../../services/regulation';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -69,9 +71,13 @@ export const CreateRegulationRequest: React.FC = () => {
   const location = useLocation();
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
+  const permissions = useAuthStore((state) => state.permissions);
+  const activeProfile = useAuthStore((state) => state.activeProfile);
 
   // Stepper state (1 a 4)
   const [currentStep, setCurrentStep] = useState<number>(1);
+  const [createdRequestForBooking, setCreatedRequestForBooking] = useState<RegulationRequest | null>(null);
+  const [showBookingModal, setShowBookingModal] = useState(false);
 
   // =========================================================================
   // ETAPA 1: Paciente & Anamnese
@@ -472,8 +478,27 @@ export const CreateRegulationRequest: React.FC = () => {
     });
 
     try {
-      await createRequestMutation.mutateAsync(formData);
-      navigate('/regulation/solicitor');
+      const created = await createRequestMutation.mutateAsync(formData);
+
+      const isAdmin = permissions.includes('admin:access');
+      const isRegulator =
+        activeProfile?.name === 'Regulador (Central de Regulação)' ||
+        permissions.includes('regulation-operator:read');
+      const isCoordinator = activeProfile?.name === 'Coordenador de Unidade';
+      const isSolicitor =
+        activeProfile?.name?.includes('Solicitante') ||
+        permissions.includes('regulation-solicitor:read');
+
+      const requiresRegulation = selectedProcedureObj?.requiresRegulation ?? true;
+      const canScheduleDirectly =
+        isAdmin || isRegulator || isCoordinator || (!requiresRegulation && isSolicitor);
+
+      if (canScheduleDirectly && created) {
+        setCreatedRequestForBooking(created);
+        setShowBookingModal(true);
+      } else {
+        navigate('/regulation/solicitor');
+      }
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Falha ao protocolar solicitação';
       toast.error(msg);
@@ -2281,6 +2306,22 @@ export const CreateRegulationRequest: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Agendamento em Vaga de Escala Aberta */}
+      {showBookingModal && createdRequestForBooking && (
+        <BookSlotModal
+          isOpen={showBookingModal}
+          onClose={() => {
+            setShowBookingModal(false);
+            navigate('/regulation/solicitor');
+          }}
+          request={createdRequestForBooking}
+          onSuccess={() => {
+            setShowBookingModal(false);
+            navigate('/regulation/solicitor');
+          }}
+        />
       )}
     </div>
   );

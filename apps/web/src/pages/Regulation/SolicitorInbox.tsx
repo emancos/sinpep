@@ -11,6 +11,7 @@ import {
   Ban,
   AlertTriangle,
   Key,
+  Calendar,
 } from 'lucide-react';
 import {
   useRegulationMyCenter,
@@ -19,6 +20,7 @@ import {
 import type { RegulationRequest, RegulationRequestStatus } from '../../services/regulation';
 import { RequestDetailsModal } from './RequestDetailsModal';
 import { ResubmitReturnedModal } from './ResubmitReturnedModal';
+import { BookSlotModal } from './BookSlotModal';
 import { toast } from 'sonner';
 
 export const SolicitorInbox: React.FC = () => {
@@ -31,6 +33,7 @@ export const SolicitorInbox: React.FC = () => {
   // Modals state
   const [selectedDetailsRequest, setSelectedDetailsRequest] = useState<RegulationRequest | null>(null);
   const [selectedResubmitRequest, setSelectedResubmitRequest] = useState<RegulationRequest | null>(null);
+  const [bookingSlotRequest, setBookingSlotRequest] = useState<RegulationRequest | null>(null);
 
   // Cancel modal state
   const [cancelModalRequest, setCancelModalRequest] = useState<RegulationRequest | null>(null);
@@ -349,6 +352,16 @@ export const SolicitorInbox: React.FC = () => {
 
                 {/* Ações no rodapé do card móvel */}
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  {!req.procedure?.requiresRegulation && req.status === 'PENDENTE_REGULACAO' && (
+                    <button
+                      onClick={() => setBookingSlotRequest(req)}
+                      className="px-2.5 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-md flex items-center gap-1 cursor-pointer"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>Agendar</span>
+                    </button>
+                  )}
+
                   {req.status === 'DEVOLVIDA' && (
                     <button
                       onClick={() => setSelectedResubmitRequest(req)}
@@ -439,6 +452,16 @@ export const SolicitorInbox: React.FC = () => {
                       </td>
 
                       <td className="px-4 py-3 text-right space-x-1.5">
+                        {!req.procedure?.requiresRegulation && req.status === 'PENDENTE_REGULACAO' && (
+                          <button
+                            onClick={() => setBookingSlotRequest(req)}
+                            title="Agendar Vaga (Procedimento Não Regulado)"
+                            className="p-1.5 text-emerald-600 hover:text-emerald-700 rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 transition cursor-pointer"
+                          >
+                            <Calendar className="w-4 h-4" />
+                          </button>
+                        )}
+
                         <button
                           onClick={() => setSelectedDetailsRequest(req)}
                           title="Ver Detalhes e Auditoria"
@@ -481,6 +504,16 @@ export const SolicitorInbox: React.FC = () => {
         isOpen={!!selectedDetailsRequest}
         onClose={() => setSelectedDetailsRequest(null)}
         request={selectedDetailsRequest}
+      />
+
+      <BookSlotModal
+        isOpen={!!bookingSlotRequest}
+        onClose={() => {
+          setBookingSlotRequest(null);
+          refetch();
+        }}
+        request={bookingSlotRequest}
+        onSuccess={() => refetch()}
       />
 
       <ResubmitReturnedModal

@@ -15,9 +15,12 @@ import {
   History,
   Copy,
   Check,
+  CalendarCheck,
 } from 'lucide-react';
 import type { RegulationRequest } from '../../services/regulation';
 import { apiUrl } from '../../services/api';
+import { useAuthStore } from '../../store/useAuthStore';
+import { BookSlotModal } from './BookSlotModal';
 import { toast } from 'sonner';
 
 interface RequestDetailsModalProps {
@@ -28,8 +31,29 @@ interface RequestDetailsModalProps {
 
 export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen, onClose, request }) => {
   const [copiedToken, setCopiedToken] = useState(false);
+  const [bookingOpen, setBookingOpen] = useState(false);
+
+  const permissions = useAuthStore((state) => state.permissions);
+  const activeProfile = useAuthStore((state) => state.activeProfile);
 
   if (!isOpen || !request) return null;
+
+  const isAdmin = permissions.includes('admin:access');
+  const isRegulator =
+    activeProfile?.name === 'Regulador (Central de Regulação)' ||
+    permissions.includes('regulation-operator:read');
+  const isCoordinator = activeProfile?.name === 'Coordenador de Unidade';
+  const isSolicitor =
+    activeProfile?.name?.includes('Solicitante') ||
+    permissions.includes('regulation-solicitor:read');
+
+  const requiresRegulation = request.procedure?.requiresRegulation ?? true;
+
+  // Se for procedimento regulado, botão só aparece para regulador, coordenador e admin.
+  // Se não for regulado, também é exibido para o solicitante.
+  const canBook =
+    (request.status === 'PENDENTE_REGULACAO' || request.status === 'PENDENTE_AGENDAMENTO') &&
+    (isAdmin || isRegulator || isCoordinator || (!requiresRegulation && isSolicitor));
 
   const copyToken = () => {
     if (request.confirmationToken) {
@@ -340,7 +364,20 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end px-6 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50">
+        <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50">
+          <div>
+            {canBook && (
+              <button
+                type="button"
+                onClick={() => setBookingOpen(true)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-98"
+              >
+                <CalendarCheck className="w-4 h-4" />
+                <span>Agendar Vaga na Escala</span>
+              </button>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={onClose}
@@ -350,6 +387,19 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
           </button>
         </div>
       </div>
+
+      {/* Modal de Agendamento em Vagas Abertas da Escala */}
+      {bookingOpen && (
+        <BookSlotModal
+          isOpen={bookingOpen}
+          onClose={() => setBookingOpen(false)}
+          request={request}
+          onSuccess={() => {
+            setBookingOpen(false);
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 };
