@@ -180,10 +180,15 @@ export const useRunEsusImport = () => {
 
           addLog(`[Lote ${batchCount}] ${hits.length} registros obtidos. Enviando para persistência no SINPeP...`, 'info');
 
-          // Envia o lote para a API SINPeP processar em transação
+          // Envia o lote para a API SINPeP processar em transação (otimizando payload)
+          const cleanHits = hits.map((h: any) => ({
+            _id: h._id,
+            _source: h._source || h,
+          }));
+
           const batchResult = await esusImportService.processBatch({
             jobId: job.id,
-            hits,
+            hits: cleanHits,
           });
 
           accumulatedTotals.processed += batchResult.processed;

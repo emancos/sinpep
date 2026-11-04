@@ -244,7 +244,7 @@ export class EsusImportService {
     // Executa em transação atômica do banco de dados
     await this.db.transaction(async (tx: any) => {
       for (const hit of hits) {
-        const src = hit._source;
+        const src = hit._source || hit;
         if (!src) continue;
 
         // ---------------------------------------------------------

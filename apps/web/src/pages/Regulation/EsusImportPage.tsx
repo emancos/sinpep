@@ -43,9 +43,9 @@ export const EsusImportPage: React.FC = () => {
 
   // Form State
   const [startDate, setStartDate] = useState('2025-05-01');
-  const [endDate, setEndDate] = useState('2026-11-03');
+  const [endDate, setEndDate] = useState((): string => new Date().toISOString().slice(0, 10));
   const [dateField, setDateField] = useState<EsusDateFieldType>('dtSolicitacao');
-  const [batchSize, setBatchSize] = useState<number>(2500);
+  const [batchSize, setBatchSize] = useState<number>(1000);
 
   // Preview State
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
@@ -347,7 +347,7 @@ export const EsusImportPage: React.FC = () => {
                 : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
                 }`}
             >
-              Padrão (Mai/2025 a Nov/2026)
+              Tudo
             </button>
             <button
               type="button"
@@ -417,9 +417,10 @@ export const EsusImportPage: React.FC = () => {
               onChange={(e) => setBatchSize(Number(e.target.value))}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-lg text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
             >
-              <option value={2500}>2.500 registros por envio (Recomendado)</option>
-              <option value={5000}>5.000 registros por envio (Mais Rápido)</option>
-              <option value={1000}>1.000 registros por envio (Conexões Lentas)</option>
+              <option value={1000}>1.000 registros por envio (Recomendado - Mais Estável)</option>
+              <option value={2500}>2.500 registros por envio (Mais Rápido)</option>
+              <option value={5000}>5.000 registros por envio (Conexões Rápidas)</option>
+              <option value={500}>500 registros por envio (Conexões Lentas)</option>
             </select>
           </div>
         </div>
