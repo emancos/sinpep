@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Plus,
@@ -14,6 +14,9 @@ import {
   Calendar,
   Printer,
   ArrowRightLeft,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react';
 import {
   useRegulationMyCenter,
@@ -24,6 +27,7 @@ import { RequestDetailsModal } from './RequestDetailsModal';
 import { ResubmitReturnedModal } from './ResubmitReturnedModal';
 import { BookSlotModal } from './BookSlotModal';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
+import { TablePagination } from '../../components/TablePagination';
 import { useAuthStore } from '../../store/useAuthStore';
 import { formatCPF, formatCNS } from '../../utils/brazilianFormatters';
 import { toast } from 'sonner';
@@ -86,6 +90,102 @@ export const SolicitorInbox: React.FC = () => {
       return true;
     });
   }, [requests, activeTab, searchTerm]);
+
+  // Sorting & Pagination States (Estilo Listagem de Pacientes)
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+    setPage(1);
+  };
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, searchTerm]);
+
+  // Lista ordenada
+  const sortedRequests = useMemo(() => {
+    const list = [...filteredRequests];
+    list.sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'protocolNumber':
+          comparison = (a.protocolNumber || '').localeCompare(b.protocolNumber || '');
+          break;
+        case 'patient':
+          comparison = (a.patient?.name || '').localeCompare(b.patient?.name || '');
+          break;
+        case 'procedure': {
+          const nameA = a.procedure?.name || a.specialty?.name || '';
+          const nameB = b.procedure?.name || b.specialty?.name || '';
+          comparison = nameA.localeCompare(nameB);
+          break;
+        }
+        case 'priority': {
+          const priorityWeight: Record<string, number> = {
+            URGENCIA: 3,
+            PRIORITARIO: 2,
+            ELETIVO: 1,
+          };
+          comparison = (priorityWeight[a.priority] || 0) - (priorityWeight[b.priority] || 0);
+          break;
+        }
+        case 'status':
+          comparison = (a.status || '').localeCompare(b.status || '');
+          break;
+        case 'token':
+          comparison = (a.confirmationToken || '').localeCompare(b.confirmationToken || '');
+          break;
+        case 'createdAt':
+        default: {
+          const timeA = new Date(a.createdAt).getTime();
+          const timeB = new Date(b.createdAt).getTime();
+          comparison = timeA - timeB;
+          break;
+        }
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+    return list;
+  }, [filteredRequests, sortBy, sortOrder]);
+
+  const total = sortedRequests.length;
+
+  const paginatedRequests = useMemo(() => {
+    const start = (page - 1) * limit;
+    return sortedRequests.slice(start, start + limit);
+  }, [sortedRequests, page, limit]);
+
+  const renderSortHeader = (label: string, field: string) => {
+    const isSorted = sortBy === field;
+    return (
+      <th
+        onClick={() => handleSort(field)}
+        className="px-2 py-1.5 lg:px-3 lg:py-2.5 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800/40 hover:text-slate-900 dark:hover:text-white transition-colors duration-150 select-none group"
+      >
+        <div className="flex items-center gap-1.5">
+          <span>{label}</span>
+          {isSorted ? (
+            sortOrder === 'asc' ? (
+              <ArrowUp className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            ) : (
+              <ArrowDown className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            )
+          ) : (
+            <ArrowUpDown className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-500 dark:text-slate-400 opacity-0 group-hover:opacity-100 transition-all" />
+          )}
+        </div>
+      </th>
+    );
+  };
 
   // Counts
   const counts = useMemo(() => {
@@ -314,7 +414,7 @@ export const SolicitorInbox: React.FC = () => {
         <>
           {/* 1. CARDS PARA MOBILE (md:hidden) */}
           <div className="space-y-3 md:hidden">
-            {filteredRequests.map((req) => (
+            {paginatedRequests.map((req) => (
               <div
                 key={req.id}
                 className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-3.5 shadow-sm space-y-3 overflow-hidden"
@@ -427,129 +527,166 @@ export const SolicitorInbox: React.FC = () => {
                 </div>
               </div>
             ))}
+
+            {/* Paginação Mobile */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md overflow-hidden shadow-sm">
+              <TablePagination
+                page={page}
+                limit={limit}
+                total={total}
+                onPageChange={setPage}
+                onLimitChange={(newLimit) => {
+                  setLimit(newLimit);
+                  setPage(1);
+                }}
+              />
+            </div>
           </div>
 
-          {/* 2. TABELA PARA DESKTOP (hidden md:block) */}
-          <div className="hidden md:block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-sm overflow-hidden">
+          {/* 2. TABELA PARA DESKTOP COM PAGINAÇÃO E ORDENAÇÃO (Estilo Listagem de Pacientes) */}
+          <div className="hidden md:block bg-white shadow-md dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-md overflow-hidden backdrop-blur-md">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase font-semibold">
-                  <tr>
-                    <th className="px-4 py-3">Protocolo</th>
-                    <th className="px-4 py-3">Paciente</th>
-                    <th className="px-4 py-3">Procedimento / Especialidade</th>
-                    <th className="px-4 py-3">Prioridade</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Chave Confirmação</th>
-                    <th className="px-4 py-3">Data</th>
-                    <th className="px-4 py-3 text-right">Ações</th>
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                    {renderSortHeader('Protocolo', 'protocolNumber')}
+                    {renderSortHeader('Paciente', 'patient')}
+                    {renderSortHeader('Procedimento / Especialidade', 'procedure')}
+                    {renderSortHeader('Prioridade', 'priority')}
+                    {renderSortHeader('Status', 'status')}
+                    {renderSortHeader('Chave Confirmação', 'token')}
+                    {renderSortHeader('Data', 'createdAt')}
+                    <th className="px-2 py-1.5 lg:px-3 lg:py-2.5 text-right">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredRequests.map((req) => (
-                    <tr key={req.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
-                      <td className="px-4 py-3 font-mono font-bold text-blue-600 dark:text-blue-400">
-                        <Link to={`/regulation/requests/${req.id}`} className="hover:underline">
-                          {req.protocolNumber}
-                        </Link>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-slate-900 dark:text-white">{req.patient?.name}</div>
-                        <div className="text-[11px] text-slate-500 font-mono">
-                          CPF: {formatCPF(req.patient?.cpf)} • CNS: {formatCNS(req.patient?.cns)}
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-slate-800 dark:text-slate-200">
-                          {req.procedure ? req.procedure.name : req.specialty?.name}
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          {req.type} {req.procedureGroup && `• ${req.procedureGroup.name}`}
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3">{getPriorityBadge(req.priority)}</td>
-
-                      <td className="px-4 py-3">{getStatusBadge(req.status)}</td>
-
-                      <td className="px-4 py-3 font-mono">
-                        {req.confirmationToken ? (
-                          <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-md font-bold tracking-wider">
-                            {req.confirmationToken}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 text-[11px]">—</span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3 text-slate-500 text-[11px]">
-                        {new Date(req.createdAt).toLocaleDateString('pt-BR')}
-                      </td>
-
-                      <td className="px-4 py-3 text-right space-x-1.5 whitespace-nowrap">
-                        {(isAdmin || isRegulator) && req.status !== 'CANCELADA' && req.status !== 'NEGADA' && (
-                          <Link
-                            to={`/regulation/requests/${req.id}/change-procedure`}
-                            title="Alterar Procedimento"
-                            className="p-1.5 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition inline-flex items-center cursor-pointer"
-                          >
-                            <ArrowRightLeft className="w-4 h-4" />
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 text-sm">
+                  {paginatedRequests && paginatedRequests.length > 0 ? (
+                    paginatedRequests.map((req) => (
+                      <tr key={req.id} className="hover:bg-slate-200 dark:bg-slate-800/20 transition-colors duration-150 group">
+                        <td className="px-2 py-1.5 lg:px-3 lg:py-2.5 font-mono font-bold text-blue-600 dark:text-blue-400">
+                          <Link to={`/regulation/requests/${req.id}`} className="hover:underline">
+                            {req.protocolNumber}
                           </Link>
-                        )}
+                        </td>
 
-                        {!req.procedure?.requiresRegulation && req.status === 'PENDENTE_REGULACAO' && (
-                          <button
-                            onClick={() => setBookingSlotRequest(req)}
-                            title="Agendar Vaga (Procedimento Não Regulado)"
-                            className="p-1.5 text-emerald-600 hover:text-emerald-700 rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 transition cursor-pointer"
-                          >
-                            <Calendar className="w-4 h-4" />
-                          </button>
-                        )}
+                        <td className="px-2 py-1.5 lg:px-3 lg:py-2.5">
+                          <div className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-500 transition-colors">
+                            {req.patient?.name}
+                          </div>
+                          <div className="text-xs text-slate-500 font-mono">
+                            CPF: {formatCPF(req.patient?.cpf)} • CNS: {formatCNS(req.patient?.cns)}
+                          </div>
+                        </td>
 
-                        <button
-                          onClick={() => setPrintingRequest(req)}
-                          title="Imprimir Ficha de Solicitação"
-                          className="p-1.5 text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-                        >
-                          <Printer className="w-4 h-4" />
-                        </button>
+                        <td className="px-2 py-1.5 lg:px-3 lg:py-2.5">
+                          <div className="font-medium text-slate-800 dark:text-slate-200">
+                            {req.procedure ? req.procedure.name : req.specialty?.name}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {req.type} {req.procedureGroup && `• ${req.procedureGroup.name}`}
+                          </div>
+                        </td>
 
-                        <Link
-                          to={`/regulation/requests/${req.id}`}
-                          title="Ver Detalhes da Solicitação"
-                          className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition inline-flex items-center cursor-pointer"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Link>
+                        <td className="px-2 py-1.5 lg:px-3 lg:py-2.5">{getPriorityBadge(req.priority)}</td>
 
-                        {req.status === 'DEVOLVIDA' && (
-                          <button
-                            onClick={() => setSelectedResubmitRequest(req)}
-                            title="Reenviar com Correções"
-                            className="p-1.5 text-orange-600 hover:text-orange-700 rounded-md bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/40 transition"
-                          >
-                            <RotateCcw className="w-4 h-4" />
-                          </button>
-                        )}
+                        <td className="px-2 py-1.5 lg:px-3 lg:py-2.5">{getStatusBadge(req.status)}</td>
 
-                        {!['CANCELADA', 'NEGADA'].includes(req.status) && (
-                          <button
-                            onClick={() => setCancelModalRequest(req)}
-                            title="Cancelar Solicitação"
-                            className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 transition"
-                          >
-                            <Ban className="w-4 h-4" />
-                          </button>
-                        )}
+                        <td className="px-2 py-1.5 lg:px-3 lg:py-2.5 font-mono">
+                          {req.confirmationToken ? (
+                            <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-md font-bold tracking-wider text-xs">
+                              {req.confirmationToken}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-xs">—</span>
+                          )}
+                        </td>
+
+                        <td className="px-2 py-1.5 lg:px-3 lg:py-2.5 text-slate-500 text-xs whitespace-nowrap">
+                          {new Date(req.createdAt).toLocaleDateString('pt-BR')}
+                        </td>
+
+                        <td className="px-2 py-1.5 lg:px-3 lg:py-2.5 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {(isAdmin || isRegulator) && req.status !== 'CANCELADA' && req.status !== 'NEGADA' && (
+                              <Link
+                                to={`/regulation/requests/${req.id}/change-procedure`}
+                                title="Alterar Procedimento"
+                                className="p-1.5 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition inline-flex items-center cursor-pointer shadow-sm"
+                              >
+                                <ArrowRightLeft className="w-4 h-4" />
+                              </Link>
+                            )}
+
+                            {!req.procedure?.requiresRegulation && req.status === 'PENDENTE_REGULACAO' && (
+                              <button
+                                onClick={() => setBookingSlotRequest(req)}
+                                title="Agendar Vaga (Procedimento Não Regulado)"
+                                className="p-1.5 text-emerald-600 hover:text-emerald-700 rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 transition cursor-pointer shadow-sm"
+                              >
+                                <Calendar className="w-4 h-4" />
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => setPrintingRequest(req)}
+                              title="Imprimir Ficha de Solicitação"
+                              className="p-1.5 text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer shadow-sm"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </button>
+
+                            <Link
+                              to={`/regulation/requests/${req.id}`}
+                              title="Ver Detalhes da Solicitação"
+                              className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition inline-flex items-center cursor-pointer shadow-sm"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Link>
+
+                            {req.status === 'DEVOLVIDA' && (
+                              <button
+                                onClick={() => setSelectedResubmitRequest(req)}
+                                title="Reenviar com Correções"
+                                className="p-1.5 text-orange-600 hover:text-orange-700 rounded-md bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/40 transition cursor-pointer shadow-sm"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </button>
+                            )}
+
+                            {!['CANCELADA', 'NEGADA'].includes(req.status) && (
+                              <button
+                                onClick={() => setCancelModalRequest(req)}
+                                title="Cancelar Solicitação"
+                                className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 transition cursor-pointer shadow-sm"
+                              >
+                                <Ban className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-10 text-center text-slate-500 italic">
+                        Nenhuma solicitação encontrada.
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
+
+            <TablePagination
+              page={page}
+              limit={limit}
+              total={total}
+              onPageChange={setPage}
+              onLimitChange={(newLimit) => {
+                setLimit(newLimit);
+                setPage(1);
+              }}
+            />
           </div>
         </>
       )}
