@@ -12,6 +12,7 @@ import {
   CalendarCheck,
   AlertTriangle,
   CheckCircle2,
+  Download,
 } from 'lucide-react';
 import { useWaitingList, type WaitingListRequest } from '../../hooks/useAutoScheduling';
 import { useProcedures, useProcedureGroups } from '../../hooks/useProcedures';
@@ -187,6 +188,13 @@ export const WaitingListPage: React.FC = () => {
           className="px-3 py-1.5 rounded-md text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0"
         >
           Parâmetros de Agendamento Automático
+        </Link>
+        <Link
+          to="/regulation/esus-import"
+          className="px-3 py-1.5 rounded-md text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0 flex items-center gap-1"
+        >
+          <Download className="w-3.5 h-3.5 text-blue-500" />
+          <span>Importação e-SUS</span>
         </Link>
       </div>
 

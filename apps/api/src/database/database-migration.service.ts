@@ -171,9 +171,30 @@ export class DatabaseMigrationService implements OnModuleInit {
           confirmed_by_user_id UUID REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL,
           created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS esus_import_jobs (
+          id UUID PRIMARY KEY NOT NULL,
+          started_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          finished_at TIMESTAMP(3),
+          status TEXT NOT NULL DEFAULT 'RUNNING',
+          date_range_start TEXT,
+          date_range_end TEXT,
+          total_records_found INTEGER NOT NULL DEFAULT 0,
+          total_records_processed INTEGER NOT NULL DEFAULT 0,
+          patients_created INTEGER NOT NULL DEFAULT 0,
+          patients_updated INTEGER NOT NULL DEFAULT 0,
+          patients_deceased_skipped INTEGER NOT NULL DEFAULT 0,
+          requests_created INTEGER NOT NULL DEFAULT 0,
+          requests_updated INTEGER NOT NULL DEFAULT 0,
+          requests_skipped_status INTEGER NOT NULL DEFAULT 0,
+          error_message TEXT,
+          created_by_user_id UUID REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL,
+          created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
       `);
 
-      this.logger.log('Database migrations for procedures, quotas & auto-scheduling applied successfully.');
+      this.logger.log('Database migrations for procedures, quotas, auto-scheduling & esus import applied successfully.');
     } catch (error) {
       this.logger.error('Error applying procedure & quota database migrations', error);
     }

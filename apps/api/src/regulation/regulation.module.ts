@@ -3,14 +3,16 @@ import { RegulationService } from './regulation.service';
 import { RegulationController } from './regulation.controller';
 import { AutoSchedulingService } from './auto-scheduling.service';
 import { AutoSchedulingController } from './auto-scheduling.controller';
+import { EsusImportService } from './esus-import.service';
+import { EsusImportController } from './esus-import.controller';
 import { DatabaseModule } from '../database/database.module';
 import { StorageModule } from '../storage/storage.module';
 import { EventsModule } from '../events/events.module';
 
 @Module({
   imports: [DatabaseModule, StorageModule, EventsModule],
-  controllers: [RegulationController, AutoSchedulingController],
-  providers: [RegulationService, AutoSchedulingService],
-  exports: [RegulationService, AutoSchedulingService],
+  controllers: [RegulationController, AutoSchedulingController, EsusImportController],
+  providers: [RegulationService, AutoSchedulingService, EsusImportService],
+  exports: [RegulationService, AutoSchedulingService, EsusImportService],
 })
 export class RegulationModule {}

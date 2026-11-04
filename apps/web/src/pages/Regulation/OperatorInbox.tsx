@@ -15,6 +15,7 @@ import {
   Printer,
   Sparkles,
   Sliders,
+  Download,
 } from 'lucide-react';
 import {
   useRegulationInbox,
@@ -205,6 +206,13 @@ export const OperatorInbox: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            to="/regulation/esus-import"
+            className="px-3 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 rounded-md text-xs font-semibold transition flex items-center gap-1.5 shadow-xs"
+          >
+            <Download className="w-3.5 h-3.5 text-blue-500" />
+            <span>Importação e-SUS</span>
+          </Link>
           <Link
             to="/regulation/waiting-list"
             className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-md text-xs font-bold transition flex items-center gap-1.5 shadow-sm"

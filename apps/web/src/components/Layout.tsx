@@ -84,6 +84,7 @@ export const Layout = () => {
           { name: 'Triagem & Avaliação', path: '/regulation/inbox' },
           { name: 'Fila de Espera (Auto)', path: '/regulation/waiting-list' },
           { name: 'Regras de Agendamento', path: '/regulation/auto-scheduling/rules' },
+          { name: 'Importação e-SUS', path: '/regulation/esus-import' },
         ],
       },
     ] : []),

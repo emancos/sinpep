@@ -1477,6 +1477,44 @@ export const autoSchedulingMatchesRelations = relations(autoSchedulingMatches, (
   }),
 }));
 
+// ==========================================
+// E-SUS REGULAÇÃO: HISTÓRICO DE IMPORTAÇÕES
+// ==========================================
+
+export const esusImportJobs = pgTable("esus_import_jobs", {
+  id: uuid().primaryKey().notNull(),
+  startedAt: timestamp("started_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  finishedAt: timestamp("finished_at", { precision: 3, mode: 'string' }),
+  status: text().default("RUNNING").notNull(), // 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED'
+  dateRangeStart: text("date_range_start"),
+  dateRangeEnd: text("date_range_end"),
+  totalRecordsFound: integer("total_records_found").default(0).notNull(),
+  totalRecordsProcessed: integer("total_records_processed").default(0).notNull(),
+  patientsCreated: integer("patients_created").default(0).notNull(),
+  patientsUpdated: integer("patients_updated").default(0).notNull(),
+  patientsDeceasedSkipped: integer("patients_deceased_skipped").default(0).notNull(),
+  requestsCreated: integer("requests_created").default(0).notNull(),
+  requestsUpdated: integer("requests_updated").default(0).notNull(),
+  requestsSkippedStatus: integer("requests_skipped_status").default(0).notNull(),
+  errorMessage: text("error_message"),
+  createdByUserId: uuid("created_by_user_id"),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  foreignKey({
+    columns: [table.createdByUserId],
+    foreignColumns: [users.id],
+    name: "esus_import_jobs_created_by_user_id_fkey"
+  }).onUpdate("cascade").onDelete("set null")
+]);
+
+export const esusImportJobsRelations = relations(esusImportJobs, ({ one }) => ({
+  createdByUser: one(users, {
+    fields: [esusImportJobs.createdByUserId],
+    references: [users.id],
+  }),
+}));
+
 
 
 
