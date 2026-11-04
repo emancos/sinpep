@@ -38,6 +38,8 @@ import { MunicipalitiesPage } from './pages/Municipalities';
 import { SolicitorInbox } from './pages/Regulation/SolicitorInbox';
 import { CreateRegulationRequest } from './pages/Regulation/CreateRegulationRequest';
 import { OperatorInbox } from './pages/Regulation/OperatorInbox';
+import { WaitingListPage } from './pages/Regulation/WaitingListPage';
+import { AutoSchedulingRulesPage } from './pages/Regulation/AutoSchedulingRulesPage';
 import { ChangeProcedurePage } from './pages/Regulation/ChangeProcedurePage';
 import { RequestDetailsPage } from './pages/Regulation/RequestDetailsPage';
 import { SchedulesPage } from './pages/Schedules';
@@ -73,6 +75,8 @@ function App() {
                   </Route>
                   <Route element={<ProtectedRoute requiredPermission="regulation-operator:read" />}>
                     <Route path="/regulation/inbox" element={<OperatorInbox />} />
+                    <Route path="/regulation/waiting-list" element={<WaitingListPage />} />
+                    <Route path="/regulation/auto-scheduling/rules" element={<AutoSchedulingRulesPage />} />
                     <Route path="/regulation/requests/:id/change-procedure" element={<ChangeProcedurePage />} />
                   </Route>
                   <Route path="/regulation/requests/:id" element={<RequestDetailsPage />} />

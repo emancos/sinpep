@@ -1346,6 +1346,137 @@ export const scheduleSlotsRelations = relations(scheduleSlots, ({ one }) => ({
   }),
 }));
 
+// ==========================================
+// 15. FILA DE ESPERA & AGENDAMENTO AUTOMÁTICO
+// ==========================================
+
+export const autoSchedulingRules = pgTable("auto_scheduling_rules", {
+  id: uuid("id").primaryKey().notNull(),
+  procedureId: uuid("procedure_id"),
+  procedureGroupId: uuid("procedure_group_id"),
+  ruleName: text("rule_name").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+
+  // Pesos do Algoritmo de Score
+  weightWaitingDays: integer("weight_waiting_days").default(1).notNull(),
+  weightPriorityUrgency: integer("weight_priority_urgency").default(500).notNull(),
+  weightPriorityPriority: integer("weight_priority_priority").default(200).notNull(),
+  weightElderly80Plus: integer("weight_elderly_80_plus").default(300).notNull(),
+  weightElderly60Plus: integer("weight_elderly_60_plus").default(100).notNull(),
+  weightPcd: integer("weight_pcd").default(150).notNull(),
+
+  // Parâmetros Operacionais
+  minLeadTimeDays: integer("min_lead_time_days").default(3).notNull(),
+  maxScheduleHorizonDays: integer("max_schedule_horizon_days").default(60).notNull(),
+  respectHealthCenterQuotas: boolean("respect_health_center_quotas").default(true).notNull(),
+  allowAutoExecution: boolean("allow_auto_execution").default(true).notNull(),
+
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  foreignKey({
+    columns: [table.procedureId],
+    foreignColumns: [procedures.id],
+    name: "auto_scheduling_rules_procedure_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.procedureGroupId],
+    foreignColumns: [procedureGroups.id],
+    name: "auto_scheduling_rules_procedure_group_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+]);
+
+export const autoSchedulingRuns = pgTable("auto_scheduling_runs", {
+  id: uuid("id").primaryKey().notNull(),
+  executedAt: timestamp("executed_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  mode: text("mode").notNull(), // 'SIMULACAO' | 'EFETIVO_MANUAL' | 'EFETIVO_AUTOMATICO_CRON'
+  triggeredByUserId: uuid("triggered_by_user_id"),
+  totalRequestsEvaluated: integer("total_requests_evaluated").default(0).notNull(),
+  totalSlotsAvailable: integer("total_slots_available").default(0).notNull(),
+  totalMatchesCreated: integer("total_matches_created").default(0).notNull(),
+  status: text("status").default('SUCESSO').notNull(), // 'SUCESSO' | 'PARCIAL' | 'CANCELADO'
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  foreignKey({
+    columns: [table.triggeredByUserId],
+    foreignColumns: [users.id],
+    name: "auto_scheduling_runs_triggered_by_user_id_fkey"
+  }).onUpdate("cascade").onDelete("set null"),
+]);
+
+export const autoSchedulingMatches = pgTable("auto_scheduling_matches", {
+  id: uuid("id").primaryKey().notNull(),
+  runId: uuid("run_id").notNull(),
+  regulationRequestId: uuid("regulation_request_id").notNull(),
+  scheduleSlotId: uuid("schedule_slot_id").notNull(),
+  calculatedScore: numeric("calculated_score", { precision: 10, scale: 2 }).notNull(),
+  scoreBreakdownJson: text("score_breakdown_json"),
+  status: text("status").default('PENDENTE_APROVACAO').notNull(), // 'PENDENTE_APROVACAO' | 'CONFIRMADO' | 'DESCARTADO'
+  confirmedAt: timestamp("confirmed_at", { precision: 3, mode: 'string' }),
+  confirmedByUserId: uuid("confirmed_by_user_id"),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  foreignKey({
+    columns: [table.runId],
+    foreignColumns: [autoSchedulingRuns.id],
+    name: "auto_scheduling_matches_run_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.regulationRequestId],
+    foreignColumns: [regulationRequests.id],
+    name: "auto_scheduling_matches_regulation_request_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.scheduleSlotId],
+    foreignColumns: [scheduleSlots.id],
+    name: "auto_scheduling_matches_schedule_slot_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.confirmedByUserId],
+    foreignColumns: [users.id],
+    name: "auto_scheduling_matches_confirmed_by_user_id_fkey"
+  }).onUpdate("cascade").onDelete("set null"),
+]);
+
+export const autoSchedulingRulesRelations = relations(autoSchedulingRules, ({ one }) => ({
+  procedure: one(procedures, {
+    fields: [autoSchedulingRules.procedureId],
+    references: [procedures.id],
+  }),
+  procedureGroup: one(procedureGroups, {
+    fields: [autoSchedulingRules.procedureGroupId],
+    references: [procedureGroups.id],
+  }),
+}));
+
+export const autoSchedulingRunsRelations = relations(autoSchedulingRuns, ({ one, many }) => ({
+  triggeredByUser: one(users, {
+    fields: [autoSchedulingRuns.triggeredByUserId],
+    references: [users.id],
+  }),
+  matches: many(autoSchedulingMatches),
+}));
+
+export const autoSchedulingMatchesRelations = relations(autoSchedulingMatches, ({ one }) => ({
+  run: one(autoSchedulingRuns, {
+    fields: [autoSchedulingMatches.runId],
+    references: [autoSchedulingRuns.id],
+  }),
+  regulationRequest: one(regulationRequests, {
+    fields: [autoSchedulingMatches.regulationRequestId],
+    references: [regulationRequests.id],
+  }),
+  scheduleSlot: one(scheduleSlots, {
+    fields: [autoSchedulingMatches.scheduleSlotId],
+    references: [scheduleSlots.id],
+  }),
+  confirmedByUser: one(users, {
+    fields: [autoSchedulingMatches.confirmedByUserId],
+    references: [users.id],
+  }),
+}));
+
 
 
 

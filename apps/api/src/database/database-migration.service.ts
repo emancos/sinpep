@@ -125,7 +125,55 @@ export class DatabaseMigrationService implements OnModuleInit {
         );
       `);
 
-      this.logger.log('Database migrations for procedures & quotas applied successfully.');
+      await this.db.execute(sql`
+        CREATE TABLE IF NOT EXISTS auto_scheduling_rules (
+          id UUID PRIMARY KEY NOT NULL,
+          procedure_id UUID REFERENCES procedures(id) ON UPDATE CASCADE ON DELETE CASCADE,
+          procedure_group_id UUID REFERENCES procedure_groups(id) ON UPDATE CASCADE ON DELETE CASCADE,
+          rule_name TEXT NOT NULL,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          weight_waiting_days INTEGER NOT NULL DEFAULT 1,
+          weight_priority_urgency INTEGER NOT NULL DEFAULT 500,
+          weight_priority_priority INTEGER NOT NULL DEFAULT 200,
+          weight_elderly_80_plus INTEGER NOT NULL DEFAULT 300,
+          weight_elderly_60_plus INTEGER NOT NULL DEFAULT 100,
+          weight_pcd INTEGER NOT NULL DEFAULT 150,
+          min_lead_time_days INTEGER NOT NULL DEFAULT 3,
+          max_schedule_horizon_days INTEGER NOT NULL DEFAULT 60,
+          respect_health_center_quotas BOOLEAN NOT NULL DEFAULT true,
+          allow_auto_execution BOOLEAN NOT NULL DEFAULT true,
+          created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS auto_scheduling_runs (
+          id UUID PRIMARY KEY NOT NULL,
+          executed_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          mode TEXT NOT NULL,
+          triggered_by_user_id UUID REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL,
+          total_requests_evaluated INTEGER NOT NULL DEFAULT 0,
+          total_slots_available INTEGER NOT NULL DEFAULT 0,
+          total_matches_created INTEGER NOT NULL DEFAULT 0,
+          status TEXT NOT NULL DEFAULT 'SUCESSO',
+          notes TEXT,
+          created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS auto_scheduling_matches (
+          id UUID PRIMARY KEY NOT NULL,
+          run_id UUID NOT NULL REFERENCES auto_scheduling_runs(id) ON UPDATE CASCADE ON DELETE CASCADE,
+          regulation_request_id UUID NOT NULL REFERENCES regulation_requests(id) ON UPDATE CASCADE ON DELETE CASCADE,
+          schedule_slot_id UUID NOT NULL REFERENCES schedule_slots(id) ON UPDATE CASCADE ON DELETE CASCADE,
+          calculated_score NUMERIC(10, 2) NOT NULL,
+          score_breakdown_json TEXT,
+          status TEXT NOT NULL DEFAULT 'PENDENTE_APROVACAO',
+          confirmed_at TIMESTAMP(3),
+          confirmed_by_user_id UUID REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL,
+          created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+
+      this.logger.log('Database migrations for procedures, quotas & auto-scheduling applied successfully.');
     } catch (error) {
       this.logger.error('Error applying procedure & quota database migrations', error);
     }

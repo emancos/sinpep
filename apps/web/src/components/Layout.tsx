@@ -76,7 +76,16 @@ export const Layout = () => {
       { name: 'Solicitação', path: '/regulation/solicitor', icon: Send },
     ] : []),
     ...((permissions.includes('regulation-operator:read') || isAdmin) ? [
-      { name: 'Central de Regulação', path: '/regulation/inbox', icon: Layers },
+      {
+        name: 'Central de Regulação',
+        path: '/regulation',
+        icon: Layers,
+        subItems: [
+          { name: 'Triagem & Avaliação', path: '/regulation/inbox' },
+          { name: 'Fila de Espera (Auto)', path: '/regulation/waiting-list' },
+          { name: 'Regras de Agendamento', path: '/regulation/auto-scheduling/rules' },
+        ],
+      },
     ] : []),
     ...((permissions.includes('schedules:read') || isAdmin) ? [
       { name: 'Agendas & Escalas', path: '/schedules', icon: Calendar },
