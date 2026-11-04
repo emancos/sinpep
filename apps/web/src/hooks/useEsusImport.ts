@@ -6,6 +6,7 @@ import {
   type EsusImportJob,
   type EsusPreviewResult,
   type ProcessBatchResult,
+  type EsusDateFieldType,
 } from '../services/esusImport';
 import { toast } from 'sonner';
 
@@ -92,8 +93,16 @@ export const useRunEsusImport = () => {
       endDate: string;
       previewResult: EsusPreviewResult;
       batchSize?: number;
+      dateField?: EsusDateFieldType;
     }) => {
-      const { config, startDate, endDate, previewResult, batchSize = 2500 } = params;
+      const {
+        config,
+        startDate,
+        endDate,
+        previewResult,
+        batchSize = 2500,
+        dateField = previewResult.dateFieldUsed || 'dtSolicitacao',
+      } = params;
 
       setIsRunning(true);
       isCancelledRef.current = false;
@@ -157,6 +166,7 @@ export const useRunEsusImport = () => {
             config,
             startDate,
             endDate,
+            dateField,
             batchSize,
             searchAfter,
           );

@@ -14,6 +14,8 @@ import {
   Terminal,
   Activity,
   Sparkles,
+  Info,
+  Layers,
 } from 'lucide-react';
 import {
   useEsusConfig,
@@ -23,6 +25,7 @@ import {
 import {
   esusImportService,
   type EsusPreviewResult,
+  type EsusDateFieldType,
 } from '../../services/esusImport';
 import { toast } from 'sonner';
 
@@ -41,6 +44,7 @@ export const EsusImportPage: React.FC = () => {
   // Form State
   const [startDate, setStartDate] = useState('2025-05-01');
   const [endDate, setEndDate] = useState('2026-11-03');
+  const [dateField, setDateField] = useState<EsusDateFieldType>('dtSolicitacao');
   const [batchSize, setBatchSize] = useState<number>(2500);
 
   // Preview State
@@ -53,14 +57,14 @@ export const EsusImportPage: React.FC = () => {
       toast.error('Configurações de integração não carregadas.');
       return;
     }
-    if (!startDate || !endDate) {
+    if (dateField !== 'all' && (!startDate || !endDate)) {
       toast.error('Informe as datas inicial e final.');
       return;
     }
 
     setIsPreviewLoading(true);
     try {
-      const res = await esusImportService.fetchPreview(config, startDate, endDate);
+      const res = await esusImportService.fetchPreview(config, startDate, endDate, dateField);
       setPreviewResult(res);
       toast.success(
         `Diagnóstico concluído! ${res.totalHits.toLocaleString('pt-BR')} registros e ${res.eligibleRequestsCount.toLocaleString('pt-BR')} solicitações elegíveis localizadas.`,
@@ -80,27 +84,36 @@ export const EsusImportPage: React.FC = () => {
       endDate,
       previewResult,
       batchSize,
+      dateField,
     });
   };
 
-  const setPreset = (preset: 'DEFAULT' | '12_MONTHS' | '6_MONTHS' | '30_DAYS') => {
+  const setPreset = (preset: 'DEFAULT' | '12_MONTHS' | '6_MONTHS' | '30_DAYS' | 'ALL_TIME') => {
     const today = new Date();
     const endStr = today.toISOString().split('T')[0];
 
-    if (preset === 'DEFAULT') {
+    if (preset === 'ALL_TIME') {
+      setDateField('all');
+      setStartDate('2025-05-01');
+      setEndDate(endStr);
+    } else if (preset === 'DEFAULT') {
+      setDateField('dtSolicitacao');
       setStartDate('2025-05-01');
       setEndDate('2026-11-03');
     } else if (preset === '12_MONTHS') {
+      setDateField('dtSolicitacao');
       const past = new Date();
       past.setFullYear(today.getFullYear() - 1);
       setStartDate(past.toISOString().split('T')[0]);
       setEndDate(endStr);
     } else if (preset === '6_MONTHS') {
+      setDateField('dtSolicitacao');
       const past = new Date();
       past.setMonth(today.getMonth() - 6);
       setStartDate(past.toISOString().split('T')[0]);
       setEndDate(endStr);
     } else if (preset === '30_DAYS') {
+      setDateField('dtSolicitacao');
       const past = new Date();
       past.setDate(today.getDate() - 30);
       setStartDate(past.toISOString().split('T')[0]);
@@ -188,12 +201,12 @@ export const EsusImportPage: React.FC = () => {
       </div>
 
       {/* Painel 1: Configuração do Período e Parâmetros */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-blue-600" />
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-              1. Selecionar Período de Marcação (`dtMarcacao`)
+              1. Selecionar Critério de Data e Parâmetros de Ingestão
             </h2>
           </div>
           {config && (
@@ -203,42 +216,162 @@ export const EsusImportPage: React.FC = () => {
           )}
         </div>
 
-        {/* Atalhos Rápidos */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Períodos rápidos:</span>
-          <button
-            type="button"
-            onClick={() => setPreset('DEFAULT')}
-            className={`px-2.5 py-1 text-xs rounded-md font-medium border transition cursor-pointer ${
-              startDate === '2025-05-01' && endDate === '2026-11-03'
+        {/* Card Informativo Técnico da Reanálise */}
+        <div className="p-3.5 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 rounded-xl flex items-start gap-3">
+          <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-xs text-amber-900 dark:text-amber-200 space-y-1">
+            <span className="font-bold">Diagnóstico Técnico da Fila de Regulação:</span>
+            <p className="leading-relaxed opacity-95">
+              No e-SUS Regulação, solicitações que ainda não possuem agendamento na agenda médica têm o campo <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded text-[11px] font-mono">dtMarcacao</code> como <strong>vazio (null)</strong>. Consultar pela <strong>Data da Solicitação (<code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded text-[11px] font-mono">dtSolicitacao</code>)</strong> é o critério recomendado para localizar as <strong>~6.150 solicitações pendentes</strong> (4.411 em lista de espera e 1.710 aguardando autorização).
+            </p>
+          </div>
+        </div>
+
+        {/* Seletor de Critério de Data da Consulta */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+            Critério de Data da Consulta no OpenSearch
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            <button
+              type="button"
+              disabled={isRunning}
+              onClick={() => {
+                setDateField('dtSolicitacao');
+                setPreviewResult(null);
+              }}
+              className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${dateField === 'dtSolicitacao'
+                ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/20 shadow-xs'
+                : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">Data da Solicitação</span>
+                  <span className="px-1.5 py-0.5 text-[9px] font-bold bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded">
+                    Recomendado
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                  Usa <code className="font-mono text-[10px]">dtSolicitacao</code>. Carrega a fila completa de espera e regulação (~6.150 requisições).
+                </p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              disabled={isRunning}
+              onClick={() => {
+                setDateField('both');
+                setPreviewResult(null);
+              }}
+              className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${dateField === 'both'
+                ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/20 shadow-xs'
+                : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">Ambas as Datas</span>
+                  <span className="px-1.5 py-0.5 text-[9px] font-bold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded">
+                    União
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                  Solicitação OU Marcação no período selecionado.
+                </p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              disabled={isRunning}
+              onClick={() => {
+                setDateField('all');
+                setPreviewResult(null);
+              }}
+              className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${dateField === 'all'
+                ? 'bg-purple-50/70 dark:bg-purple-950/40 border-purple-500 ring-2 ring-purple-500/20 shadow-xs'
+                : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">Toda a Base Municipal</span>
+                  <span className="px-1.5 py-0.5 text-[9px] font-bold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 rounded">
+                    36.000+
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                  Sem restrição de data. Ingestão integral de todo o histórico do município.
+                </p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              disabled={isRunning}
+              onClick={() => {
+                setDateField('dtMarcacao');
+                setPreviewResult(null);
+              }}
+              className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${dateField === 'dtMarcacao'
+                ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/20 shadow-xs'
+                : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">Data de Marcação</span>
+                  <span className="px-1.5 py-0.5 text-[9px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded">
+                    Agenda
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                  Usa <code className="font-mono text-[10px]">dtMarcacao</code>. Retorna apenas consultas já agendadas na escala.
+                </p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Atalhos Rápidos de Período */}
+        {dateField !== 'all' && (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Atalhos de período:</span>
+            <button
+              type="button"
+              onClick={() => setPreset('DEFAULT')}
+              className={`px-2.5 py-1 text-xs rounded-md font-medium border transition cursor-pointer ${startDate === '2025-05-01' && endDate === '2026-11-03'
                 ? 'bg-blue-600 text-white border-blue-600'
                 : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            Padrão e-SUS (05/2025 a 11/2026)
-          </button>
-          <button
-            type="button"
-            onClick={() => setPreset('12_MONTHS')}
-            className="px-2.5 py-1 text-xs rounded-md font-medium bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 cursor-pointer"
-          >
-            Últimos 12 meses
-          </button>
-          <button
-            type="button"
-            onClick={() => setPreset('6_MONTHS')}
-            className="px-2.5 py-1 text-xs rounded-md font-medium bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 cursor-pointer"
-          >
-            Últimos 6 meses
-          </button>
-          <button
-            type="button"
-            onClick={() => setPreset('30_DAYS')}
-            className="px-2.5 py-1 text-xs rounded-md font-medium bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 cursor-pointer"
-          >
-            Últimos 30 dias
-          </button>
-        </div>
+                }`}
+            >
+              Padrão (Mai/2025 a Nov/2026)
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreset('12_MONTHS')}
+              className="px-2.5 py-1 text-xs rounded-md font-medium bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 cursor-pointer"
+            >
+              Últimos 12 meses
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreset('6_MONTHS')}
+              className="px-2.5 py-1 text-xs rounded-md font-medium bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 cursor-pointer"
+            >
+              Últimos 6 meses
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreset('30_DAYS')}
+              className="px-2.5 py-1 text-xs rounded-md font-medium bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 cursor-pointer"
+            >
+              Últimos 30 dias
+            </button>
+          </div>
+        )}
 
         {/* Inputs de Data e Tamanho de Lote */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
@@ -249,7 +382,7 @@ export const EsusImportPage: React.FC = () => {
             <input
               type="date"
               value={startDate}
-              disabled={isRunning}
+              disabled={isRunning || dateField === 'all'}
               onChange={(e) => {
                 setStartDate(e.target.value);
                 setPreviewResult(null);
@@ -265,7 +398,7 @@ export const EsusImportPage: React.FC = () => {
             <input
               type="date"
               value={endDate}
-              disabled={isRunning}
+              disabled={isRunning || dateField === 'all'}
               onChange={(e) => {
                 setEndDate(e.target.value);
                 setPreviewResult(null);
@@ -297,17 +430,17 @@ export const EsusImportPage: React.FC = () => {
             type="button"
             disabled={isPreviewLoading || isRunning || isConfigLoading}
             onClick={handleRunPreview}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white rounded-lg text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer"
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white rounded-lg text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer"
           >
             {isPreviewLoading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Consultando OpenSearch...</span>
+                <span>Consultando OpenSearch do e-SUS...</span>
               </>
             ) : (
               <>
                 <Search className="w-4 h-4" />
-                <span>Analisar & Pré-visualizar Dados do Período</span>
+                <span>Analisar & Pré-visualizar Dados ({dateField === 'all' ? 'Toda a Base' : `${startDate} até ${endDate}`})</span>
               </>
             )}
           </button>
@@ -316,15 +449,15 @@ export const EsusImportPage: React.FC = () => {
 
       {/* Painel 2: Dashboard de Diagnóstico & Prévia */}
       {previewResult && !isRunning && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs space-y-5 animate-in fade-in duration-200">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs space-y-6 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
             <div>
               <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                 <span>2. Diagnóstico Pré-Importação Concluído</span>
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Resumo dos dados encontrados no e-SUS Regulação para o período {startDate} até {endDate}.
+                Resumo dos dados encontrados no e-SUS Regulação para {previewResult.dateFieldUsed === 'all' ? 'toda a base municipal' : `o período ${startDate} até ${endDate}`} ({previewResult.dateFieldUsed}).
               </p>
             </div>
 
@@ -338,17 +471,17 @@ export const EsusImportPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Cards de Métricas Pré-Importação */}
+          {/* Cards de Métricas Pré-Importação Globais */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl">
               <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Total no e-SUS</span>
               <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-1">
                 {previewResult.totalHits.toLocaleString('pt-BR')}
               </div>
-              <span className="text-[10px] text-slate-400">Registros no período</span>
+              <span className="text-[10px] text-slate-400">Registros no critério</span>
             </div>
 
-            <div className="p-3.5 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/60 rounded-lg">
+            <div className="p-3.5 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/60 rounded-xl">
               <span className="text-[11px] font-medium text-blue-700 dark:text-blue-300">Pacientes Vivos</span>
               <div className="text-xl sm:text-2xl font-black text-blue-700 dark:text-blue-300 mt-1">
                 {previewResult.livingCount.toLocaleString('pt-BR')}
@@ -356,7 +489,7 @@ export const EsusImportPage: React.FC = () => {
               <span className="text-[10px] text-blue-500">Deduplicação por CPF/CNS</span>
             </div>
 
-            <div className="p-3.5 bg-red-50/50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/60 rounded-lg">
+            <div className="p-3.5 bg-red-50/50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/60 rounded-xl">
               <span className="text-[11px] font-medium text-red-700 dark:text-red-300 flex items-center gap-1">
                 <ShieldAlert className="w-3.5 h-3.5 text-red-600" /> Óbitos Descartados
               </span>
@@ -366,7 +499,7 @@ export const EsusImportPage: React.FC = () => {
               <span className="text-[10px] text-red-500">Filtrados rigorosamente</span>
             </div>
 
-            <div className="p-3.5 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/60 rounded-lg">
+            <div className="p-3.5 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/60 rounded-xl">
               <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">Requisições Alvo</span>
               <div className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-1">
                 {previewResult.eligibleRequestsCount.toLocaleString('pt-BR')}
@@ -375,10 +508,102 @@ export const EsusImportPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Distribuição por Status no e-SUS */}
-          <div className="space-y-2">
+          {/* Consolidação por Categoria Regulatória Alvo */}
+          {(() => {
+            const waitingCount = previewResult.statusBuckets
+              .filter((b) => {
+                const k = b.key.toLowerCase();
+                return k.includes('lista de espera') || k.includes('pendente de agendamento');
+              })
+              .reduce((s, b) => s + b.doc_count, 0);
+
+            const pendingAuthCount = previewResult.statusBuckets
+              .filter((b) => {
+                const k = b.key.toLowerCase();
+                return k.includes('aguardando autorização') || k.includes('pendente na regulação');
+              })
+              .reduce((s, b) => s + b.doc_count, 0);
+
+            const returnedCount = previewResult.statusBuckets
+              .filter((b) => {
+                const k = b.key.toLowerCase();
+                return k.includes('devolvida') || k.includes('devolvido');
+              })
+              .reduce((s, b) => s + b.doc_count, 0);
+
+            const cancelledCount = previewResult.statusBuckets
+              .filter((b) => b.key.toLowerCase().includes('agendamento cancelado'))
+              .reduce((s, b) => s + b.doc_count, 0);
+
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Consolidação dos 4 Status Regulatórios Importáveis</span>
+                  </h3>
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                    Total: {(waitingCount + pendingAuthCount + returnedCount + cancelledCount).toLocaleString('pt-BR')} solicitações
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="p-3 bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-300 dark:border-emerald-800 rounded-xl">
+                    <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300">
+                      Pendente de Agendamento (1)
+                    </span>
+                    <div className="text-xl font-black text-emerald-700 dark:text-emerald-300 mt-1">
+                      {waitingCount.toLocaleString('pt-BR')}
+                    </div>
+                    <span className="text-[10px] text-emerald-600 block mt-0.5">
+                      Fila de Espera Municipal
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-300 dark:border-blue-800 rounded-xl">
+                    <span className="text-[11px] font-semibold text-blue-800 dark:text-blue-300">
+                      Pendente na Regulação (2)
+                    </span>
+                    <div className="text-xl font-black text-blue-700 dark:text-blue-300 mt-1">
+                      {pendingAuthCount.toLocaleString('pt-BR')}
+                    </div>
+                    <span className="text-[10px] text-blue-600 block mt-0.5">
+                      Aguardando parecer do regulador
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800 rounded-xl">
+                    <span className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                      Devolvida pela Regulação (3)
+                    </span>
+                    <div className="text-xl font-black text-amber-700 dark:text-amber-300 mt-1">
+                      {returnedCount.toLocaleString('pt-BR')}
+                    </div>
+                    <span className="text-[10px] text-amber-600 block mt-0.5">
+                      Devolvidas para UBS com parecer
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-purple-50/60 dark:bg-purple-950/20 border border-purple-300 dark:border-purple-800 rounded-xl">
+                    <span className="text-[11px] font-semibold text-purple-800 dark:text-purple-300">
+                      Agendamento Cancelado (8)
+                    </span>
+                    <div className="text-xl font-black text-purple-700 dark:text-purple-300 mt-1">
+                      {cancelledCount.toLocaleString('pt-BR')}
+                    </div>
+                    <span className="text-[10px] text-purple-600 block mt-0.5">
+                      Prontas para novo agendamento
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Distribuição por Status no e-SUS (Detalhamento Completo) */}
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-              Distribuição dos Status de Solicitação no e-SUS
+              Detalhamento de Todos os Status Retornados do e-SUS
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-xs">
               {previewResult.statusBuckets.map((bucket) => {
@@ -395,11 +620,10 @@ export const EsusImportPage: React.FC = () => {
                 return (
                   <div
                     key={bucket.key}
-                    className={`p-2.5 rounded-lg border flex items-center justify-between ${
-                      isTarget
-                        ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
-                        : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 opacity-75'
-                    }`}
+                    className={`p-2.5 rounded-lg border flex items-center justify-between ${isTarget
+                      ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
+                      : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 opacity-75'
+                      }`}
                   >
                     <div className="truncate pr-2">
                       <span className="font-medium text-slate-800 dark:text-slate-200 block truncate">
@@ -410,11 +634,10 @@ export const EsusImportPage: React.FC = () => {
                       </span>
                     </div>
                     <span
-                      className={`font-mono font-bold px-2 py-0.5 rounded text-xs shrink-0 ${
-                        isTarget
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                      }`}
+                      className={`font-mono font-bold px-2 py-0.5 rounded text-xs shrink-0 ${isTarget
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                        }`}
                     >
                       {bucket.doc_count.toLocaleString('pt-BR')}
                     </span>
@@ -525,10 +748,10 @@ export const EsusImportPage: React.FC = () => {
                       log.type === 'success'
                         ? 'text-emerald-400'
                         : log.type === 'warn'
-                        ? 'text-amber-400'
-                        : log.type === 'error'
-                        ? 'text-red-400 font-bold'
-                        : 'text-slate-300'
+                          ? 'text-amber-400'
+                          : log.type === 'error'
+                            ? 'text-red-400 font-bold'
+                            : 'text-slate-300'
                     }
                   >
                     {log.message}

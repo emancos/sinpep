@@ -33,6 +33,8 @@ export interface EsusImportJob {
   };
 }
 
+export type EsusDateFieldType = 'dtSolicitacao' | 'dtMarcacao' | 'both' | 'all';
+
 export interface EsusPreviewStatusBucket {
   key: string;
   doc_count: number;
@@ -44,6 +46,7 @@ export interface EsusPreviewResult {
   deceasedCount: number;
   statusBuckets: EsusPreviewStatusBucket[];
   eligibleRequestsCount: number;
+  dateFieldUsed: EsusDateFieldType;
 }
 
 export interface ProcessBatchResult {
@@ -54,6 +57,83 @@ export interface ProcessBatchResult {
   requestsCreated: number;
   requestsUpdated: number;
   requestsSkippedStatus: number;
+}
+
+function buildOpenSearchQuery(
+  dateField: EsusDateFieldType,
+  startDate: string,
+  endDate: string,
+) {
+  if (dateField === 'all') {
+    return { match_all: {} };
+  }
+
+  if (dateField === 'dtSolicitacao') {
+    return {
+      range: {
+        dtSolicitacao: {
+          gte: `${startDate} 00:00:00`,
+          lte: `${endDate} 23:59:59`,
+          format: 'yyyy-MM-dd HH:mm:ss',
+        },
+      },
+    };
+  }
+
+  if (dateField === 'dtMarcacao') {
+    return {
+      range: {
+        dtMarcacao: {
+          gte: startDate,
+          lte: endDate,
+          format: 'yyyy-MM-dd',
+        },
+      },
+    };
+  }
+
+  // 'both': Solicitação OU Marcação no período
+  return {
+    bool: {
+      should: [
+        {
+          range: {
+            dtSolicitacao: {
+              gte: `${startDate} 00:00:00`,
+              lte: `${endDate} 23:59:59`,
+              format: 'yyyy-MM-dd HH:mm:ss',
+            },
+          },
+        },
+        {
+          range: {
+            dtMarcacao: {
+              gte: startDate,
+              lte: endDate,
+              format: 'yyyy-MM-dd',
+            },
+          },
+        },
+      ],
+      minimum_should_match: 1,
+    },
+  };
+}
+
+function buildOpenSearchSort(dateField: EsusDateFieldType): any[] {
+  if (dateField === 'dtSolicitacao') {
+    return [
+      { dtSolicitacao: { order: 'asc' } },
+      { coSolicitacao: { order: 'asc' } },
+    ];
+  }
+  if (dateField === 'dtMarcacao') {
+    return [
+      { dtMarcacao: { order: 'asc' } },
+      { coSolicitacao: { order: 'asc' } },
+    ];
+  }
+  return [{ coSolicitacao: { order: 'asc' } }];
 }
 
 export const esusImportService = {
@@ -142,25 +222,14 @@ export const esusImportService = {
     config: EsusConfigResponse,
     startDate: string,
     endDate: string,
+    dateField: EsusDateFieldType = 'dtSolicitacao',
   ): Promise<EsusPreviewResult> {
+    const dateQuery = buildOpenSearchQuery(dateField, startDate, endDate);
+
     const query = {
       size: 0,
       track_total_hits: true,
-      query: {
-        bool: {
-          must: [
-            {
-              range: {
-                dtMarcacao: {
-                  gte: startDate,
-                  lte: endDate,
-                  format: 'yyyy-MM-dd',
-                },
-              },
-            },
-          ],
-        },
-      },
+      query: dateQuery,
       aggs: {
         statuses: {
           terms: {
@@ -217,6 +286,7 @@ export const esusImportService = {
       deceasedCount,
       statusBuckets,
       eligibleRequestsCount,
+      dateFieldUsed: dateField,
     };
   },
 
@@ -227,31 +297,18 @@ export const esusImportService = {
     config: EsusConfigResponse,
     startDate: string,
     endDate: string,
+    dateField: EsusDateFieldType = 'dtSolicitacao',
     size: number = 2500,
     searchAfter?: any[],
   ): Promise<{ hits: any[]; total: number }> {
+    const dateQuery = buildOpenSearchQuery(dateField, startDate, endDate);
+    const sort = buildOpenSearchSort(dateField);
+
     const body: any = {
       size,
       track_total_hits: true,
-      sort: [
-        { dtMarcacao: { order: 'asc' } },
-        { coSolicitacao: { order: 'asc' } },
-      ],
-      query: {
-        bool: {
-          must: [
-            {
-              range: {
-                dtMarcacao: {
-                  gte: startDate,
-                  lte: endDate,
-                  format: 'yyyy-MM-dd',
-                },
-              },
-            },
-          ],
-        },
-      },
+      sort,
+      query: dateQuery,
     };
 
     if (searchAfter && searchAfter.length > 0) {
