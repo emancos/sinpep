@@ -258,14 +258,30 @@ export const RegulationRequestPrintModal: React.FC<RegulationRequestPrintModalPr
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
                   <span className="font-bold text-slate-600 block text-[10px] uppercase">
-                    Procedimento / Especialidade:
+                    Procedimento / Grupo:
                   </span>
-                  <span className="font-bold text-blue-900 text-sm block">
-                    {procedureTitle}
-                  </span>
-                  {request.procedureGroup && (
-                    <span className="text-[10px] text-slate-500">
-                      Grupo: {request.procedureGroup.name}
+                  {request.procedureGroup ? (
+                    <div>
+                      <span className="font-bold text-blue-900 text-sm block">
+                        {request.procedureGroup.name}
+                      </span>
+                      {request.groupProcedures && request.groupProcedures.length > 0 ? (
+                        <div className="mt-1 space-y-0.5 pl-2 border-l-2 border-blue-600 text-[11px] text-slate-800">
+                          {request.groupProcedures.map((gp, idx) => (
+                            <div key={idx}>
+                              {idx + 1}. {gp.name} {gp.sigtapCode || gp.code ? `(${gp.sigtapCode || gp.code})` : ''}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-700 block">
+                          {procedureTitle}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="font-bold text-blue-900 text-sm block">
+                      {procedureTitle}
                     </span>
                   )}
                 </div>

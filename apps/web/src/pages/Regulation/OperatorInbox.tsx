@@ -85,7 +85,22 @@ export const OperatorInbox: React.FC = () => {
         const matchesCpf = (req.patient?.cpf || '').includes(s);
         const matchesToken = (req.confirmationToken || '').toLowerCase().includes(s);
         const matchesItem = (req.procedure?.name || req.specialty?.name || '').toLowerCase().includes(s);
-        return matchesProtocol || matchesPatient || matchesCpf || matchesToken || matchesItem;
+        const matchesGroup = (req.procedureGroup?.name || '').toLowerCase().includes(s);
+        const matchesSubProcedures = req.groupProcedures?.some(
+          (gp) =>
+            gp.name?.toLowerCase().includes(s) ||
+            gp.code?.toLowerCase().includes(s) ||
+            gp.sigtapCode?.toLowerCase().includes(s)
+        );
+        return (
+          matchesProtocol ||
+          matchesPatient ||
+          matchesCpf ||
+          matchesToken ||
+          matchesItem ||
+          matchesGroup ||
+          Boolean(matchesSubProcedures)
+        );
       }
 
       return true;
@@ -432,12 +447,50 @@ export const OperatorInbox: React.FC = () => {
                     </span>
                   </div>
                   <div className="pt-1">
-                    <span className="text-xs font-medium text-slate-800 dark:text-slate-200 block">
-                      {req.procedure ? req.procedure.name : req.specialty?.name}
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      {req.type} {req.procedureGroup && req.procedureGroup.name !== (req.procedure?.name || req.specialty?.name) && `• ${req.procedureGroup.name}`}
-                    </span>
+                    {req.procedureGroup ? (
+                      <div>
+                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400 block">
+                          {req.procedureGroup.name}
+                        </span>
+                        {(() => {
+                          const groupProcs: Array<{ name: string; code?: string; sigtapCode?: string }> =
+                            req.groupProcedures && req.groupProcedures.length > 0
+                              ? req.groupProcedures
+                              : (req.procedure ? [req.procedure] : []);
+                          const firstProcName = groupProcs[0]?.name || req.procedure?.name || 'Procedimento';
+                          const extraCount = groupProcs.length > 1 ? groupProcs.length - 1 : 0;
+                          const tooltipText = groupProcs
+                            .map((p, idx) => `${idx + 1}. ${p.name}${p.sigtapCode || p.code ? ` (${p.sigtapCode || p.code})` : ''}`)
+                            .join('\n');
+
+                          return (
+                            <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 flex flex-wrap items-center gap-1.5">
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                {req.type}
+                              </span>
+                              <span title={tooltipText} className="font-medium text-slate-800 dark:text-slate-200">
+                                {firstProcName}
+                              </span>
+                              {extraCount > 0 && (
+                                <span
+                                  title={tooltipText}
+                                  className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 cursor-help"
+                                >
+                                  +{extraCount}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="text-xs font-medium text-slate-800 dark:text-slate-200 block">
+                          {req.procedure ? req.procedure.name : req.specialty?.name}
+                        </span>
+                        <span className="text-[11px] text-slate-500">{req.type}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -567,12 +620,52 @@ export const OperatorInbox: React.FC = () => {
                       </td>
 
                       <td className="px-4 py-3">
-                        <div className="font-medium text-slate-800 dark:text-slate-200">
-                          {req.procedure ? req.procedure.name : req.specialty?.name}
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          {req.type} {req.procedureGroup && req.procedureGroup.name !== (req.procedure?.name || req.specialty?.name) && `• ${req.procedureGroup.name}`}
-                        </div>
+                        {req.procedureGroup ? (
+                          <div>
+                            <div className="font-semibold text-slate-900 dark:text-white">
+                              {req.procedureGroup.name}
+                            </div>
+                            {(() => {
+                              const groupProcs: Array<{ name: string; code?: string; sigtapCode?: string }> =
+                                req.groupProcedures && req.groupProcedures.length > 0
+                                  ? req.groupProcedures
+                                  : (req.procedure ? [req.procedure] : []);
+                              const firstProcName = groupProcs[0]?.name || req.procedure?.name || 'Procedimento';
+                              const extraCount = groupProcs.length > 1 ? groupProcs.length - 1 : 0;
+                              const tooltipText = groupProcs
+                                .map((p, idx) => `${idx + 1}. ${p.name}${p.sigtapCode || p.code ? ` (${p.sigtapCode || p.code})` : ''}`)
+                                .join('\n');
+
+                              return (
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap items-center gap-1.5">
+                                  <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                    {req.type}
+                                  </span>
+                                  <span title={tooltipText} className="font-medium text-slate-700 dark:text-slate-300">
+                                    {firstProcName}
+                                  </span>
+                                  {extraCount > 0 && (
+                                    <span
+                                      title={tooltipText}
+                                      className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 cursor-help"
+                                    >
+                                      +{extraCount}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="font-medium text-slate-800 dark:text-slate-200">
+                              {req.procedure ? req.procedure.name : req.specialty?.name}
+                            </div>
+                            <div className="text-[11px] text-slate-500">
+                              {req.type}
+                            </div>
+                          </div>
+                        )}
                       </td>
 
                       <td className="px-4 py-3">{getPriorityBadge(req.priority)}</td>

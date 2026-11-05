@@ -178,7 +178,17 @@ export class AutoSchedulingService {
           (r.protocolNumber || '').toLowerCase().includes(s) ||
           (r.patient?.name || '').toLowerCase().includes(s) ||
           (r.patient?.cpf || '').includes(s) ||
-          (r.patient?.cns || '').includes(s),
+          (r.patient?.cns || '').includes(s) ||
+          (r.procedure?.name || '').toLowerCase().includes(s) ||
+          (r.procedureGroup?.name || '').toLowerCase().includes(s) ||
+          Boolean(
+            r.groupProcedures?.some(
+              (gp) =>
+                gp.name?.toLowerCase().includes(s) ||
+                gp.code?.toLowerCase().includes(s) ||
+                gp.sigtapCode?.toLowerCase().includes(s),
+            ),
+          ),
       );
     }
 

@@ -289,12 +289,25 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
                     <span className="font-semibold text-slate-900 dark:text-white">{request.procedureGroup.name}</span>
                   </div>
                 )}
-                <div>
-                  <span className="text-slate-500">Item: </span>
-                  <span className="font-semibold text-blue-600 dark:text-blue-400">
-                    {request.procedure ? `${request.procedure.code} - ${request.procedure.name}` : request.specialty?.name}
-                  </span>
-                </div>
+                {request.groupProcedures && request.groupProcedures.length > 0 ? (
+                  <div className="pt-1">
+                    <span className="text-slate-500 block mb-1">Procedimentos Solicitados no Grupo:</span>
+                    <ul className="space-y-1 pl-2 border-l-2 border-blue-500">
+                      {request.groupProcedures.map((gp, idx) => (
+                        <li key={idx} className="font-medium text-slate-800 dark:text-slate-200">
+                          {idx + 1}. {gp.name} {gp.sigtapCode || gp.code ? `(${gp.sigtapCode || gp.code})` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <div>
+                    <span className="text-slate-500">Item: </span>
+                    <span className="font-semibold text-blue-600 dark:text-blue-400">
+                      {request.procedure ? `${request.procedure.code} - ${request.procedure.name}` : request.specialty?.name}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

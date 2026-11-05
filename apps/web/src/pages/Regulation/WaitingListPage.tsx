@@ -433,16 +433,54 @@ export const WaitingListPage: React.FC = () => {
 
                       {/* Procedimento */}
                       <td className="px-4 py-3">
-                        <div className="font-medium text-slate-800 dark:text-slate-200">
-                          {req.procedure ? req.procedure.name : req.specialty?.name}
-                        </div>
-                        <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                          <span>{req.type}</span>
-                          {req.procedureGroup && req.procedureGroup.name !== (req.procedure?.name || req.specialty?.name) && (
-                            <span>• {req.procedureGroup.name}</span>
-                          )}
-                          {getPriorityBadge(req.priority)}
-                        </div>
+                        {req.procedureGroup ? (
+                          <div>
+                            <div className="font-semibold text-slate-900 dark:text-white">
+                              {req.procedureGroup.name}
+                            </div>
+                            {(() => {
+                              const groupProcs: Array<{ name: string; code?: string; sigtapCode?: string }> =
+                                req.groupProcedures && req.groupProcedures.length > 0
+                                  ? req.groupProcedures
+                                  : (req.procedure ? [req.procedure] : []);
+                              const firstProcName = groupProcs[0]?.name || req.procedure?.name || 'Procedimento';
+                              const extraCount = groupProcs.length > 1 ? groupProcs.length - 1 : 0;
+                              const tooltipText = groupProcs
+                                .map((p, idx) => `${idx + 1}. ${p.name}${p.sigtapCode || p.code ? ` (${p.sigtapCode || p.code})` : ''}`)
+                                .join('\n');
+
+                              return (
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap items-center gap-1.5">
+                                  <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                    {req.type}
+                                  </span>
+                                  <span title={tooltipText} className="font-medium text-slate-700 dark:text-slate-300">
+                                    {firstProcName}
+                                  </span>
+                                  {extraCount > 0 && (
+                                    <span
+                                      title={tooltipText}
+                                      className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 cursor-help"
+                                    >
+                                      +{extraCount}
+                                    </span>
+                                  )}
+                                  {getPriorityBadge(req.priority)}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="font-medium text-slate-800 dark:text-slate-200">
+                              {req.procedure ? req.procedure.name : req.specialty?.name}
+                            </div>
+                            <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                              <span>{req.type}</span>
+                              {getPriorityBadge(req.priority)}
+                            </div>
+                          </div>
+                        )}
                       </td>
 
                       {/* UBS Solicitante */}

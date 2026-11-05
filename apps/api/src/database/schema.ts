@@ -964,6 +964,7 @@ export const regulationRequests = pgTable("regulation_requests", {
   scheduledByUserId: uuid("scheduled_by_user_id"),
   tokenValidatedAt: timestamp("token_validated_at", { precision: 3, mode: 'string' }),
   tokenValidatedByUserId: uuid("token_validated_by_user_id"),
+  groupProcedures: jsonb("group_procedures").$type<Array<{ procedureId?: string; code: string; sigtapCode?: string; name: string }>>().default([]),
 
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),

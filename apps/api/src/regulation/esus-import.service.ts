@@ -722,77 +722,146 @@ export class EsusImportService {
           procedureGroupCache.set(groupKey, targetGroupId!);
         }
 
-        // 5.4 Resolução do Procedimento Específico
+        // 5.4 Resolução de Todos os Procedimentos (especialmente para requisições com múltiplos procedimentos dentro do grupo)
+        const groupProceduresList: Array<{
+          procedureId?: string;
+          code: string;
+          sigtapCode?: string;
+          name: string;
+        }> = [];
+
+        if (hasProceduresArray) {
+          for (const item of src.procedimentos!) {
+            const itemProcName = (item.noProcedimentoInterno || rawGroupName || 'PROCEDIMENTO REGULADO').trim().toUpperCase();
+            const itemSigtap = (item.coProcedimentoSigtap || item.coProcedimentoInterno || '').trim();
+            const itemCode = (item.coProcedimentoInterno || item.coProcedimentoSigtap || '').trim();
+
+            let itemProcId: string | null = null;
+            if (itemSigtap && procedureCache.has(itemSigtap)) {
+              itemProcId = procedureCache.get(itemSigtap)!.id;
+            } else if (itemProcName && procedureCache.has(itemProcName)) {
+              itemProcId = procedureCache.get(itemProcName)!.id;
+            } else {
+              if (itemSigtap) {
+                const [found] = await tx
+                  .select({ id: schema.procedures.id, procedureGroupId: schema.procedures.procedureGroupId })
+                  .from(schema.procedures)
+                  .where(eq(schema.procedures.code, itemSigtap))
+                  .limit(1);
+                if (found) itemProcId = found.id;
+              }
+              if (!itemProcId && itemProcName) {
+                const [found] = await tx
+                  .select({ id: schema.procedures.id, procedureGroupId: schema.procedures.procedureGroupId })
+                  .from(schema.procedures)
+                  .where(eq(schema.procedures.name, itemProcName))
+                  .limit(1);
+                if (found) itemProcId = found.id;
+              }
+
+              if (!itemProcId) {
+                itemProcId = crypto.randomUUID();
+                await tx.insert(schema.procedures).values({
+                  id: itemProcId,
+                  code: itemSigtap || itemCode || `INT-${itemProcId.slice(0, 8)}`,
+                  name: itemProcName,
+                  procedureGroupId: targetGroupId!,
+                  requiresRegulation: true,
+                  isActive: true,
+                  createdAt: nowTz,
+                  updatedAt: nowTz,
+                });
+              }
+
+              const cachedObj = { id: itemProcId, groupId: targetGroupId! };
+              if (itemSigtap) procedureCache.set(itemSigtap, cachedObj);
+              procedureCache.set(itemProcName, cachedObj);
+            }
+
+            groupProceduresList.push({
+              procedureId: itemProcId,
+              code: itemCode,
+              sigtapCode: itemSigtap,
+              name: itemProcName,
+            });
+          }
+        }
+
         let procedureId: string | null = null;
         let procedureGroupId: string | null = null;
 
-        if (sigtapCode && procedureCache.has(sigtapCode)) {
-          const cached = procedureCache.get(sigtapCode)!;
-          procedureId = cached.id;
-          procedureGroupId = cached.groupId;
-        } else if (procName && procedureCache.has(procName)) {
-          const cached = procedureCache.get(procName)!;
-          procedureId = cached.id;
-          procedureGroupId = cached.groupId;
+        if (groupProceduresList.length > 0) {
+          procedureId = groupProceduresList[0].procedureId || null;
+          procedureGroupId = targetGroupId;
         } else {
-          // Busca procedimento por código SIGTAP
-          if (sigtapCode) {
-            const [foundProc] = await tx
-              .select({ id: schema.procedures.id, procedureGroupId: schema.procedures.procedureGroupId })
-              .from(schema.procedures)
-              .where(eq(schema.procedures.code, sigtapCode))
-              .limit(1);
-            if (foundProc) {
-              procedureId = foundProc.id;
-              procedureGroupId = foundProc.procedureGroupId;
+          if (sigtapCode && procedureCache.has(sigtapCode)) {
+            const cached = procedureCache.get(sigtapCode)!;
+            procedureId = cached.id;
+            procedureGroupId = cached.groupId;
+          } else if (procName && procedureCache.has(procName)) {
+            const cached = procedureCache.get(procName)!;
+            procedureId = cached.id;
+            procedureGroupId = cached.groupId;
+          } else {
+            // Busca procedimento por código SIGTAP
+            if (sigtapCode) {
+              const [foundProc] = await tx
+                .select({ id: schema.procedures.id, procedureGroupId: schema.procedures.procedureGroupId })
+                .from(schema.procedures)
+                .where(eq(schema.procedures.code, sigtapCode))
+                .limit(1);
+              if (foundProc) {
+                procedureId = foundProc.id;
+                procedureGroupId = foundProc.procedureGroupId;
+              }
             }
-          }
 
-          // Se não encontrou por código, busca por nome exato
-          if (!procedureId && procName) {
-            const [foundProc] = await tx
-              .select({ id: schema.procedures.id, procedureGroupId: schema.procedures.procedureGroupId })
-              .from(schema.procedures)
-              .where(eq(schema.procedures.name, procName))
-              .limit(1);
-            if (foundProc) {
-              procedureId = foundProc.id;
-              procedureGroupId = foundProc.procedureGroupId;
+            // Se não encontrou por código, busca por nome exato
+            if (!procedureId && procName) {
+              const [foundProc] = await tx
+                .select({ id: schema.procedures.id, procedureGroupId: schema.procedures.procedureGroupId })
+                .from(schema.procedures)
+                .where(eq(schema.procedures.name, procName))
+                .limit(1);
+              if (foundProc) {
+                procedureId = foundProc.id;
+                procedureGroupId = foundProc.procedureGroupId;
+              }
             }
+
+            // Se o procedimento existia mas estava com grupo incorreto (ex: Ultrassonografia ligada a Tomografia), atualiza
+            if (procedureId && targetGroupId && procedureGroupId !== targetGroupId && semanticKeyword) {
+              await tx
+                .update(schema.procedures)
+                .set({ procedureGroupId: targetGroupId, updatedAt: nowTz })
+                .where(eq(schema.procedures.id, procedureId));
+              procedureGroupId = targetGroupId;
+            }
+
+            // Se não existir, provisiona o procedimento com o grupo correto
+            if (!procedureId) {
+              const newProcId = crypto.randomUUID();
+              const finalGroupId: string = targetGroupId!;
+
+              await tx.insert(schema.procedures).values({
+                id: newProcId,
+                code: sigtapCode || `INT-${newProcId.slice(0, 8)}`,
+                name: procName,
+                procedureGroupId: finalGroupId,
+                requiresRegulation: true,
+                isActive: true,
+                createdAt: nowTz,
+                updatedAt: nowTz,
+              });
+
+              procedureId = newProcId;
+              procedureGroupId = finalGroupId;
+            }
+
+            const cachedObj = { id: procedureId, groupId: procedureGroupId || targetGroupId! };
+            if (sigtapCode) procedureCache.set(sigtapCode, cachedObj);
+            procedureCache.set(procName, cachedObj);
           }
-
-          // Se o procedimento existia mas estava com grupo incorreto (ex: Ultrassonografia ligada a Tomografia), atualiza
-          if (procedureId && targetGroupId && procedureGroupId !== targetGroupId && semanticKeyword) {
-            await tx
-              .update(schema.procedures)
-              .set({ procedureGroupId: targetGroupId, updatedAt: nowTz })
-              .where(eq(schema.procedures.id, procedureId));
-            procedureGroupId = targetGroupId;
-          }
-
-          // Se não existir, provisiona o procedimento com o grupo correto
-          if (!procedureId) {
-            const newProcId = crypto.randomUUID();
-            const finalGroupId: string = targetGroupId!;
-
-            await tx.insert(schema.procedures).values({
-              id: newProcId,
-              code: sigtapCode || `INT-${newProcId.slice(0, 8)}`,
-              name: procName,
-              procedureGroupId: finalGroupId,
-              requiresRegulation: true,
-              isActive: true,
-              createdAt: nowTz,
-              updatedAt: nowTz,
-            });
-
-            procedureId = newProcId;
-            procedureGroupId = finalGroupId;
-          }
-
-          const cachedObj = { id: procedureId, groupId: procedureGroupId || targetGroupId! };
-          if (sigtapCode) procedureCache.set(sigtapCode, cachedObj);
-          procedureCache.set(procName, cachedObj);
         }
 
         // ---------------------------------------------------------
@@ -856,6 +925,7 @@ export class EsusImportService {
         // Para exames/consultas individuais fora de grupo (ex: ENDOSCOPIA DIGESTIVA ALTA, COLONOSCOPIA),
         // deve ser rigorosamente NULL, para não poluir nem confundir a exibição na regulação.
         const requestGroupId = isGroupRequest ? (targetGroupId || procedureGroupId) : null;
+        const requestGroupProcedures = isGroupRequest && groupProceduresList.length > 0 ? groupProceduresList : [];
 
         const [existingReq] = await tx
           .select({ id: schema.regulationRequests.id })
@@ -874,6 +944,7 @@ export class EsusImportService {
               requestingHealthCenterId: healthCenterId,
               procedureId,
               procedureGroupId: requestGroupId,
+              groupProcedures: requestGroupProcedures,
               priority,
               status: mappedStatus,
               type: reqType,
@@ -894,6 +965,7 @@ export class EsusImportService {
             requestingUserId: userId,
             procedureId,
             procedureGroupId: requestGroupId,
+            groupProcedures: requestGroupProcedures,
             type: reqType,
             cid10: cidText,
             clinicalJustification: justificationText,

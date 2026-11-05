@@ -43,6 +43,8 @@ export const SolicitorInbox: React.FC = () => {
 
   // States
   const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'RETURNED' | 'SCHEDULED' | 'FINISHED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [typeFilter, setTypeFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals state
@@ -64,19 +66,60 @@ export const SolicitorInbox: React.FC = () => {
   // Filtered requests
   const filteredRequests = useMemo(() => {
     return requests.filter((req) => {
-      // Tab filter
-      if (activeTab === 'PENDING' && req.status !== 'PENDENTE_REGULACAO') return false;
-      if (activeTab === 'RETURNED' && req.status !== 'DEVOLVIDA') return false;
-      if (activeTab === 'SCHEDULED' && req.status !== 'AGENDADA') return false;
-      if (
-        activeTab === 'FINISHED' &&
-        req.status !== 'NEGADA' &&
-        req.status !== 'CANCELADA' &&
-        req.status !== 'AGENDAMENTO_CANCELADO'
-      )
-        return false;
+      // 1. Status Filter (Dropdown ou Tab)
+      if (statusFilter !== 'ALL') {
+        if (req.status !== statusFilter) return false;
+      } else {
+        if (activeTab === 'PENDING' && req.status !== 'PENDENTE_REGULACAO') return false;
+        if (activeTab === 'RETURNED' && req.status !== 'DEVOLVIDA') return false;
+        if (activeTab === 'SCHEDULED' && req.status !== 'AGENDADA') return false;
+        if (
+          activeTab === 'FINISHED' &&
+          req.status !== 'NEGADA' &&
+          req.status !== 'CANCELADA' &&
+          req.status !== 'AGENDAMENTO_CANCELADO'
+        )
+          return false;
+      }
 
-      // Search term
+      // 2. Tipo Filter (Consulta, Exame, Cirúrgico, Laboratorial)
+      if (typeFilter !== 'ALL') {
+        const procName = (req.procedure?.name || '').toUpperCase();
+        const procCode = (req.procedure?.code || '').toUpperCase();
+        const groupName = (req.procedureGroup?.name || '').toUpperCase();
+
+        if (typeFilter === 'CONSULTA') {
+          if (req.type !== 'CONSULTA') return false;
+        } else if (typeFilter === 'CIRURGICO') {
+          const isSurgical =
+            req.type === 'PROCEDIMENTO' ||
+            procName.includes('CIRURG') ||
+            procCode.startsWith('04') ||
+            groupName.includes('CIRURG') ||
+            procName.includes('BIOPSIA') ||
+            procName.includes('EXERESE');
+          if (!isSurgical) return false;
+        } else if (typeFilter === 'LABORATORIAL') {
+          const isLab =
+            procCode.startsWith('0202') ||
+            groupName.includes('LABORAT') ||
+            procName.includes('LABORAT') ||
+            procName.includes('HEMOGRAMA') ||
+            procName.includes('SANGUE') ||
+            procName.includes('URINA') ||
+            procName.includes('FEZES') ||
+            procName.includes('GLICEMIA');
+          if (!isLab) return false;
+        } else if (typeFilter === 'EXAME') {
+          const isLab =
+            procCode.startsWith('0202') ||
+            groupName.includes('LABORAT') ||
+            procName.includes('HEMOGRAMA');
+          if (req.type !== 'EXAME' || isLab) return false;
+        }
+      }
+
+      // 3. Search term (busca por protocolo, paciente, cpf, token, procedimento principal, grupo E procedimentos internos do grupo!)
       if (searchTerm.trim()) {
         const s = searchTerm.toLowerCase();
         const matchesProtocol = (req.protocolNumber || '').toLowerCase().includes(s);
@@ -84,12 +127,27 @@ export const SolicitorInbox: React.FC = () => {
         const matchesCpf = (req.patient?.cpf || '').includes(s);
         const matchesToken = (req.confirmationToken || '').toLowerCase().includes(s);
         const matchesProcedure = (req.procedure?.name || req.specialty?.name || '').toLowerCase().includes(s);
-        return matchesProtocol || matchesPatient || matchesCpf || matchesToken || matchesProcedure;
+        const matchesGroup = (req.procedureGroup?.name || '').toLowerCase().includes(s);
+        const matchesGroupProcs = (req.groupProcedures || []).some(
+          (gp: any) =>
+            (gp.name || '').toLowerCase().includes(s) ||
+            (gp.code || '').toLowerCase().includes(s) ||
+            (gp.sigtapCode || '').toLowerCase().includes(s)
+        );
+        return (
+          matchesProtocol ||
+          matchesPatient ||
+          matchesCpf ||
+          matchesToken ||
+          matchesProcedure ||
+          matchesGroup ||
+          matchesGroupProcs
+        );
       }
 
       return true;
     });
-  }, [requests, activeTab, searchTerm]);
+  }, [requests, activeTab, statusFilter, typeFilter, searchTerm]);
 
   // Sorting & Pagination States (Estilo Listagem de Pacientes)
   const [page, setPage] = useState(1);
@@ -109,7 +167,7 @@ export const SolicitorInbox: React.FC = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [activeTab, searchTerm]);
+  }, [activeTab, statusFilter, typeFilter, searchTerm]);
 
   // Lista ordenada
   const sortedRequests = useMemo(() => {
@@ -349,10 +407,10 @@ export const SolicitorInbox: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs & Search com cantos arredondados padrão e scroll suave em mobile */}
-      <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-2.5 lg:p-3 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      {/* Tabs & Filtros & Search com cantos arredondados padrão e scroll suave em mobile */}
+      <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-2.5 lg:p-3 shadow-sm flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
         {/* Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-1 sm:pb-0">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-1 sm:pb-0 shrink-0">
           {[
             { id: 'ALL', label: 'Todas', count: counts.all },
             { id: 'PENDING', label: 'Aguardando', count: counts.pending },
@@ -362,9 +420,12 @@ export const SolicitorInbox: React.FC = () => {
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => {
+                setActiveTab(tab.id as any);
+                setStatusFilter('ALL');
+              }}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer shrink-0 ${
-                activeTab === tab.id
+                activeTab === tab.id && statusFilter === 'ALL'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
@@ -374,7 +435,7 @@ export const SolicitorInbox: React.FC = () => {
                 className={`px-1.5 py-0.2 rounded-full text-[10px] ${
                   tab.alert
                     ? 'bg-orange-500 text-white font-bold'
-                    : activeTab === tab.id
+                    : activeTab === tab.id && statusFilter === 'ALL'
                     ? 'bg-white/20 text-white'
                     : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                 }`}
@@ -385,14 +446,55 @@ export const SolicitorInbox: React.FC = () => {
           ))}
         </div>
 
+        {/* Espaço entre os filtros e a busca: Dropdown de Status e Dropdown de Tipo */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 flex-1 justify-start xl:justify-center">
+          {/* Seletor de Status */}
+          <div className="w-full sm:w-auto min-w-[160px]">
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                if (e.target.value !== 'ALL') {
+                  setActiveTab('ALL');
+                }
+              }}
+              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer font-medium"
+            >
+              <option value="ALL">Status: Todos</option>
+              <option value="PENDENTE_REGULACAO">Pendente Regulação</option>
+              <option value="PENDENTE_AGENDAMENTO">Autorizada (Aguardando)</option>
+              <option value="AGENDADA">Agendada</option>
+              <option value="DEVOLVIDA">Devolvida p/ Correção</option>
+              <option value="NEGADA">Indeferida / Negada</option>
+              <option value="AGENDAMENTO_CANCELADO">Agendamento Cancelado</option>
+              <option value="CANCELADA">Cancelada</option>
+            </select>
+          </div>
+
+          {/* Seletor de Tipo (Consulta, Exame, Cirúrgico, Laboratorial) */}
+          <div className="w-full sm:w-auto min-w-[160px]">
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer font-medium"
+            >
+              <option value="ALL">Tipo: Todos</option>
+              <option value="CONSULTA">Consultas</option>
+              <option value="EXAME">Exames</option>
+              <option value="CIRURGICO">Procedimentos Cirúrgicos</option>
+              <option value="LABORATORIAL">Laboratoriais</option>
+            </select>
+          </div>
+        </div>
+
         {/* Busca */}
-        <div className="relative w-full sm:max-w-xs">
+        <div className="relative w-full sm:max-w-xs shrink-0">
           <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por protocolo, paciente, chave..."
+            placeholder="Buscar por protocolo, paciente, chave, procedimento..."
             className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
@@ -443,12 +545,50 @@ export const SolicitorInbox: React.FC = () => {
                     CNS: {formatCNS(req.patient?.cns)}
                   </div>
                   <div className="pt-1">
-                    <span className="text-xs font-medium text-slate-800 dark:text-slate-200 block">
-                      {req.procedure ? req.procedure.name : req.specialty?.name}
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      {req.type} {req.procedureGroup && req.procedureGroup.name !== (req.procedure?.name || req.specialty?.name) && `• ${req.procedureGroup.name}`}
-                    </span>
+                    {req.procedureGroup ? (
+                      <div>
+                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400 block">
+                          {req.procedureGroup.name}
+                        </span>
+                        {(() => {
+                          const groupProcs: Array<{ name: string; code?: string; sigtapCode?: string }> =
+                            req.groupProcedures && req.groupProcedures.length > 0
+                              ? req.groupProcedures
+                              : (req.procedure ? [req.procedure] : []);
+                          const firstProcName = groupProcs[0]?.name || req.procedure?.name || 'Procedimento';
+                          const extraCount = groupProcs.length > 1 ? groupProcs.length - 1 : 0;
+                          const tooltipText = groupProcs
+                            .map((p, idx) => `${idx + 1}. ${p.name}${p.sigtapCode || p.code ? ` (${p.sigtapCode || p.code})` : ''}`)
+                            .join('\n');
+
+                          return (
+                            <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 flex flex-wrap items-center gap-1.5">
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                {req.type}
+                              </span>
+                              <span title={tooltipText} className="font-medium text-slate-800 dark:text-slate-200">
+                                {firstProcName}
+                              </span>
+                              {extraCount > 0 && (
+                                <span
+                                  title={tooltipText}
+                                  className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 cursor-help"
+                                >
+                                  +{extraCount}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="text-xs font-medium text-slate-800 dark:text-slate-200 block">
+                          {req.procedure ? req.procedure.name : req.specialty?.name}
+                        </span>
+                        <span className="text-[11px] text-slate-500">{req.type}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -554,9 +694,8 @@ export const SolicitorInbox: React.FC = () => {
                   <tr className="border-b border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
                     {renderSortHeader('Protocolo', 'protocolNumber')}
                     {renderSortHeader('Paciente', 'patient')}
-                    {renderSortHeader('Procedimento / Especialidade', 'procedure')}
+                    {renderSortHeader('Procedimento / Grupo', 'procedure')}
                     {renderSortHeader('Prioridade', 'priority')}
-                    {renderSortHeader('Status', 'status')}
                     {renderSortHeader('Chave Confirmação', 'token')}
                     {renderSortHeader('Data', 'createdAt')}
                     <th className="px-2 py-1.5 lg:px-3 lg:py-2.5 text-right">Ações</th>
@@ -585,17 +724,55 @@ export const SolicitorInbox: React.FC = () => {
                         </td>
 
                         <td className="px-2 py-1.5 lg:px-3 lg:py-2.5">
-                          <div className="font-medium text-slate-800 dark:text-slate-200">
-                            {req.procedure ? req.procedure.name : req.specialty?.name}
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            {req.type} {req.procedureGroup && req.procedureGroup.name !== (req.procedure?.name || req.specialty?.name) && `• ${req.procedureGroup.name}`}
-                          </div>
+                          {req.procedureGroup ? (
+                            <div>
+                              <div className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-500 transition-colors">
+                                {req.procedureGroup.name}
+                              </div>
+                              {(() => {
+                                const groupProcs: Array<{ name: string; code?: string; sigtapCode?: string }> =
+                                  req.groupProcedures && req.groupProcedures.length > 0
+                                    ? req.groupProcedures
+                                    : (req.procedure ? [req.procedure] : []);
+                                const firstProcName = groupProcs[0]?.name || req.procedure?.name || 'Procedimento';
+                                const extraCount = groupProcs.length > 1 ? groupProcs.length - 1 : 0;
+                                const tooltipText = groupProcs
+                                  .map((p, idx) => `${idx + 1}. ${p.name}${p.sigtapCode || p.code ? ` (${p.sigtapCode || p.code})` : ''}`)
+                                  .join('\n');
+
+                                return (
+                                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap items-center gap-1.5">
+                                    <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                      {req.type}
+                                    </span>
+                                    <span title={tooltipText} className="font-medium text-slate-700 dark:text-slate-300">
+                                      {firstProcName}
+                                    </span>
+                                    {extraCount > 0 && (
+                                      <span
+                                        title={tooltipText}
+                                        className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 cursor-help"
+                                      >
+                                        +{extraCount}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="font-medium text-slate-800 dark:text-slate-200">
+                                {req.procedure ? req.procedure.name : req.specialty?.name}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                {req.type}
+                              </div>
+                            </div>
+                          )}
                         </td>
 
                         <td className="px-2 py-1.5 lg:px-3 lg:py-2.5">{getPriorityBadge(req.priority)}</td>
-
-                        <td className="px-2 py-1.5 lg:px-3 lg:py-2.5">{getStatusBadge(req.status)}</td>
 
                         <td className="px-2 py-1.5 lg:px-3 lg:py-2.5 font-mono">
                           {req.confirmationToken ? (
@@ -674,7 +851,7 @@ export const SolicitorInbox: React.FC = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={8} className="px-6 py-10 text-center text-slate-500 italic">
+                      <td colSpan={7} className="px-6 py-10 text-center text-slate-500 italic">
                         Nenhuma solicitação encontrada.
                       </td>
                     </tr>

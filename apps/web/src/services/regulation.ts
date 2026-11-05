@@ -54,6 +54,12 @@ export interface RegulationRequest {
   scheduledTime?: string | null;
   tokenValidatedAt?: string | null;
   tokenValidatedByUserId?: string | null;
+  groupProcedures?: Array<{
+    procedureId?: string;
+    code: string;
+    sigtapCode?: string;
+    name: string;
+  }> | null;
   createdAt: string;
   updatedAt: string;
 

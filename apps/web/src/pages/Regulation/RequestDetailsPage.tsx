@@ -337,13 +337,30 @@ export const RequestDetailsPage: React.FC = () => {
             <div className="space-y-3.5 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <span className="text-[11px] font-bold text-slate-500 uppercase block">Procedimento:</span>
-                  <span className="text-sm font-bold text-blue-600 dark:text-blue-400 block mt-0.5">
-                    {request.procedure ? `${request.procedure.code} - ${request.procedure.name}` : request.specialty?.name}
-                  </span>
-                  {request.procedureGroup && (
-                    <span className="text-[11px] text-slate-500 block mt-0.5">
-                      Grupo: {request.procedureGroup.name}
+                  <span className="text-[11px] font-bold text-slate-500 uppercase block">Procedimento / Grupo:</span>
+                  {request.procedureGroup ? (
+                    <div>
+                      <span className="text-sm font-bold text-blue-600 dark:text-blue-400 block mt-0.5">
+                        {request.procedureGroup.name}
+                      </span>
+                      {request.groupProcedures && request.groupProcedures.length > 0 ? (
+                        <div className="mt-2 space-y-1 pl-2.5 border-l-2 border-blue-500">
+                          <span className="text-[11px] font-semibold text-slate-500 block">Procedimentos do Grupo:</span>
+                          {request.groupProcedures.map((gp, idx) => (
+                            <div key={idx} className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                              {idx + 1}. {gp.name} {gp.sigtapCode || gp.code ? `(${gp.sigtapCode || gp.code})` : ''}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-600 dark:text-slate-300 block mt-0.5">
+                          {request.procedure ? `${request.procedure.code} - ${request.procedure.name}` : request.specialty?.name}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400 block mt-0.5">
+                      {request.procedure ? `${request.procedure.code} - ${request.procedure.name}` : request.specialty?.name}
                     </span>
                   )}
                 </div>

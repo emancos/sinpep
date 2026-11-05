@@ -266,6 +266,17 @@ export class DatabaseMigrationService implements OnModuleInit {
             OR (g.name ILIKE '%TOMOGRAFIA%' AND p.name NOT ILIKE '%TOMOGRAFIA%')
             OR (g.name ILIKE '%ULTRASS%' AND p.name NOT ILIKE '%ULTRASS%' AND p.name NOT ILIKE '%ECOCARDIOGRAFIA%')
           );
+
+        -- 5. Coluna de múltiplos procedimentos em grupos de regulação
+        ALTER TABLE regulation_requests ADD COLUMN IF NOT EXISTS group_procedures JSONB DEFAULT '[]'::jsonb;
+
+        -- 6. Atualiza procedimentos do grupo da solicitação 20002914007
+        UPDATE regulation_requests
+        SET group_procedures = '[
+          {"code": "20502066", "sigtapCode": "0205020097", "name": "ULTRASSONOGRAFIA DE MAMAS (BILATERAL)"},
+          {"code": "20502050", "sigtapCode": "0205020127", "name": "ULTRASSONOGRAFIA DE REGIAO CERVICAL - TIREOIDE"}
+        ]'::jsonb
+        WHERE protocol_number = '20002914007';
       `);
 
       this.logger.log('Database migrations for procedures, quotas, auto-scheduling & esus import applied successfully.');
