@@ -219,11 +219,53 @@ export class DatabaseMigrationService implements OnModuleInit {
             SELECT id FROM procedure_groups WHERE name ILIKE '%TOMOGRAFIA%'
           );
 
-          -- Atualiza requisições de regulação correspondentes
+          -- Atualiza requisições de regulação de grupo de ultrassonografia
           UPDATE regulation_requests
           SET procedure_group_id = v_usg_group_id
-          WHERE procedure_id IN (SELECT id FROM procedures WHERE procedure_group_id = v_usg_group_id);
+          WHERE procedure_id IN (SELECT id FROM procedures WHERE procedure_group_id = v_usg_group_id)
+            AND (protocol_number IN ('20002912349', '20002912444', '20002912497', '20002912543', '20002912558')
+                 OR procedure_group_id IS NOT NULL);
         END $$;
+      `);
+
+      // Migração para corrigir grupos criados com nomes de exames individuais e desvincular procedure_group_id de requisições individuais
+      await this.db.execute(sql`
+        -- 1. Renomeia grupos de catálogo em procedure_groups que receberam nomes de exames individuais
+        UPDATE procedure_groups 
+        SET name = '02.09 - DIAGNÓSTICO POR ENDOSCOPIA' 
+        WHERE (group_code = '02' AND subgroup_code = '09' AND name NOT ILIKE '%GRUPO%') OR name ILIKE '%COLONOSCOPIA%';
+
+        UPDATE procedure_groups 
+        SET name = '02.04 - DIAGNÓSTICO POR RADIOLOGIA' 
+        WHERE (group_code = '02' AND subgroup_code = '04' AND name NOT ILIKE '%GRUPO%' AND name NOT ILIKE '%02.%') OR name = 'MAMOGRAFIA';
+
+        UPDATE procedure_groups 
+        SET name = '02.11 - MÉTODOS DIAGNÓSTICOS EM ESPECIALIDADES' 
+        WHERE (group_code = '02' AND subgroup_code = '11' AND name NOT ILIKE '%GRUPO%' AND name NOT ILIKE '%02.%') OR name ILIKE '%HOLTER%';
+
+        -- 2. Corrige catálogo de procedures para Holter e EEG
+        UPDATE procedures
+        SET procedure_group_id = (SELECT id FROM procedure_groups WHERE name ILIKE '%02.11%' LIMIT 1)
+        WHERE (name ILIKE '%HOLTER%' OR name ILIKE '%ELETROENCEFALOGRAMA%')
+          AND EXISTS (SELECT 1 FROM procedure_groups WHERE name ILIKE '%02.11%');
+
+        -- 3. Limpa procedure_group_id de requisições de procedimentos individuais (como Endoscopia, Colonoscopia, Mamografia, Holter)
+        UPDATE regulation_requests
+        SET procedure_group_id = NULL
+        WHERE protocol_number IN ('20002916138', '20002914051', '20002913506', '20002912660');
+
+        -- 4. Limpa procedure_group_id de qualquer requisição cujo grupo não seja explicitamente de grupo ou tenha sido vinculado por engano
+        UPDATE regulation_requests r
+        SET procedure_group_id = NULL
+        FROM procedures p, procedure_groups g
+        WHERE r.procedure_id = p.id
+          AND r.procedure_group_id = g.id
+          AND (
+            p.name = g.name
+            OR g.name NOT ILIKE '%GRUPO%'
+            OR (g.name ILIKE '%TOMOGRAFIA%' AND p.name NOT ILIKE '%TOMOGRAFIA%')
+            OR (g.name ILIKE '%ULTRASS%' AND p.name NOT ILIKE '%ULTRASS%' AND p.name NOT ILIKE '%ECOCARDIOGRAFIA%')
+          );
       `);
 
       this.logger.log('Database migrations for procedures, quotas, auto-scheduling & esus import applied successfully.');

@@ -102,6 +102,30 @@ export interface ProcessBatchDto {
 }
 
 /**
+ * Dicionário de subgrupos SIGTAP padrão (Grupo.Subgrupo -> Nome Padronizado)
+ */
+const SIGTAP_SUBGROUPS: Record<string, string> = {
+  '02.01': '02.01 - COLETAS DE MATERIAL',
+  '02.02': '02.02 - DIAGNÓSTICO EM LABORATÓRIO CLÍNICO',
+  '02.03': '02.03 - DIAGNÓSTICO POR ANATOMIA PATOLÓGICA E CITOPATOLOGIA',
+  '02.04': '02.04 - DIAGNÓSTICO POR RADIOLOGIA',
+  '02.05': '02.05 - DIAGNÓSTICO POR ULTRASSONOGRAFIA',
+  '02.06': '02.06 - DIAGNÓSTICO POR TOMOGRAFIA',
+  '02.07': '02.07 - DIAGNÓSTICO POR RESSONÂNCIA MAGNÉTICA',
+  '02.08': '02.08 - DIAGNÓSTICO POR MEDICINA NUCLEAR',
+  '02.09': '02.09 - DIAGNÓSTICO POR ENDOSCOPIA',
+  '02.10': '02.10 - DIAGNÓSTICO POR RADIOLOGIA INTERVENCIONISTA',
+  '02.11': '02.11 - MÉTODOS DIAGNÓSTICOS EM ESPECIALIDADES',
+  '02.12': '02.12 - DIAGNÓSTICO E PROCEDIMENTOS ESPECIAIS EM HEMOTERAPIA',
+  '02.13': '02.13 - EXAMES CITOPATOLÓGICOS / HISTOPATOLÓGICOS',
+  '02.14': '02.14 - DIAGNÓSTICO POR TESTE RÁPIDO',
+  '03.01': '03.01 - CONSULTAS / ATENDIMENTOS / ACOMPANHAMENTOS',
+  '03.02': '03.02 - FISIOTERAPIA',
+  '03.03': '03.03 - TRATAMENTOS CLÍNICOS',
+  '04.01': '04.01 - PEQUENAS CIRURGIAS',
+};
+
+/**
  * Retorna string ISO com data/hora local de São Paulo / Brasil (UTC-3)
  */
 function getBrazilLocalIso(): string {
@@ -522,22 +546,36 @@ export class EsusImportService {
         }
 
         // ---------------------------------------------------------
-        // 5. PROCEDIMENTO / GRUPO: Resolução Precisa de Procedimentos de Grupo
+        // 5. PROCEDIMENTO / GRUPO: Resolução Precisa de Procedimentos de Grupo vs Individuais
         // ---------------------------------------------------------
-        // Quando a requisição faz parte de um grupo (ex: GRUPO - ULTRASSONOGRAFIA),
-        // o e-SUS envia as informações do grupo em coProcedimentoInterno / noProcedimentoInterno,
-        // e o procedimento real solicitado no array aninhado "procedimentos".
+        // No e-SUS Regulação:
+        // 1. Procedimento de GRUPO:
+        //    - rawGroupName começa com "GRUPO" (ex: "GRUPO - ULTRASSONOGRAFIA - GERAL")
+        //    - ou coProcedimentoInterno termina em "00000" (ex: "20500000")
+        //    - ou o exame no array interno "procedimentos" tem nome DIFERENTE do grupo no topo.
+        //    Neste caso, a requisição DEVE receber o procedureGroupId do grupo.
+        // 2. Procedimento INDIVIDUAL FORA DE GRUPO:
+        //    - O exame simplesmente se repete no array interno (ex: "ENDOSCOPIA DIGESTIVA ALTA" no topo e no array)
+        //    - ou não começa com "GRUPO".
+        //    Neste caso, a requisição NÃO pertence a um grupo regulatório (procedureGroupId DEVE SER NULL).
         const hasProceduresArray = Array.isArray(src.procedimentos) && src.procedimentos.length > 0;
         const rawGroupCode = String(src.coProcedimentoInterno || '').trim();
         const rawGroupName = String(src.noProcedimentoInterno || '').trim().toUpperCase();
 
+        const firstProc = hasProceduresArray ? src.procedimentos![0] : null;
+        const specificProcName = firstProc?.noProcedimentoInterno?.trim().toUpperCase();
+
+        const isGroupRequest =
+          rawGroupName.startsWith('GRUPO') ||
+          rawGroupCode.endsWith('00000') ||
+          (hasProceduresArray && !!specificProcName && specificProcName !== rawGroupName);
+
         let procName: string;
         let sigtapCode: string;
 
-        if (hasProceduresArray) {
-          const specific = src.procedimentos![0];
-          procName = (specific.noProcedimentoInterno || rawGroupName || 'PROCEDIMENTO REGULADO').trim().toUpperCase();
-          sigtapCode = (specific.coProcedimentoSigtap || specific.coProcedimentoInterno || src.coProcedimentoSigtap || rawGroupCode || '').trim();
+        if (hasProceduresArray && firstProc) {
+          procName = (firstProc.noProcedimentoInterno || rawGroupName || 'PROCEDIMENTO REGULADO').trim().toUpperCase();
+          sigtapCode = (firstProc.coProcedimentoSigtap || firstProc.coProcedimentoInterno || src.coProcedimentoSigtap || rawGroupCode || '').trim();
         } else {
           procName = (rawGroupName || 'PROCEDIMENTO REGULADO').trim().toUpperCase();
           sigtapCode = (src.coProcedimentoSigtap || rawGroupCode || '').trim();
@@ -584,11 +622,8 @@ export class EsusImportService {
         } else if (combinedNames.includes('MAMOGRAF')) {
           semanticKeyword = 'MAMOGRAF';
           if (extGroup === '00') { extGroup = '02'; extSubgroup = '04'; }
-        } else if (combinedNames.includes('ENDOSCOP')) {
+        } else if (combinedNames.includes('ENDOSCOP') || combinedNames.includes('COLONOSCOP')) {
           semanticKeyword = 'ENDOSCOP';
-          if (extGroup === '00') { extGroup = '02'; extSubgroup = '09'; }
-        } else if (combinedNames.includes('COLONOSCOP')) {
-          semanticKeyword = 'COLONOSCOP';
           if (extGroup === '00') { extGroup = '02'; extSubgroup = '09'; }
         } else if (combinedNames.includes('CONSULTA') || mod.includes('CONSULTA')) {
           semanticKeyword = 'CONSULTA';
@@ -596,73 +631,92 @@ export class EsusImportService {
         }
 
         // 5.3 Resolução do Grupo de Procedimentos
-        const groupKey = `${extGroup}.${extSubgroup}_${semanticKeyword || rawGroupName || mod}`;
+        const subgroupCodeKey = `${extGroup}.${extSubgroup}`;
+        const standardCatalogGroupName =
+          SIGTAP_SUBGROUPS[subgroupCodeKey] ||
+          (extGroup !== '00'
+            ? `${subgroupCodeKey} - ${mod || 'PROCEDIMENTOS REGULADOS'}`
+            : `GRUPO E-SUS - ${mod || 'GERAL'}`);
+
+        const groupKey = isGroupRequest
+          ? `GROUP_${rawGroupName}_${subgroupCodeKey}`
+          : `CATALOG_${subgroupCodeKey}`;
+
         let targetGroupId: string | null = null;
 
         if (procedureGroupCache.has(groupKey)) {
           targetGroupId = procedureGroupCache.get(groupKey)!;
         } else {
-          // A. Busca por groupCode e subgroupCode exatos
-          if (extGroup !== '00' && extSubgroup !== '00') {
-            const [foundByCode] = await tx
-              .select({ id: schema.procedureGroups.id })
-              .from(schema.procedureGroups)
-              .where(and(
-                eq(schema.procedureGroups.groupCode, extGroup),
-                eq(schema.procedureGroups.subgroupCode, extSubgroup)
-              ))
-              .limit(1);
-            if (foundByCode) targetGroupId = foundByCode.id;
-          }
-
-          // B. Busca por palavra-chave semântica (ex: ULTRASS)
-          if (!targetGroupId && semanticKeyword) {
-            const [foundByKeyword] = await tx
-              .select({ id: schema.procedureGroups.id })
-              .from(schema.procedureGroups)
-              .where(ilike(schema.procedureGroups.name, `%${semanticKeyword}%`))
-              .limit(1);
-            if (foundByKeyword) targetGroupId = foundByKeyword.id;
-          }
-
-          // C. Busca por nome do grupo
-          if (!targetGroupId && rawGroupName) {
+          if (isGroupRequest) {
+            // Busca grupo específico de requisições de grupo (ex: GRUPO - ULTRASSONOGRAFIA)
             const cleanName = rawGroupName.replace(/^GRUPO\s*[-–]\s*/i, '').replace(/\s*[-–]\s*GERAL$/i, '').trim();
-            const [foundByName] = await tx
-              .select({ id: schema.procedureGroups.id })
+            const [foundGroup] = await tx
+              .select({ id: schema.procedureGroups.id, name: schema.procedureGroups.name })
               .from(schema.procedureGroups)
               .where(or(
                 ilike(schema.procedureGroups.name, `%${cleanName}%`),
                 ilike(schema.procedureGroups.name, `%${rawGroupName}%`)
               ))
               .limit(1);
-            if (foundByName) targetGroupId = foundByName.id;
-          }
 
-          // D. Se ainda não existir, cria o grupo de procedimentos correto
-          if (!targetGroupId) {
-            const newGroupId = crypto.randomUUID();
-            let groupNameToCreate = rawGroupName;
-            if (!groupNameToCreate || groupNameToCreate === 'PROCEDIMENTO REGULADO') {
-              groupNameToCreate = extGroup !== '00'
-                ? `SUBGRUPO ${extGroup}.${extSubgroup} - ${mod || 'PROCEDIMENTOS'}`
-                : `GRUPO E-SUS - ${mod || 'GERAL'}`;
+            if (foundGroup) {
+              targetGroupId = foundGroup.id;
+            } else {
+              const newGroupId = crypto.randomUUID();
+              const [created] = await tx
+                .insert(schema.procedureGroups)
+                .values({
+                  id: newGroupId,
+                  name: rawGroupName.startsWith('GRUPO') ? rawGroupName : `GRUPO - ${rawGroupName}`,
+                  groupCode: extGroup !== '00' ? extGroup : '00',
+                  subgroupCode: extSubgroup !== '00' ? extSubgroup : '00',
+                  isActive: true,
+                  createdAt: nowTz,
+                  updatedAt: nowTz,
+                })
+                .returning({ id: schema.procedureGroups.id });
+              targetGroupId = created.id;
             }
+          } else {
+            // Procedimento individual: deve pertencer ao subgrupo SIGTAP padronizado
+            const [foundSubgroup] = await tx
+              .select({ id: schema.procedureGroups.id, name: schema.procedureGroups.name })
+              .from(schema.procedureGroups)
+              .where(and(
+                eq(schema.procedureGroups.groupCode, extGroup),
+                eq(schema.procedureGroups.subgroupCode, extSubgroup)
+              ))
+              .limit(1);
 
-            const [createdGroup] = await tx
-              .insert(schema.procedureGroups)
-              .values({
-                id: newGroupId,
-                name: groupNameToCreate,
-                groupCode: extGroup !== '00' ? extGroup : '00',
-                subgroupCode: extSubgroup !== '00' ? extSubgroup : '00',
-                isActive: true,
-                createdAt: nowTz,
-                updatedAt: nowTz,
-              })
-              .returning({ id: schema.procedureGroups.id });
-
-            targetGroupId = createdGroup.id;
+            if (foundSubgroup) {
+              targetGroupId = foundSubgroup.id;
+              // Se o grupo existente possuía o nome de um exame individual (ex: "COLONOSCOPIA COM BIOPSIA"), renomeia para o nome padronizado
+              if (
+                foundSubgroup.name !== standardCatalogGroupName &&
+                !foundSubgroup.name.toUpperCase().startsWith('GRUPO') &&
+                !foundSubgroup.name.includes(subgroupCodeKey)
+              ) {
+                await tx
+                  .update(schema.procedureGroups)
+                  .set({ name: standardCatalogGroupName, updatedAt: nowTz })
+                  .where(eq(schema.procedureGroups.id, foundSubgroup.id));
+              }
+            } else {
+              const newGroupId = crypto.randomUUID();
+              const [created] = await tx
+                .insert(schema.procedureGroups)
+                .values({
+                  id: newGroupId,
+                  name: standardCatalogGroupName,
+                  groupCode: extGroup !== '00' ? extGroup : '00',
+                  subgroupCode: extSubgroup !== '00' ? extSubgroup : '00',
+                  isActive: true,
+                  createdAt: nowTz,
+                  updatedAt: nowTz,
+                })
+                .returning({ id: schema.procedureGroups.id });
+              targetGroupId = created.id;
+            }
           }
 
           procedureGroupCache.set(groupKey, targetGroupId!);
@@ -797,6 +851,12 @@ export class EsusImportService {
         // ---------------------------------------------------------
         // 7. GRAVAÇÃO DA SOLICITAÇÃO REGULATÓRIA (Upsert Idempotente)
         // ---------------------------------------------------------
+        // O procedureGroupId na requisição regulatória só deve ser preenchido quando for
+        // efetivamente uma requisição de GRUPO (ex: GRUPO - ULTRASSONOGRAFIA).
+        // Para exames/consultas individuais fora de grupo (ex: ENDOSCOPIA DIGESTIVA ALTA, COLONOSCOPIA),
+        // deve ser rigorosamente NULL, para não poluir nem confundir a exibição na regulação.
+        const requestGroupId = isGroupRequest ? (targetGroupId || procedureGroupId) : null;
+
         const [existingReq] = await tx
           .select({ id: schema.regulationRequests.id })
           .from(schema.regulationRequests)
@@ -813,7 +873,7 @@ export class EsusImportService {
               patientId,
               requestingHealthCenterId: healthCenterId,
               procedureId,
-              procedureGroupId: procedureGroupId || targetGroupId!,
+              procedureGroupId: requestGroupId,
               priority,
               status: mappedStatus,
               type: reqType,
@@ -833,7 +893,7 @@ export class EsusImportService {
             requestingHealthCenterId: healthCenterId,
             requestingUserId: userId,
             procedureId,
-            procedureGroupId: procedureGroupId || targetGroupId!,
+            procedureGroupId: requestGroupId,
             type: reqType,
             cid10: cidText,
             clinicalJustification: justificationText,

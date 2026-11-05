@@ -436,7 +436,7 @@ export const OperatorInbox: React.FC = () => {
                       {req.procedure ? req.procedure.name : req.specialty?.name}
                     </span>
                     <span className="text-[11px] text-slate-500">
-                      {req.type} {req.procedureGroup && `• ${req.procedureGroup.name}`}
+                      {req.type} {req.procedureGroup && req.procedureGroup.name !== (req.procedure?.name || req.specialty?.name) && `• ${req.procedureGroup.name}`}
                     </span>
                   </div>
                 </div>
@@ -571,7 +571,7 @@ export const OperatorInbox: React.FC = () => {
                           {req.procedure ? req.procedure.name : req.specialty?.name}
                         </div>
                         <div className="text-[11px] text-slate-500">
-                          {req.type} {req.procedureGroup && `• ${req.procedureGroup.name}`}
+                          {req.type} {req.procedureGroup && req.procedureGroup.name !== (req.procedure?.name || req.specialty?.name) && `• ${req.procedureGroup.name}`}
                         </div>
                       </td>
 

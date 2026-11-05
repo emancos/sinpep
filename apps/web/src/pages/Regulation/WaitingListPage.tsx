@@ -438,7 +438,9 @@ export const WaitingListPage: React.FC = () => {
                         </div>
                         <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
                           <span>{req.type}</span>
-                          {req.procedureGroup && <span>• {req.procedureGroup.name}</span>}
+                          {req.procedureGroup && req.procedureGroup.name !== (req.procedure?.name || req.specialty?.name) && (
+                            <span>• {req.procedureGroup.name}</span>
+                          )}
                           {getPriorityBadge(req.priority)}
                         </div>
                       </td>
