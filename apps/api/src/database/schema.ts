@@ -118,8 +118,9 @@ export const healthAgents = pgTable("health_agents", {
 export const patients = pgTable("patients", {
 	id: uuid().primaryKey().notNull(),
 	name: text().notNull(),
-	cpf: text().notNull(),
+	cpf: text(),
 	cns: text(),
+	email: text(),
 	birthDate: timestamp("birth_date", { precision: 3, mode: 'string' }).notNull(),
 	gender: text().notNull(),
 	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),

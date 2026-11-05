@@ -423,8 +423,10 @@ export const OperatorInbox: React.FC = () => {
                     {req.patient?.name}
                   </div>
                   <div className="text-[11px] text-slate-500 font-mono">
-                    CPF: {formatCPF(req.patient?.cpf)}
-                    {req.patient?.cns && ` • CNS: ${formatCNS(req.patient?.cns)}`} • Origem:{' '}
+                    {req.patient?.cpf && !req.patient.cpf.toUpperCase().startsWith('SUS') && req.patient.cpf.replace(/\D/g, '').length === 11 ? (
+                      <>CPF: {formatCPF(req.patient.cpf)} • </>
+                    ) : null}
+                    {req.patient?.cns && `CNS: ${formatCNS(req.patient?.cns)} • `}Origem:{' '}
                     <span className="font-medium text-slate-700 dark:text-slate-300 font-sans">
                       {req.requestingHealthCenter?.name}
                     </span>
@@ -548,8 +550,10 @@ export const OperatorInbox: React.FC = () => {
                       <td className="px-4 py-3">
                         <div className="font-semibold text-slate-900 dark:text-white">{req.patient?.name}</div>
                         <div className="text-[11px] text-slate-500 font-mono">
-                          CPF: {formatCPF(req.patient?.cpf)}
-                          {req.patient?.cns && ` • CNS: ${formatCNS(req.patient?.cns)}`}
+                          {req.patient?.cpf && !req.patient.cpf.toUpperCase().startsWith('SUS') && req.patient.cpf.replace(/\D/g, '').length === 11 ? (
+                            <>CPF: {formatCPF(req.patient.cpf)} • </>
+                          ) : null}
+                          {req.patient?.cns && `CNS: ${formatCNS(req.patient?.cns)}`}
                         </div>
                       </td>
 

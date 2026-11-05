@@ -46,8 +46,9 @@ export interface PatientAnamnesis {
 export interface Patient {
  id: string;
  name: string;
- cpf: string;
+ cpf?: string | null;
  cns?: string;
+ email?: string | null;
  birthDate: string;
  gender: string;
  attentionLevel: number;

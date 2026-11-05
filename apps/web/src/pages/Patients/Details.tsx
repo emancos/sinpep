@@ -21,17 +21,18 @@ import {
     Calendar,
     Edit,
     Building2,
-    Send
+    Send,
+    Mail
 } from 'lucide-react';
 import { PrescriptionPrintModal } from '../../components/PrescriptionPrintModal';
 import { MedicalCertificateModal } from '../../components/MedicalCertificateModal';
 import { ApacReportModal } from '../../components/ApacReportModal';
 import { MedicalDocumentDropdown } from '../../components/MedicalDocumentDropdown';
 
-const formatCPF = (cpf?: string) => {
-    if (!cpf) return '-';
+const formatCPF = (cpf?: string | null) => {
+    if (!cpf || cpf.toUpperCase().startsWith('SUS') || cpf.toUpperCase().startsWith('TEMP')) return 'Não informado';
     const clean = cpf.replace(/\D/g, '');
-    if (clean.length !== 11) return cpf;
+    if (clean.length !== 11) return 'Não informado';
     return `${clean.slice(0, 3)}.${clean.slice(3, 6)}.${clean.slice(6, 9)}-${clean.slice(9)}`;
 };
 
@@ -280,8 +281,15 @@ export const PatientDetails: React.FC = () => {
 
                             <div>
                                 <span className="text-xs text-slate-500 uppercase block tracking-wider">Cadastrado em</span>
-                                <span className="text-slate-700 dark:text-slate-200 text-sm">{formatDateOnly(patient.createdAt)}</span>
+                                <span className="text-slate-700 dark:text-slate-200 text-sm">{formatDateWithTime(patient.createdAt)}</span>
                             </div>
+
+                            {patient.email && (
+                                <div>
+                                    <span className="text-xs text-slate-500 uppercase block tracking-wider">E-mail</span>
+                                    <span className="text-slate-700 dark:text-slate-200 text-sm">{patient.email}</span>
+                                </div>
+                            )}
 
                             <div className="md:col-span-2 border-t border-slate-300 dark:border-slate-800/40 pt-3 mt-1">
                                 <span className="text-xs text-slate-500 uppercase block tracking-wider">Endereço Residencial</span>
@@ -540,6 +548,18 @@ export const PatientDetails: React.FC = () => {
                         </h2>
 
                         <div className="space-y-3">
+                            {patient.email && (
+                                <div className="flex justify-between items-center bg-white dark:bg-slate-950/40 border border-slate-300 dark:border-slate-800/60 rounded-md p-3.5">
+                                    <div className="flex items-center gap-2.5">
+                                        <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{patient.email}</span>
+                                    </div>
+                                    <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-100 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-600 dark:text-blue-400 rounded-md">
+                                        E-mail
+                                    </span>
+                                </div>
+                            )}
+
                             {patient.phones && patient.phones.length > 0 ? (
                                 patient.phones.map((phone) => (
                                     <div

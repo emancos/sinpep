@@ -28,9 +28,10 @@ import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 
 // Helpers to format CPF and Date
-const formatCPF = (cpf: string) => {
+const formatCPF = (cpf?: string | null) => {
+    if (!cpf) return '-';
     const clean = cpf.replace(/\D/g, '');
-    if (clean.length !== 11) return cpf;
+    if (!cpf || clean.length !== 11 || cpf.toUpperCase().startsWith('SUS')) return '-';
     return `${clean.slice(0, 3)}.${clean.slice(3, 6)}.${clean.slice(6, 9)}-${clean.slice(9)}`;
 };
 
@@ -263,7 +264,7 @@ export const PatientsList: React.FC = () => {
 
                                             <td className="px-2 py-1.5 lg:px-3 lg:py-2.5 space-y-1">
                                                 <div className="text-xs font-mono text-slate-600 dark:text-slate-300">
-                                                    <span className="text-slate-500 font-semibold uppercase tracking-wider">CPF:</span> {formatCPF(patient.cpf)}
+                                                    <span className="text-slate-500 font-semibold uppercase tracking-wider">CPF:</span> {formatCPF(patient.cpf) === '-' ? 'Não informado' : formatCPF(patient.cpf)}
                                                 </div>
                                                 {patient.cns && (
                                                     <div className="text-xs font-mono text-slate-500 dark:text-slate-400">

@@ -4,8 +4,11 @@
 
 export const formatCPF = (cpf?: string | null): string => {
   if (!cpf) return 'Não informado';
+  if (typeof cpf === 'string' && (cpf.toUpperCase().startsWith('SUS') || cpf.toUpperCase().startsWith('TEMP'))) {
+    return 'Não informado';
+  }
   const clean = cpf.replace(/\D/g, '');
-  if (clean.length !== 11) return cpf;
+  if (clean.length !== 11) return 'Não informado';
   return `${clean.slice(0, 3)}.${clean.slice(3, 6)}.${clean.slice(6, 9)}-${clean.slice(9)}`;
 };
 

@@ -166,7 +166,8 @@ const parseAddressString = (addressString?: string | null) => {
     }
 };
 
-const formatCPF = (cpf: string) => {
+const formatCPF = (cpf?: string | null) => {
+    if (!cpf || cpf.toUpperCase().startsWith('SUS')) return '';
     const clean = cpf.replace(/\D/g, '');
     if (clean.length <= 3) return clean;
     if (clean.length <= 6) return `${clean.slice(0, 3)}.${clean.slice(3)}`;
@@ -174,7 +175,8 @@ const formatCPF = (cpf: string) => {
     return `${clean.slice(0, 3)}.${clean.slice(3, 6)}.${clean.slice(6, 9)}-${clean.slice(9, 11)}`;
 };
 
-const formatCNS = (cns: string) => {
+const formatCNS = (cns?: string | null) => {
+    if (!cns) return '';
     const clean = cns.replace(/\D/g, '').slice(0, 15);
     if (clean.length <= 3) return clean;
     if (clean.length <= 7) return `${clean.slice(0, 3)} ${clean.slice(3)}`;
@@ -474,7 +476,7 @@ export const EditPatient: React.FC = () => {
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">Paciente não encontrado</h2>
                 <button
                     onClick={() => navigate('/patients')}
-                    className="mt-2 px-4 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:text-white rounded-md text-sm cursor-pointer shadow-md"
+                    className="mt-2 px-4 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:text-slate-900 rounded-md text-sm cursor-pointer shadow-md"
                 >
                     Voltar para a Lista
                 </button>
@@ -489,13 +491,13 @@ export const EditPatient: React.FC = () => {
                 <button
                     type="button"
                     onClick={() => navigate('/patients')}
-                    className="flex items-center justify-center w-10 h-10 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-all cursor-pointer shadow-md"
+                    className="flex items-center justify-center w-10 h-10 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 transition-all cursor-pointer shadow-md"
                 >
                     <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Editar Paciente</h1>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 font-mono text-xs">ID: {patient.id}</p>
+                    <p className="text-slate-500 dark:text-slate-400 mt-0.5 font-mono text-xs">ID: {patient.id}</p>
                 </div>
             </div>
 
@@ -1082,7 +1084,7 @@ export const EditPatient: React.FC = () => {
                             key="prev-btn"
                             type="button"
                             onClick={handlePrevStep}
-                            className="flex items-center gap-1.5 px-4 py-2 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:text-white rounded-md text-sm font-semibold transition-all cursor-pointer"
+                            className="flex items-center gap-1.5 px-4 py-2 border border-slate-300 hover:border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 rounded-md text-sm font-semibold transition-all cursor-pointer"
                         >
                             <ChevronLeft className="w-4 h-4" />
                             <span>Voltar</span>

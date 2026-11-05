@@ -2,7 +2,7 @@ import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database';
 import { DATABASE_CONNECTION } from '../database/database.constants';
-import { eq, desc, sql, and } from 'drizzle-orm';
+import { eq, desc, sql, and, ilike, or } from 'drizzle-orm';
 import * as crypto from 'crypto';
 
 export interface EsusDocSource {
@@ -69,6 +69,17 @@ export interface EsusDocSource {
   pacienteNoMunicipioResidencia?: string;
   pacienteUfResidencia?: string;
   pacienteCartoes?: Array<{ tpCns?: string; nuCns?: string }>;
+  pacienteTelefones?: Array<{
+    nuDdd?: string;
+    nuTelefone?: string;
+    nuDdi?: string;
+  }>;
+  pacienteEmails?: Array<string | { dsEmail?: string; email?: string; noEmail?: string }>;
+  procedimentos?: Array<{
+    coProcedimentoInterno?: string;
+    noProcedimentoInterno?: string;
+    coProcedimentoSigtap?: string;
+  }>;
   historicoStatus?: Array<{
     nuCpfOperador?: string;
     noOperador?: string;
@@ -88,6 +99,72 @@ export interface CreateImportJobDto {
 export interface ProcessBatchDto {
   jobId?: string;
   hits: Array<{ _id: string; _source: EsusDocSource }>;
+}
+
+/**
+ * Retorna string ISO com data/hora local de São Paulo / Brasil (UTC-3)
+ */
+function getBrazilLocalIso(): string {
+  const now = new Date();
+  const spTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const yyyy = spTime.getFullYear();
+  const mm = String(spTime.getMonth() + 1).padStart(2, '0');
+  const dd = String(spTime.getDate()).padStart(2, '0');
+  const hh = String(spTime.getHours()).padStart(2, '0');
+  const min = String(spTime.getMinutes()).padStart(2, '0');
+  const ss = String(spTime.getSeconds()).padStart(2, '0');
+  const ms = String(spTime.getMilliseconds()).padStart(3, '0');
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}.${ms}`;
+}
+
+/**
+ * Formata número de telefone brasileiro nos formatos (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
+ */
+function formatPhoneNumber(nuDdd?: string, nuTelefone?: string): string | null {
+  const ddd = String(nuDdd || '').replace(/\D/g, '');
+  const num = String(nuTelefone || '').replace(/\D/g, '');
+  if (!num) return null;
+
+  if (ddd) {
+    if (num.length === 9) {
+      return `(${ddd}) ${num.slice(0, 5)}-${num.slice(5)}`;
+    }
+    if (num.length === 8) {
+      return `(${ddd}) ${num.slice(0, 4)}-${num.slice(4)}`;
+    }
+  }
+
+  if (num.length === 11) {
+    return `(${num.slice(0, 2)}) ${num.slice(2, 7)}-${num.slice(7)}`;
+  }
+  if (num.length === 10) {
+    return `(${num.slice(0, 2)}) ${num.slice(2, 6)}-${num.slice(6)}`;
+  }
+
+  if (ddd && num) {
+    return `(${ddd}) ${num}`;
+  }
+
+  return num;
+}
+
+/**
+ * Extrai o primeiro endereço de e-mail válido da lista do e-SUS
+ */
+function extractEmail(pacienteEmails?: any[]): string | null {
+  if (!Array.isArray(pacienteEmails) || pacienteEmails.length === 0) return null;
+  for (const item of pacienteEmails) {
+    if (typeof item === 'string' && item.includes('@')) {
+      return item.trim().toLowerCase();
+    }
+    if (item && typeof item === 'object') {
+      const email = item.dsEmail || item.email || item.noEmail;
+      if (typeof email === 'string' && email.includes('@')) {
+        return email.trim().toLowerCase();
+      }
+    }
+  }
+  return null;
 }
 
 @Injectable()
@@ -238,6 +315,9 @@ export class EsusImportService {
     const procedureCache = new Map<string, { id: string; groupId: string }>(); // code/name -> { id, groupId }
     const procedureGroupCache = new Map<string, string>(); // groupCode.subgroupCode -> id
 
+    // Data/hora local brasileira para auditoria e timestamps do lote
+    const nowTz = getBrazilLocalIso();
+
     // Busca unidade padrão municipal caso CNES venha vazio
     const defaultCenter = await this.db.query.healthCenters.findFirst();
     const defaultCenterId = defaultCenter?.id || crypto.randomUUID();
@@ -289,8 +369,8 @@ export class EsusImportService {
                 coUf: String(src.coUfCentralSolicitante || '25'),
                 sgUf: src.sgUfCentralSolicitante || 'PB',
                 tpGestao: 'MUNICIPAL',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
+                createdAt: nowTz,
+                updatedAt: nowTz,
               });
 
               healthCenterId = newCenterId;
@@ -300,20 +380,22 @@ export class EsusImportService {
         }
 
         // ---------------------------------------------------------
-        // 3. PACIENTE: Deduplicação e Ingestão
+        // 3. PACIENTE: Deduplicação e Ingestão (Telefones, E-mail, CPF Limpo)
         // ---------------------------------------------------------
-        const rawCpf = (src.pacienteNuCpf || '').replace(/\D/g, '');
-        const rawCns = (src.pacienteNuCns || src.pacienteCartoes?.[0]?.nuCns || '').replace(/\D/g, '');
+        const rawCpf = String(src.pacienteNuCpf || (src as any).nuCpf || (src as any).cpf || '').replace(/\D/g, '');
+        const validCpf = rawCpf.length === 11 ? rawCpf : null;
+        const rawCns = String(src.pacienteNuCns || (src as any).nuCns || (src as any).cns || src.pacienteCartoes?.[0]?.nuCns || '').replace(/\D/g, '');
         const patientName = (src.pacienteNome || 'NÃO INFORMADO').trim().toUpperCase();
+        const emailToSave = extractEmail(src.pacienteEmails);
 
         let patientId: string = crypto.randomUUID();
         let existingPatient: typeof schema.patients.$inferSelect | null = null;
 
-        if (rawCpf && rawCpf.length === 11) {
+        if (validCpf) {
           const [found] = await tx
             .select()
             .from(schema.patients)
-            .where(eq(schema.patients.cpf, rawCpf))
+            .where(eq(schema.patients.cpf, validCpf))
             .limit(1);
           if (found) existingPatient = found;
         }
@@ -343,10 +425,11 @@ export class EsusImportService {
           const updates: Partial<typeof schema.patients.$inferInsert> = {};
           if (!existingPatient.cns && rawCns) updates.cns = rawCns;
           if (!existingPatient.address && fullAddress) updates.address = fullAddress;
-          if (!existingPatient.cpf && rawCpf.length === 11) updates.cpf = rawCpf;
+          if (!existingPatient.cpf && validCpf) updates.cpf = validCpf;
+          if (!(existingPatient as any).email && emailToSave) (updates as any).email = emailToSave;
 
           if (Object.keys(updates).length > 0) {
-            updates.updatedAt = new Date().toISOString();
+            updates.updatedAt = nowTz;
             await tx
               .update(schema.patients)
               .set(updates)
@@ -354,31 +437,59 @@ export class EsusImportService {
             patientsUpdated++;
           }
         } else {
-          // Cria novo paciente no SINPeP
-          let birthDateStr = new Date('1980-01-01').toISOString();
+          // Cria novo paciente no SINPeP (CPF pode ser nulo se paciente só possuir CNS)
+          let birthDateStr = '1980-01-01T00:00:00.000Z';
           if (src.pacienteDtNascimento) {
             const parsed = new Date(src.pacienteDtNascimento);
             if (!isNaN(parsed.getTime())) birthDateStr = parsed.toISOString();
           }
 
-          // Se não houver CPF, gera um identificador único provisório baseado no CNS ou UUID
-          const cpfToUse = rawCpf.length === 11 ? rawCpf : `SUS${rawCns || patientId.replace(/\D/g, '').slice(0, 11)}`;
-
           await tx.insert(schema.patients).values({
             id: patientId,
             name: patientName,
-            cpf: cpfToUse,
+            cpf: validCpf,
             cns: rawCns || null,
+            email: emailToSave,
             birthDate: birthDateStr,
             gender: src.pacienteCoSexo === 'F' ? 'F' : 'M',
             address: fullAddress || null,
             healthCenterId,
             attentionLevel: 1,
             isActive: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
+            createdAt: nowTz,
+            updatedAt: nowTz,
+          } as any);
           patientsCreated++;
+        }
+
+        // 3.1 IMPORTAÇÃO DE TELEFONES DO PACIENTE (com máscara (XX) XXXXX-XXXX / (XX) XXXX-XXXX)
+        const existingPhones = await tx
+          .select({ phoneNumber: schema.patientPhones.phoneNumber })
+          .from(schema.patientPhones)
+          .where(eq(schema.patientPhones.patientId, patientId));
+        const existingPhoneSet = new Set(existingPhones.map((p: any) => p.phoneNumber));
+
+        if (Array.isArray(src.pacienteTelefones) && src.pacienteTelefones.length > 0) {
+          for (const tel of src.pacienteTelefones) {
+            const formatted = formatPhoneNumber(tel.nuDdd, tel.nuTelefone);
+            if (formatted && !existingPhoneSet.has(formatted)) {
+              const cleanDigits = formatted.replace(/\D/g, '');
+              const isMobile = cleanDigits.length === 11 || (cleanDigits.length === 9 && cleanDigits.startsWith('9'));
+              try {
+                await tx.insert(schema.patientPhones).values({
+                  id: crypto.randomUUID(),
+                  patientId,
+                  phoneNumber: formatted,
+                  isWhatsapp: isMobile,
+                  createdAt: nowTz,
+                  updatedAt: nowTz,
+                });
+                existingPhoneSet.add(formatted);
+              } catch {
+                // Silencia duplicatas eventuais de telefone
+              }
+            }
+          }
         }
 
         // ---------------------------------------------------------
@@ -411,10 +522,153 @@ export class EsusImportService {
         }
 
         // ---------------------------------------------------------
-        // 5. PROCEDIMENTO / SIGTAP: Buscar ou Auto-Provisionar
+        // 5. PROCEDIMENTO / GRUPO: Resolução Precisa de Procedimentos de Grupo
         // ---------------------------------------------------------
-        const sigtapCode = (src.coProcedimentoSigtap || src.coProcedimentoInterno || '').trim();
-        const procName = (src.noProcedimentoInterno || 'PROCEDIMENTO REGULADO').trim().toUpperCase();
+        // Quando a requisição faz parte de um grupo (ex: GRUPO - ULTRASSONOGRAFIA),
+        // o e-SUS envia as informações do grupo em coProcedimentoInterno / noProcedimentoInterno,
+        // e o procedimento real solicitado no array aninhado "procedimentos".
+        const hasProceduresArray = Array.isArray(src.procedimentos) && src.procedimentos.length > 0;
+        const rawGroupCode = String(src.coProcedimentoInterno || '').trim();
+        const rawGroupName = String(src.noProcedimentoInterno || '').trim().toUpperCase();
+
+        let procName: string;
+        let sigtapCode: string;
+
+        if (hasProceduresArray) {
+          const specific = src.procedimentos![0];
+          procName = (specific.noProcedimentoInterno || rawGroupName || 'PROCEDIMENTO REGULADO').trim().toUpperCase();
+          sigtapCode = (specific.coProcedimentoSigtap || specific.coProcedimentoInterno || src.coProcedimentoSigtap || rawGroupCode || '').trim();
+        } else {
+          procName = (rawGroupName || 'PROCEDIMENTO REGULADO').trim().toUpperCase();
+          sigtapCode = (src.coProcedimentoSigtap || rawGroupCode || '').trim();
+        }
+
+        const mod = (src.noModulo || '').toUpperCase();
+        let extGroup = '00';
+        let extSubgroup = '00';
+
+        // 5.1 Extração de códigos de grupo/subgrupo SIGTAP
+        if (sigtapCode && sigtapCode.replace(/\D/g, '').length >= 4) {
+          const digits = sigtapCode.replace(/\D/g, '');
+          extGroup = digits.slice(0, 2);
+          extSubgroup = digits.slice(2, 4);
+        }
+
+        // Tratamento de códigos internos de grupos com 8 dígitos (ex: 20500000 -> Grupo 02, Subgrupo 05)
+        if (extGroup === '00' && rawGroupCode && rawGroupCode.replace(/\D/g, '').length === 8) {
+          const digits = rawGroupCode.replace(/\D/g, '');
+          if (digits.startsWith('2')) {
+            extGroup = '02';
+            extSubgroup = digits.slice(1, 3);
+          } else if (digits.startsWith('3')) {
+            extGroup = '03';
+            extSubgroup = digits.slice(1, 3);
+          }
+        }
+
+        // 5.2 Identificação semântica de palavras-chave
+        let semanticKeyword: string | null = null;
+        const combinedNames = `${rawGroupName} ${procName}`.toUpperCase();
+        if (combinedNames.includes('ULTRASS')) {
+          semanticKeyword = 'ULTRASS';
+          if (extGroup === '00') { extGroup = '02'; extSubgroup = '05'; }
+        } else if (combinedNames.includes('TOMOGRAFIA')) {
+          semanticKeyword = 'TOMOGRAFIA';
+          if (extGroup === '00') { extGroup = '02'; extSubgroup = '06'; }
+        } else if (combinedNames.includes('RESSON')) {
+          semanticKeyword = 'RESSON';
+          if (extGroup === '00') { extGroup = '02'; extSubgroup = '07'; }
+        } else if (combinedNames.includes('RADIOLOG') || combinedNames.includes('RAIO-X') || combinedNames.includes('RADIOGRAFIA')) {
+          semanticKeyword = 'RADIOLOG';
+          if (extGroup === '00') { extGroup = '02'; extSubgroup = '04'; }
+        } else if (combinedNames.includes('MAMOGRAF')) {
+          semanticKeyword = 'MAMOGRAF';
+          if (extGroup === '00') { extGroup = '02'; extSubgroup = '04'; }
+        } else if (combinedNames.includes('ENDOSCOP')) {
+          semanticKeyword = 'ENDOSCOP';
+          if (extGroup === '00') { extGroup = '02'; extSubgroup = '09'; }
+        } else if (combinedNames.includes('COLONOSCOP')) {
+          semanticKeyword = 'COLONOSCOP';
+          if (extGroup === '00') { extGroup = '02'; extSubgroup = '09'; }
+        } else if (combinedNames.includes('CONSULTA') || mod.includes('CONSULTA')) {
+          semanticKeyword = 'CONSULTA';
+          if (extGroup === '00') { extGroup = '03'; extSubgroup = '01'; }
+        }
+
+        // 5.3 Resolução do Grupo de Procedimentos
+        const groupKey = `${extGroup}.${extSubgroup}_${semanticKeyword || rawGroupName || mod}`;
+        let targetGroupId: string | null = null;
+
+        if (procedureGroupCache.has(groupKey)) {
+          targetGroupId = procedureGroupCache.get(groupKey)!;
+        } else {
+          // A. Busca por groupCode e subgroupCode exatos
+          if (extGroup !== '00' && extSubgroup !== '00') {
+            const [foundByCode] = await tx
+              .select({ id: schema.procedureGroups.id })
+              .from(schema.procedureGroups)
+              .where(and(
+                eq(schema.procedureGroups.groupCode, extGroup),
+                eq(schema.procedureGroups.subgroupCode, extSubgroup)
+              ))
+              .limit(1);
+            if (foundByCode) targetGroupId = foundByCode.id;
+          }
+
+          // B. Busca por palavra-chave semântica (ex: ULTRASS)
+          if (!targetGroupId && semanticKeyword) {
+            const [foundByKeyword] = await tx
+              .select({ id: schema.procedureGroups.id })
+              .from(schema.procedureGroups)
+              .where(ilike(schema.procedureGroups.name, `%${semanticKeyword}%`))
+              .limit(1);
+            if (foundByKeyword) targetGroupId = foundByKeyword.id;
+          }
+
+          // C. Busca por nome do grupo
+          if (!targetGroupId && rawGroupName) {
+            const cleanName = rawGroupName.replace(/^GRUPO\s*[-–]\s*/i, '').replace(/\s*[-–]\s*GERAL$/i, '').trim();
+            const [foundByName] = await tx
+              .select({ id: schema.procedureGroups.id })
+              .from(schema.procedureGroups)
+              .where(or(
+                ilike(schema.procedureGroups.name, `%${cleanName}%`),
+                ilike(schema.procedureGroups.name, `%${rawGroupName}%`)
+              ))
+              .limit(1);
+            if (foundByName) targetGroupId = foundByName.id;
+          }
+
+          // D. Se ainda não existir, cria o grupo de procedimentos correto
+          if (!targetGroupId) {
+            const newGroupId = crypto.randomUUID();
+            let groupNameToCreate = rawGroupName;
+            if (!groupNameToCreate || groupNameToCreate === 'PROCEDIMENTO REGULADO') {
+              groupNameToCreate = extGroup !== '00'
+                ? `SUBGRUPO ${extGroup}.${extSubgroup} - ${mod || 'PROCEDIMENTOS'}`
+                : `GRUPO E-SUS - ${mod || 'GERAL'}`;
+            }
+
+            const [createdGroup] = await tx
+              .insert(schema.procedureGroups)
+              .values({
+                id: newGroupId,
+                name: groupNameToCreate,
+                groupCode: extGroup !== '00' ? extGroup : '00',
+                subgroupCode: extSubgroup !== '00' ? extSubgroup : '00',
+                isActive: true,
+                createdAt: nowTz,
+                updatedAt: nowTz,
+              })
+              .returning({ id: schema.procedureGroups.id });
+
+            targetGroupId = createdGroup.id;
+          }
+
+          procedureGroupCache.set(groupKey, targetGroupId!);
+        }
+
+        // 5.4 Resolução do Procedimento Específico
         let procedureId: string | null = null;
         let procedureGroupId: string | null = null;
 
@@ -427,7 +681,7 @@ export class EsusImportService {
           procedureId = cached.id;
           procedureGroupId = cached.groupId;
         } else {
-          // Tenta localizar por código SIGTAP
+          // Busca procedimento por código SIGTAP
           if (sigtapCode) {
             const [foundProc] = await tx
               .select({ id: schema.procedures.id, procedureGroupId: schema.procedures.procedureGroupId })
@@ -437,13 +691,10 @@ export class EsusImportService {
             if (foundProc) {
               procedureId = foundProc.id;
               procedureGroupId = foundProc.procedureGroupId;
-              const cachedObj = { id: foundProc.id, groupId: foundProc.procedureGroupId };
-              procedureCache.set(sigtapCode, cachedObj);
-              procedureCache.set(procName, cachedObj);
             }
           }
 
-          // Se não encontrou por código, tenta por nome
+          // Se não encontrou por código, busca por nome exato
           if (!procedureId && procName) {
             const [foundProc] = await tx
               .select({ id: schema.procedures.id, procedureGroupId: schema.procedures.procedureGroupId })
@@ -453,88 +704,23 @@ export class EsusImportService {
             if (foundProc) {
               procedureId = foundProc.id;
               procedureGroupId = foundProc.procedureGroupId;
-              const cachedObj = { id: foundProc.id, groupId: foundProc.procedureGroupId };
-              procedureCache.set(procName, cachedObj);
-              if (sigtapCode) procedureCache.set(sigtapCode, cachedObj);
             }
           }
 
-          // Se ainda não existir, resolve/cria o grupo de procedimento e provisiona o procedimento
+          // Se o procedimento existia mas estava com grupo incorreto (ex: Ultrassonografia ligada a Tomografia), atualiza
+          if (procedureId && targetGroupId && procedureGroupId !== targetGroupId && semanticKeyword) {
+            await tx
+              .update(schema.procedures)
+              .set({ procedureGroupId: targetGroupId, updatedAt: nowTz })
+              .where(eq(schema.procedures.id, procedureId));
+            procedureGroupId = targetGroupId;
+          }
+
+          // Se não existir, provisiona o procedimento com o grupo correto
           if (!procedureId) {
-            const mod = (src.noModulo || '').toUpperCase();
-            const groupCode = sigtapCode && sigtapCode.length >= 4 ? sigtapCode.slice(0, 2) : '00';
-            const subgroupCode = sigtapCode && sigtapCode.length >= 4 ? sigtapCode.slice(2, 4) : '00';
-            const groupKey = `${groupCode}.${subgroupCode}`;
-
-            let targetGroupId: string | null = null;
-            if (procedureGroupCache.has(groupKey)) {
-              targetGroupId = procedureGroupCache.get(groupKey)!;
-            } else {
-              // 1. Tenta por groupCode e subgroupCode exatos
-              if (groupCode !== '00') {
-                const [foundGroup] = await tx
-                  .select({ id: schema.procedureGroups.id })
-                  .from(schema.procedureGroups)
-                  .where(and(
-                    eq(schema.procedureGroups.groupCode, groupCode),
-                    eq(schema.procedureGroups.subgroupCode, subgroupCode),
-                  ))
-                  .limit(1);
-                if (foundGroup) {
-                  targetGroupId = foundGroup.id;
-                }
-              }
-
-              // 2. Se for consulta, tenta achar grupo de consultas (03)
-              if (!targetGroupId && mod.includes('CONSULTA')) {
-                const [consultasGroup] = await tx
-                  .select({ id: schema.procedureGroups.id })
-                  .from(schema.procedureGroups)
-                  .where(eq(schema.procedureGroups.groupCode, '03'))
-                  .limit(1);
-                if (consultasGroup) {
-                  targetGroupId = consultasGroup.id;
-                }
-              }
-
-              // 3. Se ainda não encontrou, tenta qualquer grupo existente ou cria um novo
-              if (!targetGroupId) {
-                const [anyGroup] = await tx
-                  .select({ id: schema.procedureGroups.id })
-                  .from(schema.procedureGroups)
-                  .limit(1);
-                if (anyGroup) {
-                  targetGroupId = anyGroup.id;
-                }
-              }
-
-              if (!targetGroupId) {
-                const newGroupId = crypto.randomUUID();
-                const groupName = groupCode !== '00'
-                  ? `SUBGRUPO ${groupCode}.${subgroupCode} - ${mod || 'PROCEDIMENTOS'}`
-                  : `GRUPO E-SUS - ${mod || 'GERAL'}`;
-
-                const [createdGroup] = await tx
-                  .insert(schema.procedureGroups)
-                  .values({
-                    id: newGroupId,
-                    name: groupName,
-                    groupCode: groupCode !== '00' ? groupCode : '00',
-                    subgroupCode: subgroupCode !== '00' ? subgroupCode : '00',
-                    isActive: true,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  })
-                  .returning({ id: schema.procedureGroups.id });
-
-                targetGroupId = createdGroup.id;
-              }
-
-              procedureGroupCache.set(groupKey, targetGroupId!);
-            }
-
-            const finalGroupId: string = targetGroupId!;
             const newProcId = crypto.randomUUID();
+            const finalGroupId: string = targetGroupId!;
+
             await tx.insert(schema.procedures).values({
               id: newProcId,
               code: sigtapCode || `INT-${newProcId.slice(0, 8)}`,
@@ -542,16 +728,17 @@ export class EsusImportService {
               procedureGroupId: finalGroupId,
               requiresRegulation: true,
               isActive: true,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
+              createdAt: nowTz,
+              updatedAt: nowTz,
             });
 
             procedureId = newProcId;
             procedureGroupId = finalGroupId;
-            const cachedObj = { id: newProcId, groupId: finalGroupId };
-            if (sigtapCode) procedureCache.set(sigtapCode, cachedObj);
-            procedureCache.set(procName, cachedObj);
           }
+
+          const cachedObj = { id: procedureId, groupId: procedureGroupId || targetGroupId! };
+          if (sigtapCode) procedureCache.set(sigtapCode, cachedObj);
+          procedureCache.set(procName, cachedObj);
         }
 
         // ---------------------------------------------------------
@@ -596,11 +783,13 @@ export class EsusImportService {
           ? `${src.coCid}${src.noCid ? ` - ${src.noCid}` : ''}`
           : 'R69 - Causas desconhecidas e não especificadas de morbidade';
 
-        // Data de criação
-        let createdAtDate = new Date().toISOString();
+        // Data de criação preservando timezone local
+        let createdAtDate = nowTz;
         if (src.dtSolicitacao) {
-          const parsed = new Date(src.dtSolicitacao.replace(' ', 'T'));
-          if (!isNaN(parsed.getTime())) createdAtDate = parsed.toISOString();
+          const cleanDt = src.dtSolicitacao.trim().replace(' ', 'T');
+          if (!isNaN(new Date(cleanDt).getTime())) {
+            createdAtDate = cleanDt.includes('T') ? cleanDt : `${cleanDt}T00:00:00`;
+          }
         }
 
         const protocol = String(src.coSolicitacao).trim();
@@ -624,14 +813,14 @@ export class EsusImportService {
               patientId,
               requestingHealthCenterId: healthCenterId,
               procedureId,
-              procedureGroupId,
+              procedureGroupId: procedureGroupId || targetGroupId!,
               priority,
               status: mappedStatus,
               type: reqType,
               cid10: cidText,
               clinicalJustification: justificationText,
               clinicalHistory: clinicalHistoryText,
-              updatedAt: new Date().toISOString(),
+              updatedAt: nowTz,
             })
             .where(eq(schema.regulationRequests.id, finalRequestId));
           requestsUpdated++;
@@ -644,7 +833,7 @@ export class EsusImportService {
             requestingHealthCenterId: healthCenterId,
             requestingUserId: userId,
             procedureId,
-            procedureGroupId,
+            procedureGroupId: procedureGroupId || targetGroupId!,
             type: reqType,
             cid10: cidText,
             clinicalJustification: justificationText,
@@ -652,7 +841,7 @@ export class EsusImportService {
             priority,
             status: mappedStatus,
             createdAt: createdAtDate,
-            updatedAt: new Date().toISOString(),
+            updatedAt: nowTz,
           });
           requestsCreated++;
         }
@@ -664,10 +853,12 @@ export class EsusImportService {
           for (const hist of src.historicoStatus) {
             if (!hist.dsJustificativa) continue;
             try {
-              let histDate = new Date().toISOString();
+              let histDate = nowTz;
               if (hist.dtHistorico) {
-                const parsed = new Date(hist.dtHistorico.replace(' ', 'T'));
-                if (!isNaN(parsed.getTime())) histDate = parsed.toISOString();
+                const cleanDt = hist.dtHistorico.trim().replace(' ', 'T');
+                if (!isNaN(new Date(cleanDt).getTime())) {
+                  histDate = cleanDt.includes('T') ? cleanDt : `${cleanDt}T00:00:00`;
+                }
               }
 
               await tx.insert(schema.regulationStatusHistory).values({
@@ -697,7 +888,7 @@ export class EsusImportService {
             requestsCreated: sql`${schema.esusImportJobs.requestsCreated} + ${requestsCreated}`,
             requestsUpdated: sql`${schema.esusImportJobs.requestsUpdated} + ${requestsUpdated}`,
             requestsSkippedStatus: sql`${schema.esusImportJobs.requestsSkippedStatus} + ${requestsSkippedStatus}`,
-            updatedAt: new Date().toISOString(),
+            updatedAt: nowTz,
           })
           .where(eq(schema.esusImportJobs.id, dto.jobId));
       }

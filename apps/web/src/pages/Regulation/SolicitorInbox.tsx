@@ -437,7 +437,10 @@ export const SolicitorInbox: React.FC = () => {
                     {req.patient?.name}
                   </div>
                   <div className="text-[11px] text-slate-500 font-mono">
-                    CPF: {formatCPF(req.patient?.cpf)} • CNS: {formatCNS(req.patient?.cns)}
+                    {req.patient?.cpf && !req.patient.cpf.toUpperCase().startsWith('SUS') && req.patient.cpf.replace(/\D/g, '').length === 11 ? (
+                      <>CPF: {formatCPF(req.patient.cpf)} • </>
+                    ) : null}
+                    CNS: {formatCNS(req.patient?.cns)}
                   </div>
                   <div className="pt-1">
                     <span className="text-xs font-medium text-slate-800 dark:text-slate-200 block">
@@ -574,7 +577,10 @@ export const SolicitorInbox: React.FC = () => {
                             {req.patient?.name}
                           </div>
                           <div className="text-xs text-slate-500 font-mono">
-                            CPF: {formatCPF(req.patient?.cpf)} • CNS: {formatCNS(req.patient?.cns)}
+                            {req.patient?.cpf && !req.patient.cpf.toUpperCase().startsWith('SUS') && req.patient.cpf.replace(/\D/g, '').length === 11 ? (
+                              <>CPF: {formatCPF(req.patient.cpf)} • </>
+                            ) : null}
+                            CNS: {formatCNS(req.patient?.cns)}
                           </div>
                         </td>
 

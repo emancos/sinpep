@@ -192,6 +192,38 @@ export class DatabaseMigrationService implements OnModuleInit {
           created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+
+        -- Ajustes na tabela patients para importação flexível do e-SUS (CPF nulo e coluna de e-mail)
+        ALTER TABLE patients ALTER COLUMN cpf DROP NOT NULL;
+        ALTER TABLE patients ADD COLUMN IF NOT EXISTS email TEXT;
+        UPDATE patients SET cpf = NULL WHERE cpf LIKE 'SUS%' OR cpf LIKE 'TEMP%';
+      `);
+
+      // Garante grupo de Ultrassonografia se não existir e corrige procedimentos vinculados erroneamente a tomografia
+      await this.db.execute(sql`
+        DO $$
+        DECLARE
+          v_usg_group_id UUID;
+        BEGIN
+          SELECT id INTO v_usg_group_id FROM procedure_groups WHERE name ILIKE '%ULTRASS%' LIMIT 1;
+          IF v_usg_group_id IS NULL THEN
+            v_usg_group_id := gen_random_uuid();
+            INSERT INTO procedure_groups (id, name, group_code, subgroup_code, is_active, created_at, updated_at)
+            VALUES (v_usg_group_id, '02.05 - GRUPO - ULTRASSONOGRAFIA', '02', '05', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+          END IF;
+
+          -- Corrige procedimentos de ultrassonografia que foram vinculados a tomografia
+          UPDATE procedures 
+          SET procedure_group_id = v_usg_group_id 
+          WHERE name ILIKE '%ULTRASS%' AND procedure_group_id IN (
+            SELECT id FROM procedure_groups WHERE name ILIKE '%TOMOGRAFIA%'
+          );
+
+          -- Atualiza requisições de regulação correspondentes
+          UPDATE regulation_requests
+          SET procedure_group_id = v_usg_group_id
+          WHERE procedure_id IN (SELECT id FROM procedures WHERE procedure_group_id = v_usg_group_id);
+        END $$;
       `);
 
       this.logger.log('Database migrations for procedures, quotas, auto-scheduling & esus import applied successfully.');

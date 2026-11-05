@@ -29,6 +29,14 @@ import {
 } from '../../services/esusImport';
 import { toast } from 'sonner';
 
+function getLocalTodayStr(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export const EsusImportPage: React.FC = () => {
   const { data: config, isLoading: isConfigLoading } = useEsusConfig();
   const { data: jobs = [], isLoading: isJobsLoading } = useEsusImportJobs();
@@ -43,7 +51,7 @@ export const EsusImportPage: React.FC = () => {
 
   // Form State
   const [startDate, setStartDate] = useState('2025-05-01');
-  const [endDate, setEndDate] = useState((): string => new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate] = useState(getLocalTodayStr);
   const [dateField, setDateField] = useState<EsusDateFieldType>('dtSolicitacao');
   const [batchSize, setBatchSize] = useState<number>(1000);
 
@@ -90,7 +98,7 @@ export const EsusImportPage: React.FC = () => {
 
   const setPreset = (preset: 'DEFAULT' | '12_MONTHS' | '6_MONTHS' | '30_DAYS' | 'ALL_TIME') => {
     const today = new Date();
-    const endStr = today.toISOString().split('T')[0];
+    const endStr = getLocalTodayStr();
 
     if (preset === 'ALL_TIME') {
       setDateField('all');

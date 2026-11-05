@@ -98,7 +98,7 @@ export class ReceptionService {
       if (cpfs.length > 0) {
         const patients = await this.db.select({ id: schema.patients.id, cpf: schema.patients.cpf }).from(schema.patients).where(inArray(schema.patients.cpf, cpfs));
         localPatients = patients.reduce((acc, p) => {
-          acc[p.cpf] = p.id;
+          if (p.cpf) acc[p.cpf] = p.id;
           return acc;
         }, {} as Record<string, string>);
       }

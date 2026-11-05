@@ -25,7 +25,7 @@ import axios from 'axios';
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-function formatCpf(cpf?: string) {
+function formatCpf(cpf?: string | null) {
   if (!cpf) return 'N/A';
   const clean = cpf.replace(/\D/g, '');
   if (clean.length === 11) {
