@@ -668,6 +668,12 @@ export class EsusImportService {
 
             if (foundGroup) {
               targetGroupId = foundGroup.id;
+              if (foundGroup.name.startsWith('02.05') || foundGroup.name.includes('02.05')) {
+                await tx
+                  .update(schema.procedureGroups)
+                  .set({ name: rawGroupName, updatedAt: nowTz })
+                  .where(eq(schema.procedureGroups.id, foundGroup.id));
+              }
             } else {
               const newGroupId = crypto.randomUUID();
               const [created] = await tx

@@ -209,7 +209,11 @@ export class DatabaseMigrationService implements OnModuleInit {
           IF v_usg_group_id IS NULL THEN
             v_usg_group_id := gen_random_uuid();
             INSERT INTO procedure_groups (id, name, group_code, subgroup_code, is_active, created_at, updated_at)
-            VALUES (v_usg_group_id, '02.05 - GRUPO - ULTRASSONOGRAFIA', '02', '05', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+            VALUES (v_usg_group_id, 'GRUPO - ULTRASSONOGRAFIA - GERAL', '02', '05', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+          ELSE
+            UPDATE procedure_groups 
+            SET name = 'GRUPO - ULTRASSONOGRAFIA - GERAL' 
+            WHERE id = v_usg_group_id AND (name = '02.05 - GRUPO - ULTRASSONOGRAFIA' OR name ILIKE '%02.05%ULTRASS%');
           END IF;
 
           -- Corrige procedimentos de ultrassonografia que foram vinculados a tomografia
@@ -242,6 +246,10 @@ export class DatabaseMigrationService implements OnModuleInit {
         UPDATE procedure_groups 
         SET name = '02.11 - MÉTODOS DIAGNÓSTICOS EM ESPECIALIDADES' 
         WHERE (group_code = '02' AND subgroup_code = '11' AND name NOT ILIKE '%GRUPO%' AND name NOT ILIKE '%02.%') OR name ILIKE '%HOLTER%';
+
+        UPDATE procedure_groups 
+        SET name = 'GRUPO - ULTRASSONOGRAFIA - GERAL' 
+        WHERE name = '02.05 - GRUPO - ULTRASSONOGRAFIA' OR name ILIKE '%02.05%ULTRASS%';
 
         -- 2. Corrige catálogo de procedures para Holter e EEG
         UPDATE procedures
