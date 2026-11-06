@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Search,
@@ -16,6 +16,9 @@ import {
   Sparkles,
   Sliders,
   Download,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react';
 import {
   useRegulationInbox,
@@ -31,6 +34,7 @@ import { ScheduleRegulationModal } from './ScheduleRegulationModal';
 import { RequestDetailsModal } from './RequestDetailsModal';
 import { BookSlotModal } from './BookSlotModal';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
+import { TablePagination } from '../../components/TablePagination';
 import { useAuthStore } from '../../store/useAuthStore';
 import { formatCPF, formatCNS } from '../../utils/brazilianFormatters';
 import { toast } from 'sonner';
@@ -80,9 +84,15 @@ export const OperatorInbox: React.FC = () => {
 
       if (searchTerm.trim()) {
         const s = searchTerm.toLowerCase();
+        const cleanDigits = s.replace(/\D/g, '');
         const matchesProtocol = (req.protocolNumber || '').toLowerCase().includes(s);
         const matchesPatient = (req.patient?.name || '').toLowerCase().includes(s);
-        const matchesCpf = (req.patient?.cpf || '').includes(s);
+        const matchesCpf =
+          (req.patient?.cpf || '').toLowerCase().includes(s) ||
+          (cleanDigits.length > 2 && (req.patient?.cpf || '').replace(/\D/g, '').includes(cleanDigits));
+        const matchesCns =
+          (req.patient?.cns || '').toLowerCase().includes(s) ||
+          (cleanDigits.length > 2 && (req.patient?.cns || '').replace(/\D/g, '').includes(cleanDigits));
         const matchesToken = (req.confirmationToken || '').toLowerCase().includes(s);
         const matchesItem = (req.procedure?.name || req.specialty?.name || '').toLowerCase().includes(s);
         const matchesGroup = (req.procedureGroup?.name || '').toLowerCase().includes(s);
@@ -96,6 +106,7 @@ export const OperatorInbox: React.FC = () => {
           matchesProtocol ||
           matchesPatient ||
           matchesCpf ||
+          matchesCns ||
           matchesToken ||
           matchesItem ||
           matchesGroup ||
@@ -106,6 +117,108 @@ export const OperatorInbox: React.FC = () => {
       return true;
     });
   }, [requests, statusFilter, typeFilter, priorityFilter, requestingCenterFilter, searchTerm]);
+
+  // Sorting & Pagination States (Estilo Listagem de Pacientes)
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+    setPage(1);
+  };
+
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, typeFilter, priorityFilter, requestingCenterFilter, searchTerm]);
+
+  // Lista ordenada
+  const sortedRequests = useMemo(() => {
+    const list = [...filteredRequests];
+    list.sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'protocolNumber':
+          comparison = (a.protocolNumber || '').localeCompare(b.protocolNumber || '');
+          break;
+        case 'patient':
+          comparison = (a.patient?.name || '').localeCompare(b.patient?.name || '');
+          break;
+        case 'requestingHealthCenter': {
+          const nameA = a.requestingHealthCenter?.name || '';
+          const nameB = b.requestingHealthCenter?.name || '';
+          comparison = nameA.localeCompare(nameB);
+          break;
+        }
+        case 'procedure': {
+          const nameA = a.procedureGroup?.name || a.procedure?.name || a.specialty?.name || '';
+          const nameB = b.procedureGroup?.name || b.procedure?.name || b.specialty?.name || '';
+          comparison = nameA.localeCompare(nameB);
+          break;
+        }
+        case 'priority': {
+          const priorityWeight: Record<string, number> = {
+            URGENCIA: 3,
+            PRIORITARIO: 2,
+            ELETIVO: 1,
+          };
+          comparison = (priorityWeight[a.priority] || 0) - (priorityWeight[b.priority] || 0);
+          break;
+        }
+        case 'status':
+          comparison = (a.status || '').localeCompare(b.status || '');
+          break;
+        case 'token':
+          comparison = (a.confirmationToken || '').localeCompare(b.confirmationToken || '');
+          break;
+        case 'createdAt':
+        default: {
+          const timeA = new Date(a.createdAt).getTime();
+          const timeB = new Date(b.createdAt).getTime();
+          comparison = timeA - timeB;
+          break;
+        }
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+    return list;
+  }, [filteredRequests, sortBy, sortOrder]);
+
+  const total = sortedRequests.length;
+
+  const paginatedRequests = useMemo(() => {
+    const start = (page - 1) * limit;
+    return sortedRequests.slice(start, start + limit);
+  }, [sortedRequests, page, limit]);
+
+  const renderSortHeader = (label: string, field: string) => {
+    const isSorted = sortBy === field;
+    return (
+      <th
+        onClick={() => handleSort(field)}
+        className="px-4 py-3 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-white transition-colors duration-150 select-none group"
+      >
+        <div className="flex items-center gap-1.5">
+          <span>{label}</span>
+          {isSorted ? (
+            sortOrder === 'asc' ? (
+              <ArrowUp className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            ) : (
+              <ArrowDown className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            )
+          ) : (
+            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
+          )}
+        </div>
+      </th>
+    );
+  };
 
   // Counts
   const counts = useMemo(() => {
@@ -415,7 +528,7 @@ export const OperatorInbox: React.FC = () => {
         <>
           {/* 1. CARDS PARA MOBILE (md:hidden) */}
           <div className="space-y-3 md:hidden">
-            {filteredRequests.map((req) => (
+            {paginatedRequests.map((req) => (
               <div
                 key={req.id}
                 className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-3.5 shadow-sm space-y-3 overflow-hidden"
@@ -573,6 +686,20 @@ export const OperatorInbox: React.FC = () => {
                 </div>
               </div>
             ))}
+
+            {/* Paginação Mobile */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md overflow-hidden shadow-sm">
+              <TablePagination
+                page={page}
+                limit={limit}
+                total={total}
+                onPageChange={setPage}
+                onLimitChange={(newLimit) => {
+                  setLimit(newLimit);
+                  setPage(1);
+                }}
+              />
+            </div>
           </div>
 
           {/* 2. TABELA PARA DESKTOP (hidden md:block) */}
@@ -581,18 +708,18 @@ export const OperatorInbox: React.FC = () => {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase font-semibold">
                   <tr>
-                    <th className="px-4 py-3">Protocolo</th>
-                    <th className="px-4 py-3">Paciente</th>
-                    <th className="px-4 py-3">Unidade Origem (UBS)</th>
-                    <th className="px-4 py-3">Procedimento / Especialidade</th>
-                    <th className="px-4 py-3">Prioridade</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Chave Confirmação</th>
+                    {renderSortHeader('Protocolo', 'protocolNumber')}
+                    {renderSortHeader('Paciente', 'patient')}
+                    {renderSortHeader('Unidade Origem (UBS)', 'requestingHealthCenter')}
+                    {renderSortHeader('Procedimento / Especialidade', 'procedure')}
+                    {renderSortHeader('Prioridade', 'priority')}
+                    {renderSortHeader('Status', 'status')}
+                    {renderSortHeader('Chave Confirmação', 'token')}
                     <th className="px-4 py-3 text-right">Ações Regulatórias</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredRequests.map((req) => (
+                  {paginatedRequests.map((req) => (
                     <tr key={req.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
                       <td className="px-4 py-3 font-mono font-bold text-blue-600 dark:text-blue-400">
                         <Link to={`/regulation/requests/${req.id}`} className="hover:underline">
@@ -748,6 +875,17 @@ export const OperatorInbox: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            <TablePagination
+              page={page}
+              limit={limit}
+              total={total}
+              onPageChange={setPage}
+              onLimitChange={(newLimit) => {
+                setLimit(newLimit);
+                setPage(1);
+              }}
+            />
           </div>
         </>
       )}

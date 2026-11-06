@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users,
@@ -17,6 +17,7 @@ import {
 import { useWaitingList, type WaitingListRequest } from '../../hooks/useAutoScheduling';
 import { useProcedures, useProcedureGroups } from '../../hooks/useProcedures';
 import { useHealthCenters } from '../../hooks/useHealthCenters';
+import { TablePagination } from '../../components/TablePagination';
 import { useAuthStore } from '../../store/useAuthStore';
 import { formatCPF, formatCNS, formatBirthDateAndGender } from '../../utils/brazilianFormatters';
 import { BookSlotModal } from './BookSlotModal';
@@ -34,11 +35,20 @@ export const WaitingListPage: React.FC = () => {
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [procedureFilter, setProcedureFilter] = useState('ALL');
   const [procedureGroupFilter, setProcedureGroupFilter] = useState('ALL');
   const [requestingCenterFilter, setRequestingCenterFilter] = useState('ALL');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [waitingDaysFilter, setWaitingDaysFilter] = useState('ALL');
+
+  // Debounce search term to avoid spamming API on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Modals
   const [simulationModalOpen, setSimulationModalOpen] = useState(false);
@@ -72,7 +82,7 @@ export const WaitingListPage: React.FC = () => {
     procedureGroupId: procedureGroupFilter !== 'ALL' ? procedureGroupFilter : undefined,
     priority: priorityFilter !== 'ALL' ? priorityFilter : undefined,
     requestingHealthCenterId: requestingCenterFilter !== 'ALL' ? requestingCenterFilter : undefined,
-    search: searchTerm.trim() || undefined,
+    search: debouncedSearch.trim() || undefined,
     minWaitingDays,
     maxWaitingDays,
   });
@@ -85,6 +95,28 @@ export const WaitingListPage: React.FC = () => {
     priorityCount: 0,
     availableSlotsCount: 0,
   };
+
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+
+  useEffect(() => {
+    setPage(1);
+  }, [
+    debouncedSearch,
+    procedureFilter,
+    procedureGroupFilter,
+    requestingCenterFilter,
+    priorityFilter,
+    waitingDaysFilter,
+  ]);
+
+  const total = requests.length;
+
+  const paginatedRequests = useMemo(() => {
+    const start = (page - 1) * limit;
+    return requests.slice(start, start + limit);
+  }, [requests, page, limit]);
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
@@ -376,7 +408,7 @@ export const WaitingListPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {requests.map((req) => {
+                {paginatedRequests.map((req) => {
                   const b = req.scoreBreakdown;
 
                   return (
@@ -542,6 +574,17 @@ export const WaitingListPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          <TablePagination
+            page={page}
+            limit={limit}
+            total={total}
+            onPageChange={setPage}
+            onLimitChange={(newLimit) => {
+              setLimit(newLimit);
+              setPage(1);
+            }}
+          />
         </div>
       )}
 

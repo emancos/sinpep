@@ -441,16 +441,30 @@ export class RegulationService {
       orderBy: [desc(schema.regulationRequests.createdAt)],
     });
 
-    // Se houver busca por texto (protocolo, nome ou cpf do paciente)
+    // Se houver busca por texto (protocolo, paciente, CPF, CNS, token, procedimento, grupo ou subprocedimentos)
     let filtered = items;
     if (query.search && query.search.trim()) {
       const s = query.search.trim().toLowerCase();
+      const cleanDigits = s.replace(/\D/g, '');
       filtered = items.filter((item: any) =>
         (item.protocolNumber || '').toLowerCase().includes(s) ||
         (item.confirmationToken || '').toLowerCase().includes(s) ||
         (item.patient?.name || '').toLowerCase().includes(s) ||
-        (item.patient?.cpf || '').includes(s) ||
-        (item.patient?.cns || '').includes(s)
+        (item.patient?.cpf || '').toLowerCase().includes(s) ||
+        (cleanDigits.length > 2 && (item.patient?.cpf || '').replace(/\D/g, '').includes(cleanDigits)) ||
+        (item.patient?.cns || '').toLowerCase().includes(s) ||
+        (cleanDigits.length > 2 && (item.patient?.cns || '').replace(/\D/g, '').includes(cleanDigits)) ||
+        (item.procedure?.name || '').toLowerCase().includes(s) ||
+        (item.procedure?.code || '').toLowerCase().includes(s) ||
+        (item.procedureGroup?.name || '').toLowerCase().includes(s) ||
+        Boolean(
+          item.groupProcedures?.some(
+            (gp: any) =>
+              (gp.name || '').toLowerCase().includes(s) ||
+              (gp.code || '').toLowerCase().includes(s) ||
+              (gp.sigtapCode || '').toLowerCase().includes(s),
+          ),
+        )
       );
     }
 

@@ -94,11 +94,21 @@ export class AutoSchedulingService {
     const requests = await this.db.query.regulationRequests.findMany({
       where: and(...conditions),
       with: {
-        patient: true,
-        requestingHealthCenter: true,
-        procedure: true,
-        procedureGroup: true,
-        specialty: true,
+        patient: {
+          columns: { id: true, name: true, cpf: true, cns: true, birthDate: true, gender: true },
+        },
+        requestingHealthCenter: {
+          columns: { id: true, name: true, cnes: true },
+        },
+        procedure: {
+          columns: { id: true, code: true, name: true },
+        },
+        procedureGroup: {
+          columns: { id: true, name: true },
+        },
+        specialty: {
+          columns: { id: true, name: true },
+        },
       },
       orderBy: [asc(schema.regulationRequests.createdAt)],
     });
@@ -170,16 +180,20 @@ export class AutoSchedulingService {
       };
     });
 
-    // Filtro por texto (busca paciente, CPF, protocolo)
+    // Filtro por texto (busca paciente, CPF, CNS, protocolo, procedimentos de grupo)
     if (query.search && query.search.trim()) {
       const s = query.search.trim().toLowerCase();
+      const cleanDigits = s.replace(/\D/g, '');
       enriched = enriched.filter(
         (r) =>
           (r.protocolNumber || '').toLowerCase().includes(s) ||
           (r.patient?.name || '').toLowerCase().includes(s) ||
-          (r.patient?.cpf || '').includes(s) ||
-          (r.patient?.cns || '').includes(s) ||
+          (r.patient?.cpf || '').toLowerCase().includes(s) ||
+          (cleanDigits.length > 2 && (r.patient?.cpf || '').replace(/\D/g, '').includes(cleanDigits)) ||
+          (r.patient?.cns || '').toLowerCase().includes(s) ||
+          (cleanDigits.length > 2 && (r.patient?.cns || '').replace(/\D/g, '').includes(cleanDigits)) ||
           (r.procedure?.name || '').toLowerCase().includes(s) ||
+          (r.procedure?.code || '').toLowerCase().includes(s) ||
           (r.procedureGroup?.name || '').toLowerCase().includes(s) ||
           Boolean(
             r.groupProcedures?.some(
