@@ -66,7 +66,7 @@ function App() {
                   <Route element={<ProtectedRoute requiredPermission="reports:read" />}>
                     <Route path="/reports" element={<Reports />} />
                   </Route>
-                  
+
                   <Route path="/reception" element={<Reception />} />
                   <Route path="/reception/queue" element={<WaitingList />} />
 
@@ -124,7 +124,7 @@ function App() {
                     <Route path="/doctors/:id/edit" element={<CreateOrEditDoctor />} />
                   </Route>
 
-                  
+
 
                   <Route element={<ProtectedRoute requiredPermission="procedure-groups:read" />}>
                     <Route path="/specialties" element={<SpecialtiesPage />} />
@@ -159,7 +159,7 @@ function App() {
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            </Routes>
           </BrowserRouter>
         </SocketProvider>
         <Toaster position="top-right" richColors />

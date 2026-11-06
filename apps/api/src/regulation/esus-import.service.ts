@@ -561,14 +561,22 @@ export class EsusImportService {
         const hasProceduresArray = Array.isArray(src.procedimentos) && src.procedimentos.length > 0;
         const rawGroupCode = String(src.coProcedimentoInterno || '').trim();
         const rawGroupName = String(src.noProcedimentoInterno || '').trim().toUpperCase();
+        const mod = (src.noModulo || '').toUpperCase();
+
+        // Identificação precisa de consultas especializadas do e-SUS
+        const isConsultation =
+          mod.includes('CONSULTA') ||
+          rawGroupName.startsWith('CONSULTA') ||
+          rawGroupName.includes('CONSULTA');
 
         const firstProc = hasProceduresArray ? src.procedimentos![0] : null;
         const specificProcName = firstProc?.noProcedimentoInterno?.trim().toUpperCase();
 
         const isGroupRequest =
-          rawGroupName.startsWith('GRUPO') ||
-          rawGroupCode.endsWith('00000') ||
-          (hasProceduresArray && !!specificProcName && specificProcName !== rawGroupName);
+          !isConsultation &&
+          (rawGroupName.startsWith('GRUPO') ||
+            rawGroupCode.endsWith('00000') ||
+            (hasProceduresArray && !!specificProcName && specificProcName !== rawGroupName));
 
         let procName: string;
         let sigtapCode: string;
@@ -581,7 +589,6 @@ export class EsusImportService {
           sigtapCode = (src.coProcedimentoSigtap || rawGroupCode || '').trim();
         }
 
-        const mod = (src.noModulo || '').toUpperCase();
         let extGroup = '00';
         let extSubgroup = '00';
 
@@ -793,6 +800,73 @@ export class EsusImportService {
         if (groupProceduresList.length > 0) {
           procedureId = groupProceduresList[0].procedureId || null;
           procedureGroupId = targetGroupId;
+        } else if (isConsultation) {
+          // CONSULTAS MÉDICAS ESPECIALIZADAS:
+          // No e-SUS e no SIGTAP, todas as consultas especializadas compartilham o código SIGTAP genérico 0301010072.
+          // A identificação exclusiva deve ser feita pelo coProcedimentoInterno (ex: 03527001, 03513301) e pelo nome específico (ex: CONSULTA EM ORTOPEDIA E TRAUMATOLOGIA).
+          const consultInternalCode = rawGroupCode || sigtapCode;
+          const cacheKeyByCode = consultInternalCode ? `CONS_CODE_${consultInternalCode}` : null;
+          const cacheKeyByName = `CONS_NAME_${procName}`;
+
+          if (cacheKeyByCode && procedureCache.has(cacheKeyByCode)) {
+            const cached = procedureCache.get(cacheKeyByCode)!;
+            procedureId = cached.id;
+            procedureGroupId = cached.groupId;
+          } else if (procedureCache.has(cacheKeyByName)) {
+            const cached = procedureCache.get(cacheKeyByName)!;
+            procedureId = cached.id;
+            procedureGroupId = cached.groupId;
+          } else {
+            // 1. Busca no catálogo por código interno específico da consulta (ex: 03527001)
+            if (consultInternalCode) {
+              const [foundProc] = await tx
+                .select({ id: schema.procedures.id, procedureGroupId: schema.procedures.procedureGroupId })
+                .from(schema.procedures)
+                .where(eq(schema.procedures.code, consultInternalCode))
+                .limit(1);
+              if (foundProc) {
+                procedureId = foundProc.id;
+                procedureGroupId = foundProc.procedureGroupId;
+              }
+            }
+
+            // 2. Busca no catálogo por nome específico da consulta (ex: CONSULTA EM ORTOPEDIA E TRAUMATOLOGIA)
+            if (!procedureId && procName) {
+              const [foundProc] = await tx
+                .select({ id: schema.procedures.id, procedureGroupId: schema.procedures.procedureGroupId })
+                .from(schema.procedures)
+                .where(eq(schema.procedures.name, procName))
+                .limit(1);
+              if (foundProc) {
+                procedureId = foundProc.id;
+                procedureGroupId = foundProc.procedureGroupId;
+              }
+            }
+
+            // 3. Provisiona no catálogo com o código interno exclusivo e o nome correto
+            if (!procedureId) {
+              const newProcId = crypto.randomUUID();
+              const finalGroupId: string = targetGroupId!;
+
+              await tx.insert(schema.procedures).values({
+                id: newProcId,
+                code: consultInternalCode || `CONS-${newProcId.slice(0, 8)}`,
+                name: procName,
+                procedureGroupId: finalGroupId,
+                requiresRegulation: true,
+                isActive: true,
+                createdAt: nowTz,
+                updatedAt: nowTz,
+              });
+
+              procedureId = newProcId;
+              procedureGroupId = finalGroupId;
+            }
+
+            const cachedObj = { id: procedureId, groupId: procedureGroupId || targetGroupId! };
+            if (cacheKeyByCode) procedureCache.set(cacheKeyByCode, cachedObj);
+            procedureCache.set(cacheKeyByName, cachedObj);
+          }
         } else {
           if (sigtapCode && procedureCache.has(sigtapCode)) {
             const cached = procedureCache.get(sigtapCode)!;
@@ -876,8 +950,11 @@ export class EsusImportService {
         }
 
         const modName = (src.noModulo || '').toUpperCase();
-        const reqType: 'CONSULTA' | 'EXAME' | 'PROCEDIMENTO' =
-          modName.includes('CONSULTA') ? 'CONSULTA' : modName.includes('EXAME') ? 'EXAME' : 'PROCEDIMENTO';
+        const reqType: 'CONSULTA' | 'EXAME' | 'PROCEDIMENTO' = isConsultation
+          ? 'CONSULTA'
+          : modName.includes('EXAME') || rawGroupName.includes('EXAME')
+          ? 'EXAME'
+          : 'PROCEDIMENTO';
 
         // Compilação dos sinalizadores clínicos
         const flags: string[] = [];

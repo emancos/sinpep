@@ -67,7 +67,7 @@ export interface Patient {
 }
 
 export const usePatients = (params: PaginationParams) => {
- const token = useAuthStore((state) => state.token);
+  const token = useAuthStore((state) => state.token);
 
   return useQuery<PaginatedResponse<Patient>>({
     queryKey: ['patients', params],
@@ -76,16 +76,15 @@ export const usePatients = (params: PaginationParams) => {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        params: {
-          ...params,
-          _t: new Date().getTime(), // Bypass Cloudflare cache
-        },
+        params,
       });
       return response.data;
     },
- enabled: !!token,
- placeholderData: keepPreviousData,
- });
+    enabled: !!token,
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 2, // 2 minutos
+    gcTime: 1000 * 60 * 10,
+  });
 };
 
 export const checkPatientUnique = async (token: string, params: { cpf?: string; cns?: string; excludeId?: string }) => {

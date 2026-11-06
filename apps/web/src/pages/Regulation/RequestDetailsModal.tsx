@@ -27,6 +27,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { BookSlotModal } from './BookSlotModal';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
 import { useAvailableSlots } from '../../hooks/useSchedules';
+import { useRegulationRequest } from '../../hooks/useRegulation';
 import {
   formatCPF,
   formatCNS,
@@ -40,13 +41,17 @@ interface RequestDetailsModalProps {
   request: RegulationRequest | null;
 }
 
-export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen, onClose, request }) => {
+export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen, onClose, request: initialRequest }) => {
   const [copiedToken, setCopiedToken] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [printModalOpen, setPrintModalOpen] = useState(false);
 
   const permissions = useAuthStore((state) => state.permissions);
   const activeProfile = useAuthStore((state) => state.activeProfile);
+
+  const targetRequestId = isOpen && initialRequest ? initialRequest.id : null;
+  const { data: fullRequest } = useRegulationRequest(targetRequestId);
+  const request = fullRequest || initialRequest;
 
   const procedureId = request?.procedureId || request?.procedure?.id || undefined;
   const procedureGroupId = request?.procedureGroupId || request?.procedureGroup?.id || undefined;

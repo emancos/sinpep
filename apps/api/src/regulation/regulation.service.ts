@@ -291,11 +291,6 @@ export class RegulationService {
         procedure: { columns: { id: true, code: true, name: true } },
         procedureGroup: { columns: { id: true, name: true } },
         executingHealthCenter: { columns: { id: true, name: true, cnes: true } },
-        attachments: true,
-        statusHistory: {
-          with: { actionByUser: { columns: { id: true, name: true } } },
-          orderBy: [desc(schema.regulationStatusHistory.createdAt)],
-        },
       },
       orderBy: [desc(schema.regulationRequests.createdAt)],
     });
@@ -442,11 +437,6 @@ export class RegulationService {
         procedureGroup: { columns: { id: true, name: true } },
         executingHealthCenter: { columns: { id: true, name: true, cnes: true } },
         scheduledByUser: { columns: { id: true, name: true } },
-        attachments: true,
-        statusHistory: {
-          with: { actionByUser: { columns: { id: true, name: true } } },
-          orderBy: [desc(schema.regulationStatusHistory.createdAt)],
-        },
       },
       orderBy: [desc(schema.regulationRequests.createdAt)],
     });

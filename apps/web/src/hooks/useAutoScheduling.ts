@@ -36,6 +36,8 @@ export const useWaitingList = (params?: {
   return useQuery<WaitingListResponse>({
     queryKey: ['regulation', 'waiting-list', params],
     queryFn: () => autoSchedulingService.getWaitingList(params),
+    staleTime: 1000 * 60 * 2, // 2 minutos
+    gcTime: 1000 * 60 * 10,
   });
 };
 

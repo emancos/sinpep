@@ -18,6 +18,8 @@ export const useRegulationMyCenter = (params?: {
   return useQuery({
     queryKey: ['regulation', 'my-center', params],
     queryFn: () => regulationService.getMyCenterRequests(params),
+    staleTime: 1000 * 60 * 2, // 2 minutos
+    gcTime: 1000 * 60 * 10,
   });
 };
 
@@ -32,6 +34,8 @@ export const useRegulationInbox = (params?: {
   return useQuery({
     queryKey: ['regulation', 'inbox', params],
     queryFn: () => regulationService.getInbox(params),
+    staleTime: 1000 * 60 * 2, // 2 minutos
+    gcTime: 1000 * 60 * 10,
   });
 };
 
@@ -40,6 +44,8 @@ export const useRegulationRequest = (id: string | null) => {
     queryKey: ['regulation', 'request', id],
     queryFn: () => (id ? regulationService.getRequestById(id) : null),
     enabled: !!id,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 10,
   });
 };
 

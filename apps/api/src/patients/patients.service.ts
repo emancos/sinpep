@@ -6,7 +6,7 @@ import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { UpdateAttentionDto } from './dto/update-attention.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { eq, ilike, or, and, asc, desc } from 'drizzle-orm';
+import { eq, ilike, or, and, asc, desc, sql } from 'drizzle-orm';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -137,43 +137,41 @@ export class PatientsService {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const allData = await this.db.query.patients.findMany({
-      where: whereClause,
-      with: {
-        healthCenter: true,
-        healthAgent: true,
-        patientPhones: true,
-        patientAnamnesis: true,
-      }
-    });
+    // 1. Contagem total executada diretamente no banco de dados
+    const totalResult = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(schema.patients)
+      .where(whereClause);
+    const total = totalResult[0]?.count || 0;
 
-    let data = allData;
-
-    if (sortBy) {
-      data = data.sort((a, b) => {
-        let valA: any = (a as any)[sortBy];
-        let valB: any = (b as any)[sortBy];
-
-        if (sortBy === 'healthCenter') {
-          valA = (a as any).healthCenter?.name;
-          valB = (b as any).healthCenter?.name;
-        } else if (sortBy === 'healthAgent') {
-          valA = (a as any).healthAgent?.name;
-          valB = (b as any).healthAgent?.name;
-        }
-
-        if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
-        if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
-        return 0;
-      });
-    } else {
-      data = data.sort((a, b) => a.name.localeCompare(b.name));
+    // 2. Cláusula de ordenação SQL
+    let orderClause = [sortOrder === 'desc' ? desc(schema.patients.name) : asc(schema.patients.name)];
+    if (sortBy === 'cpf') {
+      orderClause = [sortOrder === 'desc' ? desc(schema.patients.cpf) : asc(schema.patients.cpf)];
+    } else if (sortBy === 'cns') {
+      orderClause = [sortOrder === 'desc' ? desc(schema.patients.cns) : asc(schema.patients.cns)];
+    } else if (sortBy === 'createdAt') {
+      orderClause = [sortOrder === 'desc' ? desc(schema.patients.createdAt) : asc(schema.patients.createdAt)];
     }
 
-    const total = data.length;
-    data = data.slice(skip, skip + limit);
+    // 3. Consulta paginada e enxuta (sem anamnese pesada na listagem de tabela)
+    const patients = await this.db.query.patients.findMany({
+      where: whereClause,
+      with: {
+        healthCenter: {
+          columns: { id: true, name: true, cnes: true },
+        },
+        healthAgent: {
+          columns: { id: true, name: true },
+        },
+        patientPhones: true,
+      },
+      orderBy: orderClause,
+      limit,
+      offset: skip,
+    });
 
-    return { data: data.map(p => ({ ...p, phones: p.patientPhones })), total };
+    return { data: patients.map((p) => ({ ...p, phones: p.patientPhones })), total };
   }
 
   async findOne(id: string) {

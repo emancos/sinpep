@@ -277,6 +277,73 @@ export class DatabaseMigrationService implements OnModuleInit {
           {"code": "20502050", "sigtapCode": "0205020127", "name": "ULTRASSONOGRAFIA DE REGIAO CERVICAL - TIREOIDE"}
         ]'::jsonb
         WHERE protocol_number = '20002914007';
+
+        -- 7. Extensão pg_trgm e Índices de Alta Performance para buscas parciais
+        CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+        CREATE INDEX IF NOT EXISTS idx_patients_name_trgm ON patients USING gin (name gin_trgm_ops);
+        CREATE INDEX IF NOT EXISTS idx_patients_cpf_trgm ON patients USING gin (cpf gin_trgm_ops);
+        CREATE INDEX IF NOT EXISTS idx_patients_cns_trgm ON patients USING gin (cns gin_trgm_ops);
+
+        CREATE INDEX IF NOT EXISTS idx_reg_requests_protocol_trgm ON regulation_requests USING gin (protocol_number gin_trgm_ops);
+        CREATE INDEX IF NOT EXISTS idx_reg_requests_token_trgm ON regulation_requests USING gin (confirmation_token gin_trgm_ops);
+
+        CREATE INDEX IF NOT EXISTS idx_reg_requests_center_status_created 
+        ON regulation_requests (requesting_health_center_id, status, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_reg_requests_status_created 
+        ON regulation_requests (status, created_at DESC);
+
+        -- 8. Correção de Consultas Especializadas do e-SUS (desvinculando de Angiologia genérica)
+        DO $consultas$
+        DECLARE
+          v_group_consultas_id UUID;
+          v_proc_orto_id UUID;
+          v_proc_psiq_id UUID;
+        BEGIN
+          SELECT id INTO v_group_consultas_id 
+          FROM procedure_groups 
+          WHERE (group_code = '03' AND subgroup_code = '01') OR name ILIKE '%CONSULTA%' 
+          LIMIT 1;
+
+          IF v_group_consultas_id IS NULL THEN
+            v_group_consultas_id := gen_random_uuid();
+            INSERT INTO procedure_groups (id, name, group_code, subgroup_code, is_active, created_at, updated_at)
+            VALUES (v_group_consultas_id, '03.01 - CONSULTAS E ATENDIMENTOS', '03', '01', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+          END IF;
+
+          -- Provisiona Consulta em Ortopedia e Traumatologia (coProcedimentoInterno: 03527001)
+          SELECT id INTO v_proc_orto_id FROM procedures WHERE code = '03527001' OR name = 'CONSULTA EM ORTOPEDIA E TRAUMATOLOGIA' LIMIT 1;
+          IF v_proc_orto_id IS NULL THEN
+            v_proc_orto_id := gen_random_uuid();
+            INSERT INTO procedures (id, code, name, procedure_group_id, requires_regulation, is_active, created_at, updated_at)
+            VALUES (v_proc_orto_id, '03527001', 'CONSULTA EM ORTOPEDIA E TRAUMATOLOGIA', v_group_consultas_id, true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+          END IF;
+
+          -- Provisiona Consulta em Psiquiatria (coProcedimentoInterno: 03513301)
+          SELECT id INTO v_proc_psiq_id FROM procedures WHERE code = '03513301' OR name = 'CONSULTA EM PSIQUIATRIA' LIMIT 1;
+          IF v_proc_psiq_id IS NULL THEN
+            v_proc_psiq_id := gen_random_uuid();
+            INSERT INTO procedures (id, code, name, procedure_group_id, requires_regulation, is_active, created_at, updated_at)
+            VALUES (v_proc_psiq_id, '03513301', 'CONSULTA EM PSIQUIATRIA', v_group_consultas_id, true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+          ELSE
+            UPDATE procedures SET code = '03513301' WHERE id = v_proc_psiq_id;
+          END IF;
+
+          -- Corrige a solicitação 10002968842 para Consulta em Ortopedia e Traumatologia
+          UPDATE regulation_requests
+          SET procedure_id = v_proc_orto_id,
+              procedure_group_id = NULL,
+              type = 'CONSULTA'
+          WHERE protocol_number = '10002968842';
+
+          -- Corrige a solicitação 10002966232 para Consulta em Psiquiatria
+          UPDATE regulation_requests
+          SET procedure_id = v_proc_psiq_id,
+              procedure_group_id = NULL,
+              type = 'CONSULTA'
+          WHERE protocol_number = '10002966232';
+        END $consultas$;
       `);
 
       this.logger.log('Database migrations for procedures, quotas, auto-scheduling & esus import applied successfully.');
