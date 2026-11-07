@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import type { RegulationRequest } from '../../services/regulation';
 import { useMunicipalityBranding } from '../../hooks/useMunicipalityBranding';
-import { formatCPF, formatCNS } from '../../utils/brazilianFormatters';
+import { formatCPF, formatCNS, formatDateBR } from '../../utils/brazilianFormatters';
 
 export interface RegulationRequestPrintModalProps {
   isOpen: boolean;
@@ -39,7 +39,7 @@ export const RegulationRequestPrintModal: React.FC<RegulationRequestPrintModalPr
   const patientCpf = formatCPF(patient?.cpf);
   const patientCns = formatCNS(patient?.cns);
   const patientBirthDate = patient?.birthDate
-    ? new Date(patient.birthDate).toLocaleDateString('pt-BR')
+    ? formatDateBR(patient.birthDate)
     : '';
 
   const calculateAge = (birthDateString?: string) => {
@@ -63,14 +63,14 @@ export const RegulationRequestPrintModal: React.FC<RegulationRequestPrintModalPr
 
   // Extração e formatação de datas
   const requestDateObj = request.createdAt ? new Date(request.createdAt) : new Date();
-  const requestDateFormatted = requestDateObj.toLocaleDateString('pt-BR');
+  const requestDateFormatted = formatDateBR(request.createdAt || requestDateObj);
   const requestTimeFormatted = requestDateObj.toLocaleTimeString('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
   });
 
   const scheduledDateFormatted = request.scheduledDate
-    ? new Date(`${request.scheduledDate}T00:00:00`).toLocaleDateString('pt-BR')
+    ? formatDateBR(request.scheduledDate)
     : null;
 
   // Unidade Solicitante

@@ -17,7 +17,7 @@ import {
   type SimulationResponse,
   type SimulationMatch,
 } from '../../hooks/useAutoScheduling';
-import { formatCPF } from '../../utils/brazilianFormatters';
+import { formatCPF, formatDateBR } from '../../utils/brazilianFormatters';
 import { toast } from 'sonner';
 
 interface AutoSchedulingSimulationModalProps {
@@ -269,7 +269,7 @@ export const AutoSchedulingSimulationModal: React.FC<AutoSchedulingSimulationMod
                       {matches.map((item) => {
                         const isChecked = selectedMatchIds.has(item.matchId);
                         const b = item.scoreBreakdown;
-                        const dateFormatted = new Date(`${item.slot.date}T00:00:00`).toLocaleDateString('pt-BR');
+                        const dateFormatted = formatDateBR(item.slot.date);
 
                         return (
                           <div

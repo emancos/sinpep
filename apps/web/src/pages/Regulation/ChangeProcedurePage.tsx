@@ -24,6 +24,7 @@ import { useRegulationRequest, useChangeRegulationProcedure } from '../../hooks/
 import { useProcedures, useProcedureGroups } from '../../hooks/useProcedures';
 import { apiUrl } from '../../services/api';
 import type { RegulationRequestPriority, RegulationRequestType } from '../../services/regulation';
+import { formatDateBR, formatDateTimeBR } from '../../utils/brazilianFormatters';
 
 export const ChangeProcedurePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -282,7 +283,7 @@ export const ChangeProcedurePage: React.FC = () => {
               1. Dados Atuais da Requisição & Paciente
             </span>
             <span className="text-xs text-slate-500">
-              Solicitado em {new Date(request.createdAt).toLocaleDateString('pt-BR')}
+              Solicitado em {formatDateBR(request.createdAt)}
             </span>
           </div>
 
@@ -367,7 +368,7 @@ export const ChangeProcedurePage: React.FC = () => {
             {/* Documentos Anexados */}
             {request.attachments && request.attachments.length > 0 && (
               <div>
-                <span className="text-[11px] uppercase tracking-wider font-bold text-slate-500 block mb-1.5 flex items-center gap-1">
+                <span className="text-[11px] uppercase tracking-wider font-bold text-slate-500 block mb-1.5 items-center gap-1">
                   <Paperclip className="w-3.5 h-3.5" /> Laudos e Documentos Anexados ({request.attachments.length})
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -706,7 +707,7 @@ export const ChangeProcedurePage: React.FC = () => {
                         )}
 
                         <span className="text-[11px] text-slate-400">
-                          {new Date(hist.createdAt).toLocaleString('pt-BR')}
+                          {formatDateTimeBR(hist.createdAt)}
                         </span>
 
                         {hist.actionByUser && (

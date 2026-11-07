@@ -3,6 +3,7 @@ import { X, FileDown, CheckSquare, Square, Loader2 } from 'lucide-react';
 import type { MedicalRecord } from '../../hooks/useMedicalRecords';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { MedicalRecordPDF } from './MedicalRecordPDF';
+import { formatDateBR } from '../../utils/brazilianFormatters';
 
 interface Props {
   patient: any;
@@ -62,7 +63,7 @@ export const ExportRecordModal: React.FC<Props> = ({ patient, records, onClose }
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-slate-900 dark:text-white">
-                      {new Date(record.recordDate).toLocaleDateString('pt-BR')} - Dr(a). {record.doctor.name}
+                      {formatDateBR(record.recordDate)} - Dr(a). {record.doctor.name}
                     </div>
                     <div className="text-xs text-slate-500 line-clamp-1">{record.observation}</div>
                   </div>

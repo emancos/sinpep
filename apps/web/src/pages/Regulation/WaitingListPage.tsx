@@ -19,7 +19,7 @@ import { useProcedures, useProcedureGroups } from '../../hooks/useProcedures';
 import { useHealthCenters } from '../../hooks/useHealthCenters';
 import { TablePagination } from '../../components/TablePagination';
 import { useAuthStore } from '../../store/useAuthStore';
-import { formatCPF, formatCNS, formatBirthDateAndGender } from '../../utils/brazilianFormatters';
+import { formatCPF, formatCNS, formatBirthDateAndGender, formatDateBR } from '../../utils/brazilianFormatters';
 import { BookSlotModal } from './BookSlotModal';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
 import { AutoSchedulingSimulationModal } from './AutoSchedulingSimulationModal';
@@ -517,7 +517,7 @@ export const WaitingListPage: React.FC = () => {
                           {req.requestingHealthCenter?.name}
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          {new Date(req.createdAt).toLocaleDateString('pt-BR')}
+                          {formatDateBR(req.createdAt)}
                         </div>
                       </td>
 

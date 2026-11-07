@@ -29,7 +29,7 @@ import { BookSlotModal } from './BookSlotModal';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
 import { TablePagination } from '../../components/TablePagination';
 import { useAuthStore } from '../../store/useAuthStore';
-import { formatCPF, formatCNS } from '../../utils/brazilianFormatters';
+import { formatCPF, formatCNS, formatDateBR } from '../../utils/brazilianFormatters';
 import { toast } from 'sonner';
 
 export const SolicitorInbox: React.FC = () => {
@@ -597,7 +597,7 @@ export const SolicitorInbox: React.FC = () => {
                   <div className="flex items-center gap-2">
                     {getPriorityBadge(req.priority)}
                     <span className="text-[11px] text-slate-400">
-                      {new Date(req.createdAt).toLocaleDateString('pt-BR')}
+                      {formatDateBR(req.createdAt)}
                     </span>
                   </div>
 
@@ -785,7 +785,7 @@ export const SolicitorInbox: React.FC = () => {
                         </td>
 
                         <td className="px-2 py-1.5 lg:px-3 lg:py-2.5 text-slate-500 text-xs whitespace-nowrap">
-                          {new Date(req.createdAt).toLocaleDateString('pt-BR')}
+                          {formatDateBR(req.createdAt)}
                         </td>
 
                         <td className="px-2 py-1.5 lg:px-3 lg:py-2.5 text-right whitespace-nowrap">

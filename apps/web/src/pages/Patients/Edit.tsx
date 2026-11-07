@@ -9,6 +9,7 @@ import { useHealthAgents } from '../../hooks/useHealthAgents';
 import { useAuthStore } from '../../store/useAuthStore';
 import { toast } from 'sonner';
 import { fetchAddressByCep } from '../../services/viacep';
+import { formatDateBR } from '../../utils/brazilianFormatters';
 import {
     ArrowLeft,
     User,
@@ -1016,7 +1017,7 @@ export const EditPatient: React.FC = () => {
                                         <span className="text-xs text-slate-500 block">Data de Nascimento</span>
                                         <span className="text-slate-700 dark:text-slate-200">
                                             {watch('birthDate')
-                                                ? new Date(watch('birthDate')).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+                                                ? formatDateBR(watch('birthDate'))
                                                 : '-'}
                                         </span>
                                     </div>

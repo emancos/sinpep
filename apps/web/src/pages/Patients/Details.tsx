@@ -28,6 +28,7 @@ import { PrescriptionPrintModal } from '../../components/PrescriptionPrintModal'
 import { MedicalCertificateModal } from '../../components/MedicalCertificateModal';
 import { ApacReportModal } from '../../components/ApacReportModal';
 import { MedicalDocumentDropdown } from '../../components/MedicalDocumentDropdown';
+import { formatDateBR, formatDateTimeBR } from '../../utils/brazilianFormatters';
 
 const formatCPF = (cpf?: string | null) => {
     if (!cpf || cpf.toUpperCase().startsWith('SUS') || cpf.toUpperCase().startsWith('TEMP')) return 'Não informado';
@@ -37,27 +38,11 @@ const formatCPF = (cpf?: string | null) => {
 };
 
 const formatDateOnly = (dateStr?: string) => {
-    if (!dateStr) return '-';
-    try {
-        return new Date(dateStr).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-    } catch {
-        return dateStr;
-    }
+    return formatDateBR(dateStr);
 };
 
 const formatDateWithTime = (dateStr?: string) => {
-    if (!dateStr) return '-';
-    try {
-        return new Date(dateStr).toLocaleDateString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    } catch {
-        return dateStr;
-    }
+    return formatDateTimeBR(dateStr);
 };
 
 const calculateAge = (birthDateStr?: string) => {

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import type { RegulationRequest } from '../../services/regulation';
 import { useResubmitRegulationRequest } from '../../hooks/useRegulation';
+import { formatDateTimeBR } from '../../utils/brazilianFormatters';
 import { toast } from 'sonner';
 
 interface ResubmitReturnedModalProps {
@@ -107,7 +108,7 @@ export const ResubmitReturnedModal: React.FC<ResubmitReturnedModalProps> = ({
             </p>
             {lastReturnHistory?.actionByUser && (
               <p className="text-[11px] text-orange-700 dark:text-orange-400 pt-1">
-                Regulador: {lastReturnHistory.actionByUser.name} • {new Date(lastReturnHistory.createdAt).toLocaleString('pt-BR')}
+                Regulador: {lastReturnHistory.actionByUser.name} • {formatDateTimeBR(lastReturnHistory.createdAt)}
               </p>
             )}
           </div>

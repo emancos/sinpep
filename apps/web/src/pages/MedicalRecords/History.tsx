@@ -15,6 +15,7 @@ import { PrescriptionPrintModal } from '../../components/PrescriptionPrintModal'
 import { MedicalCertificateModal } from '../../components/MedicalCertificateModal';
 import { ApacReportModal } from '../../components/ApacReportModal';
 import { MedicalDocumentDropdown } from '../../components/MedicalDocumentDropdown';
+import { formatDateTimeBR } from '../../utils/brazilianFormatters';
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -200,7 +201,7 @@ export const MedicalHistory: React.FC = () => {
                       <div>
                         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-1">
                           <Calendar className="w-4 h-4 shrink-0" />
-                          <span>{new Date(record.recordDate).toLocaleDateString('pt-BR')} às {new Date(record.recordDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span>{formatDateTimeBR(record.recordDate)}</span>
                         </div>
                         <div>
                           <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-start sm:items-center gap-2 leading-tight">

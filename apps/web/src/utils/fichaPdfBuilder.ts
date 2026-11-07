@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatDateTimeBR } from './brazilianFormatters';
 
 /**
  * Visual PDF generator for SISREG Ficha strictly respecting the specifications,
@@ -44,16 +45,7 @@ const cleanSisregDateTime = (val: any): string => {
 
 const formatSisregDate = (dateStr: any) => {
   if (!dateStr || dateStr === '---') return '---';
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return String(dateStr);
-    if (String(dateStr).includes('T') || String(dateStr).endsWith('Z')) {
-      return date.toLocaleString('pt-BR', { timeZone: 'UTC' });
-    }
-    return date.toLocaleString('pt-BR');
-  } catch {
-    return String(dateStr);
-  }
+  return formatDateTimeBR(dateStr, false);
 };
 
 let cachedArialNormalBase64: string | null = null;

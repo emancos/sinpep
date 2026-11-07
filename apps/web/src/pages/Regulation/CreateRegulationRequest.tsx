@@ -32,7 +32,7 @@ import { BookSlotModal } from './BookSlotModal';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
 import { apiUrl } from '../../services/api';
 import type { RegulationRequest } from '../../services/regulation';
-import { formatCPF, formatCNS } from '../../utils/brazilianFormatters';
+import { formatCPF, formatCNS, formatDateBR } from '../../utils/brazilianFormatters';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -840,7 +840,7 @@ export const CreateRegulationRequest: React.FC = () => {
                                 <div className="text-[11px] text-slate-500 flex flex-wrap gap-x-3 mt-0.5">
                                   <span>CPF: <strong>{formatCPF(p.cpf)}</strong></span>
                                   {p.cns && <span>CNS: <strong>{formatCNS(p.cns)}</strong></span>}
-                                  {p.birthDate && <span>Nasc: {new Date(p.birthDate).toLocaleDateString('pt-BR')}</span>}
+                                  {p.birthDate && <span>Nasc: {formatDateBR(p.birthDate)}</span>}
                                   {p.healthCenter?.name && <span>UBS: {p.healthCenter.name}</span>}
                                 </div>
                               </div>
@@ -887,7 +887,7 @@ export const CreateRegulationRequest: React.FC = () => {
                           </span>
                           {selectedPatient.birthDate && (
                             <span>
-                              Nascimento: {new Date(selectedPatient.birthDate).toLocaleDateString('pt-BR')}
+                              Nascimento: {formatDateBR(selectedPatient.birthDate)}
                             </span>
                           )}
                           {selectedPatient.healthCenter?.name && (
@@ -1979,7 +1979,7 @@ export const CreateRegulationRequest: React.FC = () => {
                 <div className="flex flex-wrap gap-x-3 text-slate-500 mt-0.5">
                   <span>CPF: <strong>{formatCPF(selectedPatient?.cpf)}</strong></span>
                   <span>CNS: <strong>{formatCNS(selectedPatient?.cns)}</strong></span>
-                  {selectedPatient?.birthDate && <span>Nasc: {new Date(selectedPatient.birthDate).toLocaleDateString('pt-BR')}</span>}
+                  {selectedPatient?.birthDate && <span>Nasc: {formatDateBR(selectedPatient.birthDate)}</span>}
                 </div>
               </div>
 
@@ -2272,7 +2272,7 @@ export const CreateRegulationRequest: React.FC = () => {
                 <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-md border border-slate-200 dark:border-slate-700/60">
                   <span className="text-slate-400 block">Data de Nascimento:</span>
                   <strong className="text-slate-800 dark:text-slate-100 text-sm">
-                    {selectedPatient.birthDate ? new Date(selectedPatient.birthDate).toLocaleDateString('pt-BR') : 'Não informada'}
+                    {formatDateBR(selectedPatient.birthDate)}
                   </strong>
                 </div>
 

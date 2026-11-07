@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X, Scissors, Activity, Pill, Stethoscope } from 'lucide-react';
 import { resolveExecutingUnit } from '../utils/executingUnit';
+import { formatDateBR } from '../utils/brazilianFormatters';
 
 export interface PrescriptionPrintRecord {
   recordDate?: string;
@@ -55,7 +56,7 @@ export const PrescriptionPrintModal: React.FC<PrescriptionPrintModalProps> = ({
   const patientName = patient?.name || 'Não identificado';
   const patientCpf = patient?.cpf || 'Não informado';
   const patientCns = patient?.cns || patient?.susCard || 'Não informado';
-  const patientBirthDate = patient?.birthDate ? new Date(patient.birthDate).toLocaleDateString('pt-BR') : '';
+  const patientBirthDate = patient?.birthDate ? formatDateBR(patient.birthDate) : '';
   
   const calculateAge = (birthDateString?: string) => {
     if (!birthDateString) return '';
@@ -73,7 +74,7 @@ export const PrescriptionPrintModal: React.FC<PrescriptionPrintModalProps> = ({
 
   // Extração e normalização das datas
   const recordDateObj = record.recordDate ? new Date(record.recordDate) : new Date();
-  const recordDateFormatted = recordDateObj.toLocaleDateString('pt-BR');
+  const recordDateFormatted = formatDateBR(recordDateObj);
   const recordTimeFormatted = recordDateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
   // Extração e normalização do profissional médico
@@ -127,7 +128,7 @@ export const PrescriptionPrintModal: React.FC<PrescriptionPrintModalProps> = ({
     if (u.includes('DIA')) d.setDate(d.getDate() + num);
     else if (u.includes('MES') || u.includes('MÊS')) d.setMonth(d.getMonth() + num);
     else if (u.includes('ANO')) d.setFullYear(d.getFullYear() + num);
-    return d.toLocaleDateString('pt-BR');
+    return formatDateBR(d);
   };
   const estimatedReturnDate = calculateReturnDate(recordDateObj, returnVal, returnUnit);
 

@@ -32,6 +32,8 @@ import {
   formatCPF,
   formatCNS,
   formatBirthDateAndGender,
+  formatDateBR,
+  formatDateTimeBR,
 } from '../../utils/brazilianFormatters';
 import { toast } from 'sonner';
 
@@ -160,7 +162,7 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
               {getPriorityBadge(request.priority)}
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Criado em: {new Date(request.createdAt).toLocaleString('pt-BR')} • Solicitante: {request.requestingHealthCenter?.name || 'UBS'}
+              Criado em: {formatDateTimeBR(request.createdAt)} • Solicitante: {request.requestingHealthCenter?.name || 'UBS'}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -231,13 +233,13 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
                 <div>
                   <span className="text-slate-500 block">Data e Horário:</span>
                   <span className="font-semibold text-slate-900 dark:text-white">
-                    {request.scheduledDate} às {request.scheduledTime || '08:00'}
+                    {formatDateBR(request.scheduledDate)} às {request.scheduledTime || '08:00'}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-500 block">Status da Chave:</span>
                   <span className={`font-semibold ${request.tokenValidatedAt ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {request.tokenValidatedAt ? `Validada em ${new Date(request.tokenValidatedAt).toLocaleString('pt-BR')}` : 'Aguardando validação na recepção'}
+                    {request.tokenValidatedAt ? `Validada em ${formatDateTimeBR(request.tokenValidatedAt)}` : 'Aguardando validação na recepção'}
                   </span>
                 </div>
               </div>
@@ -405,7 +407,7 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
                         </span>
                       )}
                       <span className="text-[11px] text-slate-400">
-                        {new Date(hist.createdAt).toLocaleString('pt-BR')}
+                        {formatDateTimeBR(hist.createdAt)}
                       </span>
                       {hist.actionByUser && (
                         <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">

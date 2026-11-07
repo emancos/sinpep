@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePatients } from '../../hooks/usePatients';
 import { Search, Loader2, UserCheck, Calendar, Activity, ChevronRight } from 'lucide-react';
 import { TablePagination } from '../../components/TablePagination';
+import { formatDateBR } from '../../utils/brazilianFormatters';
 
 export const MedicalRecords: React.FC = () => {
   const navigate = useNavigate();
@@ -81,7 +82,7 @@ export const MedicalRecords: React.FC = () => {
                         {patient.birthDate && (
                           <span className="flex items-center gap-1">
                             <Calendar className="w-4 h-4" /> 
-                            {new Date(patient.birthDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                            {formatDateBR(patient.birthDate)}
                           </span>
                         )}
                       </div>

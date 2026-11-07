@@ -26,6 +26,7 @@ import {
 import { TablePagination } from '../../components/TablePagination';
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
+import { formatDateBR } from '../../utils/brazilianFormatters';
 
 // Helpers to format CPF and Date
 const formatCPF = (cpf?: string | null) => {
@@ -36,13 +37,7 @@ const formatCPF = (cpf?: string | null) => {
 };
 
 const formatDate = (dateStr: string) => {
-    try {
-        // Add timezone adjustment or parse directly
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-    } catch {
-        return dateStr;
-    }
+    return formatDateBR(dateStr);
 };
 
 export const PatientsList: React.FC = () => {

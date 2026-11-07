@@ -6,6 +6,7 @@ import { EpidemiologicalDash } from './EpidemiologicalDash';
 import { OperationalDash } from './OperationalDash';
 import { ProceduresDash } from './ProceduresDash';
 import { PharmacyDash } from './PharmacyDash';
+import { formatDateBR } from '../../utils/brazilianFormatters';
 
 export const Reports = () => {
   const [activeTab, setActiveTab] = useState('epidemiological');
@@ -81,7 +82,7 @@ export const Reports = () => {
           {/* Cabecalho apenas para o PDF */}
           <div className="hidden pdf-only:block mb-8 pb-4 border-b border-slate-200">
             <h2 className="text-2xl font-bold text-slate-800">SINPeP - Relatório de Inteligência</h2>
-            <p className="text-slate-500">Gerado em {new Date().toLocaleDateString('pt-BR')}</p>
+            <p className="text-slate-500">Gerado em {formatDateBR(new Date())}</p>
           </div>
 
           {activeTab === 'epidemiological' && <EpidemiologicalDash />}

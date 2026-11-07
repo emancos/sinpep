@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X, Activity, Clock, User, Users } from 'lucide-react';
 import { resolveExecutingUnit } from '../utils/executingUnit';
+import { formatDateBR } from '../utils/brazilianFormatters';
 
 export interface MedicalCertificateRecord {
   recordDate?: string;
@@ -115,7 +116,7 @@ export const MedicalCertificateModal: React.FC<MedicalCertificateModalProps> = (
   const patientCns = patient?.cns || patient?.susCard || 'Não informado';
 
   const recordDateObj = record.recordDate ? new Date(record.recordDate) : new Date();
-  const recordDateFormatted = recordDateObj.toLocaleDateString('pt-BR');
+  const recordDateFormatted = formatDateBR(recordDateObj);
   const recordTimeFormatted = recordDateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
   // Data por extenso (ex: 29 de outubro de 2026)

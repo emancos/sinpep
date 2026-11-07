@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProcedure, useProcedurePreparation, useSaveProcedurePreparation } from '../../hooks/useProcedures';
 import { toast } from 'sonner';
+import { formatDateBR } from '../../utils/brazilianFormatters';
 import {
     ArrowLeft,
     Save,
@@ -606,7 +607,7 @@ export const PreparationEditor: React.FC<{ procedureIdProp?: string; onBackProp?
                             {/* Rodapé da Guia */}
                             <div className="mt-8 pt-4 border-t border-slate-200 flex justify-between items-center text-[11px] text-slate-500">
                                 <span>Em caso de dúvidas, procure sua Unidade Básica de Saúde de referência.</span>
-                                <span>Emitido em: {new Date().toLocaleDateString('pt-BR')}</span>
+                                <span>Emitido em: {formatDateBR(new Date())}</span>
                             </div>
                         </div>
                     </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import type { MedicalRecord } from '../../hooks/useMedicalRecords';
+import { formatDateTimeBR } from '../../utils/brazilianFormatters';
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontFamily: 'Helvetica', fontSize: 11, color: '#333' },
@@ -37,7 +38,7 @@ export const MedicalRecordPDF: React.FC<Props> = ({ patient, records }) => (
         <View key={record.id} style={styles.recordBlock} wrap={false}>
           <View style={styles.recordHeader}>
             <Text style={styles.recordDate}>
-              Atendimento em {new Date(record.recordDate).toLocaleDateString('pt-BR')} às {new Date(record.recordDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              Atendimento em {formatDateTimeBR(record.recordDate)}
             </Text>
             {record.cid10 && <Text style={styles.recordDoctor}>CID10: {record.cid10}</Text>}
           </View>

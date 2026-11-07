@@ -36,7 +36,7 @@ import { BookSlotModal } from './BookSlotModal';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
 import { TablePagination } from '../../components/TablePagination';
 import { useAuthStore } from '../../store/useAuthStore';
-import { formatCPF, formatCNS } from '../../utils/brazilianFormatters';
+import { formatCPF, formatCNS, formatDateBR } from '../../utils/brazilianFormatters';
 import { toast } from 'sonner';
 
 export const OperatorInbox: React.FC = () => {
@@ -532,7 +532,7 @@ export const OperatorInbox: React.FC = () => {
                   <div className="flex items-center gap-2">
                     {getPriorityBadge(req.priority)}
                     <span className="text-[11px] text-slate-400">
-                      {new Date(req.createdAt).toLocaleDateString('pt-BR')}
+                      {formatDateBR(req.createdAt)}
                     </span>
                   </div>
 
@@ -661,7 +661,7 @@ export const OperatorInbox: React.FC = () => {
                           {req.requestingHealthCenter?.name}
                         </div>
                         <div className="text-[11px] text-slate-400">
-                          {new Date(req.createdAt).toLocaleDateString('pt-BR')}
+                          {formatDateBR(req.createdAt)}
                         </div>
                       </td>
 

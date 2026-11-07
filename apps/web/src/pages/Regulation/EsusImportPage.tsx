@@ -27,6 +27,7 @@ import {
   type EsusPreviewResult,
   type EsusDateFieldType,
 } from '../../services/esusImport';
+import { formatDateBR, formatDateTimeBR } from '../../utils/brazilianFormatters';
 import { toast } from 'sonner';
 
 function getLocalTodayStr(): string {
@@ -813,10 +814,10 @@ export const EsusImportPage: React.FC = () => {
                 {jobs.map((job) => (
                   <tr key={job.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
                     <td className="px-4 py-3 font-mono text-[11px] text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                      {new Date(job.startedAt).toLocaleString('pt-BR')}
+                      {formatDateTimeBR(job.startedAt)}
                     </td>
                     <td className="px-4 py-3 font-mono text-[11px]">
-                      {job.dateRangeStart || '—'} até {job.dateRangeEnd || '—'}
+                      {job.dateRangeStart ? formatDateBR(job.dateRangeStart) : '—'} até {job.dateRangeEnd ? formatDateBR(job.dateRangeEnd) : '—'}
                     </td>
                     <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">
                       {job.totalRecordsProcessed.toLocaleString('pt-BR')} / {job.totalRecordsFound.toLocaleString('pt-BR')}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatDateTimeBR } from '../../utils/brazilianFormatters';
 import { useHealthCenters } from '../../hooks/useHealthCenters';
 import {
     useProcedures,
@@ -1132,7 +1133,7 @@ export const ProcedureQuotasManager: React.FC<{
                             ) : (
                                 historyData.map((item) => {
                                     const isExpanded = expandedHistoryId === item.id;
-                                    const dateStr = new Date(item.createdAt).toLocaleString('pt-BR');
+                                    const dateStr = formatDateTimeBR(item.createdAt);
                                     const sources = Array.isArray(item.sourceSolicitors) ? item.sourceSolicitors : [];
                                     const targets = Array.isArray(item.targetSolicitors) ? item.targetSolicitors : [];
 

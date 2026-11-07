@@ -35,6 +35,8 @@ import {
   formatCNS,
   formatBirthDateAndGender,
   calculateAge,
+  formatDateBR,
+  formatDateTimeBR,
 } from '../../utils/brazilianFormatters';
 import { toast } from 'sonner';
 
@@ -228,11 +230,7 @@ export const RequestDetailsPage: React.FC = () => {
               {getPriorityBadge(request.priority)}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Protocolada em {new Date(request.createdAt).toLocaleDateString('pt-BR')} às{' '}
-              {new Date(request.createdAt).toLocaleTimeString('pt-BR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              Protocolada em {formatDateTimeBR(request.createdAt)}
             </p>
           </div>
         </div>
@@ -547,9 +545,7 @@ export const RequestDetailsPage: React.FC = () => {
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-500 block">Data do Atendimento:</span>
                   <span className="text-sm font-bold text-slate-900 dark:text-white">
-                    {request.scheduledDate
-                      ? new Date(`${request.scheduledDate}T00:00:00`).toLocaleDateString('pt-BR')
-                      : 'Não informada'}
+                    {formatDateBR(request.scheduledDate)}
                   </span>
                 </div>
 
@@ -649,11 +645,7 @@ export const RequestDetailsPage: React.FC = () => {
                           {hist.newStatus}
                         </span>
                         <span className="text-[10px] text-slate-400">
-                          {new Date(hist.createdAt).toLocaleDateString('pt-BR')} às{' '}
-                          {new Date(hist.createdAt).toLocaleTimeString('pt-BR', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {formatDateTimeBR(hist.createdAt)}
                         </span>
                       </div>
                       <p className="text-slate-600 dark:text-slate-400 text-[11px] mt-0.5 whitespace-pre-wrap leading-relaxed">

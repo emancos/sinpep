@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import type { RegulationRequest } from '../../services/regulation';
 import { useAvailableSlots, useBookSlot, type ScheduleSlot } from '../../hooks/useSchedules';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
+import { formatDateBR } from '../../utils/brazilianFormatters';
 
 interface BookSlotModalProps {
   isOpen: boolean;
@@ -249,12 +250,8 @@ export const BookSlotModal: React.FC<BookSlotModalProps> = ({
             </div>
           ) : (
             groupedSlots.map(([date, slots]) => {
-              const formattedDate = new Date(`${date}T00:00:00`).toLocaleDateString('pt-BR', {
-                weekday: 'long',
-                day: '2-digit',
-                month: 'long',
-                year: 'numeric',
-              });
+              const weekday = new Date(`${date}T00:00:00`).toLocaleDateString('pt-BR', { weekday: 'long' });
+              const formattedDate = `${formatDateBR(date)} (${weekday})`;
 
               return (
                 <div key={date} className="space-y-2">
