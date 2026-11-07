@@ -965,6 +965,14 @@ export const regulationRequests = pgTable("regulation_requests", {
   tokenValidatedAt: timestamp("token_validated_at", { precision: 3, mode: 'string' }),
   tokenValidatedByUserId: uuid("token_validated_by_user_id"),
   groupProcedures: jsonb("group_procedures").$type<Array<{ procedureId?: string; code: string; sigtapCode?: string; name: string }>>().default([]),
+  clinicalScore: integer("clinical_score").default(0).notNull(),
+  scoreBreakdown: jsonb("score_breakdown").$type<{
+    waitingPoints: number;
+    priorityPoints: number;
+    elderlyPoints: number;
+    pcdPoints: number;
+    totalScore: number;
+  }>(),
 
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
@@ -1010,6 +1018,7 @@ export const regulationRequests = pgTable("regulation_requests", {
     foreignColumns: [healthCenters.id],
     name: "regulation_requests_executing_health_center_id_fkey"
   }).onUpdate("cascade").onDelete("set null"),
+  index("regulation_requests_status_score_idx").on(table.status, table.clinicalScore.desc(), table.createdAt.asc()),
 ]);
 
 export const regulationRequestAttachments = pgTable("regulation_request_attachments", {

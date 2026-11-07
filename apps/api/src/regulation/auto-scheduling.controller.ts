@@ -26,10 +26,14 @@ export class AutoSchedulingController {
   @Get('waiting-list')
   @Permissions('regulation-operator:read')
   async getWaitingList(@Query() query: any) {
+    const page = query.page ? parseInt(query.page, 10) : 1;
+    const limit = query.limit ? parseInt(query.limit, 10) : 20;
     const minDays = query.minWaitingDays ? parseInt(query.minWaitingDays, 10) : undefined;
     const maxDays = query.maxWaitingDays ? parseInt(query.maxWaitingDays, 10) : undefined;
 
     return this.autoSchedulingService.getWaitingList({
+      page: isNaN(page) ? 1 : page,
+      limit: isNaN(limit) ? 20 : limit,
       procedureId: query.procedureId || undefined,
       procedureGroupId: query.procedureGroupId || undefined,
       specialtyId: query.specialtyId || undefined,

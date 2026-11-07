@@ -354,6 +354,68 @@ export class DatabaseMigrationService implements OnModuleInit {
         END $consultas$;
       `);
 
+      // Migração e Backfill: Score Clínico Persistido no PostgreSQL (Opção A)
+      await this.db.execute(sql`
+        ALTER TABLE regulation_requests ADD COLUMN IF NOT EXISTS clinical_score INTEGER DEFAULT 0 NOT NULL;
+        ALTER TABLE regulation_requests ADD COLUMN IF NOT EXISTS score_breakdown JSONB;
+        CREATE INDEX IF NOT EXISTS regulation_requests_status_score_idx ON regulation_requests (status, clinical_score DESC, created_at ASC);
+
+        DO $scores$
+        DECLARE
+          r RECORD;
+          v_age INT;
+          v_waiting_days INT;
+          v_waiting_pts INT;
+          v_priority_pts INT;
+          v_elderly_pts INT;
+          v_total_score INT;
+        BEGIN
+          FOR r IN 
+            SELECT 
+              req.id,
+              req.created_at,
+              req.priority,
+              p.birth_date
+            FROM regulation_requests req
+            JOIN patients p ON p.id = req.patient_id
+            WHERE req.clinical_score = 0
+          LOOP
+            v_waiting_days := GREATEST(0, (CURRENT_DATE - r.created_at::date));
+            v_waiting_pts := v_waiting_days * 1;
+            
+            IF r.priority::text IN ('URGENCIA', 'URGENTE') THEN
+              v_priority_pts := 500;
+            ELSIF r.priority::text = 'PRIORITARIO' THEN
+              v_priority_pts := 200;
+            ELSE
+              v_priority_pts := 0;
+            END IF;
+
+            v_age := COALESCE(EXTRACT(YEAR FROM age(r.birth_date))::int, 0);
+            IF v_age >= 80 THEN
+              v_elderly_pts := 300;
+            ELSIF v_age >= 60 THEN
+              v_elderly_pts := 100;
+            ELSE
+              v_elderly_pts := 0;
+            END IF;
+
+            v_total_score := v_waiting_pts + v_priority_pts + v_elderly_pts;
+
+            UPDATE regulation_requests
+            SET clinical_score = v_total_score,
+                score_breakdown = jsonb_build_object(
+                  'waitingPoints', v_waiting_pts,
+                  'priorityPoints', v_priority_pts,
+                  'elderlyPoints', v_elderly_pts,
+                  'pcdPoints', 0,
+                  'totalScore', v_total_score
+                )
+            WHERE id = r.id;
+          END LOOP;
+        END $scores$;
+      `);
+
       this.logger.log('Database migrations for procedures, quotas, auto-scheduling & esus import applied successfully.');
     } catch (error) {
       this.logger.error('Error applying procedure & quota database migrations', error);

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   autoSchedulingService,
   type WaitingListResponse,
@@ -24,6 +24,8 @@ export type {
 };
 
 export const useWaitingList = (params?: {
+  page?: number;
+  limit?: number;
   procedureId?: string;
   procedureGroupId?: string;
   specialtyId?: string;
@@ -38,6 +40,7 @@ export const useWaitingList = (params?: {
     queryFn: () => autoSchedulingService.getWaitingList(params),
     staleTime: 1000 * 60 * 2, // 2 minutos
     gcTime: 1000 * 60 * 10,
+    placeholderData: keepPreviousData,
   });
 };
 

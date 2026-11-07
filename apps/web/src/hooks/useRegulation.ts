@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   regulationService,
 } from '../services/regulation';
@@ -24,9 +24,13 @@ export const useRegulationMyCenter = (params?: {
 };
 
 export const useRegulationInbox = (params?: {
-  status?: RegulationRequestStatus;
-  type?: RegulationRequestType;
-  priority?: RegulationRequestPriority;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  status?: string;
+  type?: string;
+  priority?: string;
   requestingHealthCenterId?: string;
   executingHealthCenterId?: string;
   search?: string;
@@ -36,6 +40,7 @@ export const useRegulationInbox = (params?: {
     queryFn: () => regulationService.getInbox(params),
     staleTime: 1000 * 60 * 2, // 2 minutos
     gcTime: 1000 * 60 * 10,
+    placeholderData: keepPreviousData,
   });
 };
 

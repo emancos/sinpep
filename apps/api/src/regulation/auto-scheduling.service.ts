@@ -59,9 +59,11 @@ export class AutoSchedulingService {
   ) {}
 
   /**
-   * 1. Consulta da Fila de Espera com Cálculo Dinâmico de Score
+   * 1. Consulta da Fila de Espera com Paginação Server-Side e Score Clínico Persistido no PostgreSQL (Opção A)
    */
   async getWaitingList(query: {
+    page?: number;
+    limit?: number;
     procedureId?: string;
     procedureGroupId?: string;
     specialtyId?: string;
@@ -71,6 +73,10 @@ export class AutoSchedulingService {
     minWaitingDays?: number;
     maxWaitingDays?: number;
   }) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(query.limit) || 20));
+    const offset = (page - 1) * limit;
+
     const conditions: any[] = [
       eq(schema.regulationRequests.status, 'PENDENTE_AGENDAMENTO'),
     ];
@@ -90,174 +96,149 @@ export class AutoSchedulingService {
     if (query.requestingHealthCenterId && query.requestingHealthCenterId !== 'ALL') {
       conditions.push(eq(schema.regulationRequests.requestingHealthCenterId, query.requestingHealthCenterId));
     }
+    if (typeof query.minWaitingDays === 'number') {
+      conditions.push(sql`(CURRENT_DATE - ${schema.regulationRequests.createdAt}::date) >= ${query.minWaitingDays}`);
+    }
+    if (typeof query.maxWaitingDays === 'number') {
+      conditions.push(sql`(CURRENT_DATE - ${schema.regulationRequests.createdAt}::date) <= ${query.maxWaitingDays}`);
+    }
 
-    const requests = await this.db.query.regulationRequests.findMany({
-      where: and(...conditions),
-      with: {
-        patient: {
-          columns: { id: true, name: true, cpf: true, cns: true, birthDate: true, gender: true },
-        },
-        requestingHealthCenter: {
-          columns: { id: true, name: true, cnes: true },
-        },
-        procedure: {
-          columns: { id: true, code: true, name: true },
-        },
-        procedureGroup: {
-          columns: { id: true, name: true },
-        },
-        specialty: {
-          columns: { id: true, name: true },
-        },
-      },
-      orderBy: [asc(schema.regulationRequests.createdAt)],
-    });
+    // Busca SQL nativa abrangente (protocolo, paciente, CPF, CNS, procedimentos e grupos)
+    if (query.search && query.search.trim()) {
+      const s = `%${query.search.trim().toLowerCase()}%`;
+      const cleanDigits = query.search.trim().replace(/\D/g, '');
+      conditions.push(
+        sql`(
+          ${schema.regulationRequests.protocolNumber} ILIKE ${s}
+          OR ${schema.regulationRequests.confirmationToken} ILIKE ${s}
+          OR EXISTS (
+            SELECT 1 FROM ${schema.patients} p 
+            WHERE p.id = ${schema.regulationRequests.patientId} 
+            AND (
+              p.name ILIKE ${s}
+              OR p.cpf ILIKE ${s}
+              ${cleanDigits.length > 2 ? sql`OR regexp_replace(p.cpf, '\D', '', 'g') ILIKE ${'%' + cleanDigits + '%'}` : sql``}
+              OR p.cns ILIKE ${s}
+              ${cleanDigits.length > 2 ? sql`OR regexp_replace(p.cns, '\D', '', 'g') ILIKE ${'%' + cleanDigits + '%'}` : sql``}
+            )
+          )
+          OR EXISTS (
+            SELECT 1 FROM ${schema.procedures} pr 
+            WHERE pr.id = ${schema.regulationRequests.procedureId} 
+            AND (pr.name ILIKE ${s} OR pr.code ILIKE ${s})
+          )
+          OR EXISTS (
+            SELECT 1 FROM ${schema.procedureGroups} pg 
+            WHERE pg.id = ${schema.regulationRequests.procedureGroupId} 
+            AND pg.name ILIKE ${s}
+          )
+          OR ${schema.regulationRequests.groupProcedures}::text ILIKE ${s}
+        )`
+      );
+    }
 
-    // Carrega regras ativas para aplicar a melhor regra correspondente
-    const allRules = await this.db.query.autoSchedulingRules.findMany({
-      where: eq(schema.autoSchedulingRules.isActive, true),
-    });
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Executa em paralelo: 1) Itens paginados, 2) Total de linhas para paginação, 3) KPIs globais, 4) Vagas abertas
+    const [requests, [totalRow], kpisResult, slotsResult] = await Promise.all([
+      this.db.query.regulationRequests.findMany({
+        where: and(...conditions),
+        with: {
+          patient: {
+            columns: { id: true, name: true, cpf: true, cns: true, birthDate: true, gender: true },
+          },
+          requestingHealthCenter: {
+            columns: { id: true, name: true, cnes: true },
+          },
+          procedure: {
+            columns: { id: true, code: true, name: true },
+          },
+          procedureGroup: {
+            columns: { id: true, name: true },
+          },
+          specialty: {
+            columns: { id: true, name: true },
+          },
+        },
+        orderBy: [
+          desc(schema.regulationRequests.clinicalScore),
+          asc(schema.regulationRequests.createdAt),
+        ],
+        limit,
+        offset,
+      }),
+
+      this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.regulationRequests)
+        .where(and(...conditions)),
+
+      this.db.execute(sql`
+        SELECT 
+          count(*)::int as total_waiting,
+          coalesce(round(avg(CURRENT_DATE - created_at::date)), 0)::int as average_waiting_days,
+          count(*) FILTER (WHERE priority::text IN ('URGENCIA', 'URGENTE'))::int as urgency_count,
+          count(*) FILTER (WHERE priority = 'PRIORITARIO')::int as priority_count
+        FROM regulation_requests
+        WHERE status = 'PENDENTE_AGENDAMENTO'
+      `),
+
+      this.db.execute(sql`
+        SELECT count(*)::int as available_slots_count
+        FROM schedule_slots
+        WHERE status = 'DISPONIVEL' AND date >= ${todayStr}
+      `),
+    ]);
 
     const now = new Date();
+    const total = totalRow?.count || 0;
 
-    // Enriquecimento e ranqueamento
-    let enriched = requests.map((req) => {
+    const items = requests.map((req, index) => {
       const createdAt = new Date(req.createdAt);
       const diffMs = now.getTime() - createdAt.getTime();
       const waitingDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
-
-      // Busca regra específica para o procedimento ou grupo; fallback para regra padrão
-      const matchedRule =
-        allRules.find((r) => r.procedureId && r.procedureId === req.procedureId) ||
-        allRules.find((r) => r.procedureGroupId && r.procedureGroupId === req.procedureGroupId) ||
-        allRules.find((r) => !r.procedureId && !r.procedureGroupId) || {
-          weightWaitingDays: 1,
-          weightPriorityUrgency: 500,
-          weightPriorityPriority: 200,
-          weightElderly80Plus: 300,
-          weightElderly60Plus: 100,
-          weightPcd: 150,
-        };
-
       const age = calculateAge(req.patient?.birthDate);
 
-      const waitingPoints = waitingDays * (matchedRule.weightWaitingDays ?? 1);
-      const priorityPoints =
-        req.priority === 'URGENTE' || (req.priority as string) === 'URGENCIA'
-          ? matchedRule.weightPriorityUrgency ?? 500
-          : req.priority === 'PRIORITARIO'
-          ? matchedRule.weightPriorityPriority ?? 200
-          : 0;
-
-      const elderlyPoints =
-        age >= 80
-          ? matchedRule.weightElderly80Plus ?? 300
-          : age >= 60
-          ? matchedRule.weightElderly60Plus ?? 100
-          : 0;
-
-      const pcdPoints = 0; // expansível para cadastro do paciente
-
-      const totalScore = waitingPoints + priorityPoints + elderlyPoints + pcdPoints;
-
-      const scoreBreakdown: ScoreBreakdown = {
+      const scoreBreakdown: ScoreBreakdown = (req.scoreBreakdown as any) || {
         waitingDays,
-        waitingPoints,
+        waitingPoints: waitingDays,
         priority: req.priority,
-        priorityPoints,
+        priorityPoints:
+          (req.priority as string) === 'URGENCIA' || req.priority === 'URGENTE'
+            ? 500
+            : req.priority === 'PRIORITARIO'
+            ? 200
+            : 0,
         age,
-        elderlyPoints,
-        pcdPoints,
-        totalScore,
+        elderlyPoints: age >= 80 ? 300 : age >= 60 ? 100 : 0,
+        pcdPoints: 0,
+        totalScore: req.clinicalScore || 0,
       };
 
       return {
         ...req,
         waitingDays,
         age,
-        score: totalScore,
+        score: req.clinicalScore || scoreBreakdown.totalScore || 0,
         scoreBreakdown,
+        queuePosition: offset + index + 1, // Posição ordinal contínua garantida: (page - 1) * limit + index + 1
       };
     });
 
-    // Filtro por texto (busca paciente, CPF, CNS, protocolo, procedimentos de grupo)
-    if (query.search && query.search.trim()) {
-      const s = query.search.trim().toLowerCase();
-      const cleanDigits = s.replace(/\D/g, '');
-      enriched = enriched.filter(
-        (r) =>
-          (r.protocolNumber || '').toLowerCase().includes(s) ||
-          (r.patient?.name || '').toLowerCase().includes(s) ||
-          (r.patient?.cpf || '').toLowerCase().includes(s) ||
-          (cleanDigits.length > 2 && (r.patient?.cpf || '').replace(/\D/g, '').includes(cleanDigits)) ||
-          (r.patient?.cns || '').toLowerCase().includes(s) ||
-          (cleanDigits.length > 2 && (r.patient?.cns || '').replace(/\D/g, '').includes(cleanDigits)) ||
-          (r.procedure?.name || '').toLowerCase().includes(s) ||
-          (r.procedure?.code || '').toLowerCase().includes(s) ||
-          (r.procedureGroup?.name || '').toLowerCase().includes(s) ||
-          Boolean(
-            r.groupProcedures?.some(
-              (gp) =>
-                gp.name?.toLowerCase().includes(s) ||
-                gp.code?.toLowerCase().includes(s) ||
-                gp.sigtapCode?.toLowerCase().includes(s),
-            ),
-          ),
-      );
-    }
-
-    // Filtros de faixa de dias de espera
-    if (typeof query.minWaitingDays === 'number') {
-      enriched = enriched.filter((r) => r.waitingDays >= query.minWaitingDays!);
-    }
-    if (typeof query.maxWaitingDays === 'number') {
-      enriched = enriched.filter((r) => r.waitingDays <= query.maxWaitingDays!);
-    }
-
-    // Ordenação decrescente pelo Score total (maior pontuação primeiro)
-    enriched.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return a.waitingDays - b.waitingDays; // desempate por mais antigo
-    });
-
-    // Adiciona posição ordinal na fila
-    const items = enriched.map((item, index) => ({
-      queuePosition: index + 1,
-      ...item,
-    }));
-
-    // Métricas para os KPIs da barra de topo
-    const totalWaiting = items.length;
-    const avgDays =
-      totalWaiting > 0
-        ? Math.round(items.reduce((acc, curr) => acc + curr.waitingDays, 0) / totalWaiting)
-        : 0;
-    const urgencyCount = items.filter(
-      (i) => i.priority === 'URGENTE' || (i.priority as string) === 'URGENCIA',
-    ).length;
-    const priorityCount = items.filter((i) => i.priority === 'PRIORITARIO').length;
-
-    // Contagem de vagas disponíveis compatíveis
-    const todayStr = new Date().toISOString().split('T')[0];
-    const openSlotsCount = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(schema.scheduleSlots)
-      .where(
-        and(
-          eq(schema.scheduleSlots.status, 'DISPONIVEL'),
-          gte(schema.scheduleSlots.date, todayStr),
-        ),
-      );
+    const kpiRow: any = (kpisResult as any)?.[0] || {};
+    const slotRow: any = (slotsResult as any)?.[0] || {};
 
     return {
       items,
-      total: totalWaiting,
+      total,
+      page,
+      limit,
       kpis: {
-        totalWaiting,
-        averageWaitingDays: avgDays,
-        urgencyCount,
-        priorityCount,
-        availableSlotsCount: Number(openSlotsCount[0]?.count || 0),
+        totalWaiting: Number(kpiRow.total_waiting || 0),
+        averageWaitingDays: Number(kpiRow.average_waiting_days || 0),
+        urgencyCount: Number(kpiRow.urgency_count || 0),
+        priorityCount: Number(kpiRow.priority_count || 0),
+        availableSlotsCount: Number(slotRow.available_slots_count || 0),
       },
     };
   }

@@ -183,14 +183,44 @@ export const regulationService = {
 
   // Módulo Central de Regulação (Operador / Médico Regulador)
   async getInbox(params?: {
-    status?: RegulationRequestStatus;
-    type?: RegulationRequestType;
-    priority?: RegulationRequestPriority;
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    status?: string;
+    type?: string;
+    priority?: string;
     requestingHealthCenterId?: string;
     executingHealthCenterId?: string;
     search?: string;
-  }): Promise<{ data: RegulationRequest[]; total: number }> {
-    const { data } = await api.get<{ data: RegulationRequest[]; total: number }>('/regulation/inbox', {
+  }): Promise<{
+    data: RegulationRequest[];
+    total: number;
+    page: number;
+    limit: number;
+    counts: {
+      all: number;
+      toEvaluate: number;
+      toSchedule: number;
+      scheduled: number;
+      returned: number;
+      denied: number;
+    };
+  }> {
+    const { data } = await api.get<{
+      data: RegulationRequest[];
+      total: number;
+      page: number;
+      limit: number;
+      counts: {
+        all: number;
+        toEvaluate: number;
+        toSchedule: number;
+        scheduled: number;
+        returned: number;
+        denied: number;
+      };
+    }>('/regulation/inbox', {
       params,
     });
     return data;

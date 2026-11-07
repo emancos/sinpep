@@ -1,7 +1,7 @@
 import { Injectable, Inject, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database';
-import { eq, desc, and, or, ilike, inArray, sql } from 'drizzle-orm';
+import { eq, desc, asc, and, or, ilike, inArray, sql } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { StorageService } from '../storage/storage.service';
 import { EventsGateway } from '../events/events.gateway';
@@ -406,69 +406,127 @@ export class RegulationService {
   // =========================================================================
 
   async findInbox(query: any) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(query.limit) || 20));
+    const offset = (page - 1) * limit;
+
     const conditions: any[] = [];
 
-    if (query.status) {
+    if (query.status && query.status !== 'ALL') {
       conditions.push(eq(schema.regulationRequests.status, query.status));
     }
-    if (query.type) {
+    if (query.type && query.type !== 'ALL') {
       conditions.push(eq(schema.regulationRequests.type, query.type));
     }
-    if (query.priority) {
+    if (query.priority && query.priority !== 'ALL') {
       conditions.push(eq(schema.regulationRequests.priority, query.priority));
     }
-    if (query.requestingHealthCenterId) {
+    if (query.requestingHealthCenterId && query.requestingHealthCenterId !== 'ALL') {
       conditions.push(eq(schema.regulationRequests.requestingHealthCenterId, query.requestingHealthCenterId));
     }
-    if (query.executingHealthCenterId) {
+    if (query.executingHealthCenterId && query.executingHealthCenterId !== 'ALL') {
       conditions.push(eq(schema.regulationRequests.executingHealthCenterId, query.executingHealthCenterId));
     }
 
-    const items = await this.db.query.regulationRequests.findMany({
-      where: conditions.length > 0 ? and(...conditions) : undefined,
-      with: {
-        patient: {
-          columns: { id: true, name: true, cpf: true, cns: true, birthDate: true, gender: true },
-        },
-        requestingHealthCenter: { columns: { id: true, name: true, cnes: true } },
-        requestingUser: { columns: { id: true, name: true } },
-        specialty: { columns: { id: true, name: true } },
-        procedure: { columns: { id: true, code: true, name: true } },
-        procedureGroup: { columns: { id: true, name: true } },
-        executingHealthCenter: { columns: { id: true, name: true, cnes: true } },
-        scheduledByUser: { columns: { id: true, name: true } },
-      },
-      orderBy: [desc(schema.regulationRequests.createdAt)],
-    });
-
-    // Se houver busca por texto (protocolo, paciente, CPF, CNS, token, procedimento, grupo ou subprocedimentos)
-    let filtered = items;
+    // Busca SQL nativa abrangente (protocolo, paciente, CPF, CNS, procedimentos e grupos)
     if (query.search && query.search.trim()) {
-      const s = query.search.trim().toLowerCase();
-      const cleanDigits = s.replace(/\D/g, '');
-      filtered = items.filter((item: any) =>
-        (item.protocolNumber || '').toLowerCase().includes(s) ||
-        (item.confirmationToken || '').toLowerCase().includes(s) ||
-        (item.patient?.name || '').toLowerCase().includes(s) ||
-        (item.patient?.cpf || '').toLowerCase().includes(s) ||
-        (cleanDigits.length > 2 && (item.patient?.cpf || '').replace(/\D/g, '').includes(cleanDigits)) ||
-        (item.patient?.cns || '').toLowerCase().includes(s) ||
-        (cleanDigits.length > 2 && (item.patient?.cns || '').replace(/\D/g, '').includes(cleanDigits)) ||
-        (item.procedure?.name || '').toLowerCase().includes(s) ||
-        (item.procedure?.code || '').toLowerCase().includes(s) ||
-        (item.procedureGroup?.name || '').toLowerCase().includes(s) ||
-        Boolean(
-          item.groupProcedures?.some(
-            (gp: any) =>
-              (gp.name || '').toLowerCase().includes(s) ||
-              (gp.code || '').toLowerCase().includes(s) ||
-              (gp.sigtapCode || '').toLowerCase().includes(s),
-          ),
-        )
+      const s = `%${query.search.trim().toLowerCase()}%`;
+      const cleanDigits = query.search.trim().replace(/\D/g, '');
+      conditions.push(
+        sql`(
+          ${schema.regulationRequests.protocolNumber} ILIKE ${s}
+          OR ${schema.regulationRequests.confirmationToken} ILIKE ${s}
+          OR EXISTS (
+            SELECT 1 FROM ${schema.patients} p 
+            WHERE p.id = ${schema.regulationRequests.patientId} 
+            AND (
+              p.name ILIKE ${s}
+              OR p.cpf ILIKE ${s}
+              ${cleanDigits.length > 2 ? sql`OR regexp_replace(p.cpf, '\D', '', 'g') ILIKE ${'%' + cleanDigits + '%'}` : sql``}
+              OR p.cns ILIKE ${s}
+              ${cleanDigits.length > 2 ? sql`OR regexp_replace(p.cns, '\D', '', 'g') ILIKE ${'%' + cleanDigits + '%'}` : sql``}
+            )
+          )
+          OR EXISTS (
+            SELECT 1 FROM ${schema.procedures} pr 
+            WHERE pr.id = ${schema.regulationRequests.procedureId} 
+            AND (pr.name ILIKE ${s} OR pr.code ILIKE ${s})
+          )
+          OR EXISTS (
+            SELECT 1 FROM ${schema.procedureGroups} pg 
+            WHERE pg.id = ${schema.regulationRequests.procedureGroupId} 
+            AND pg.name ILIKE ${s}
+          )
+          OR ${schema.regulationRequests.groupProcedures}::text ILIKE ${s}
+        )`
       );
     }
 
-    return { data: filtered, total: filtered.length };
+    // Ordenação configurável por coluna
+    const isAsc = query.sortOrder === 'asc';
+    let orderClause = isAsc ? asc(schema.regulationRequests.createdAt) : desc(schema.regulationRequests.createdAt);
+    if (query.sortBy === 'protocolNumber') {
+      orderClause = isAsc ? asc(schema.regulationRequests.protocolNumber) : desc(schema.regulationRequests.protocolNumber);
+    } else if (query.sortBy === 'priority') {
+      orderClause = isAsc ? asc(schema.regulationRequests.priority) : desc(schema.regulationRequests.priority);
+    } else if (query.sortBy === 'status') {
+      orderClause = isAsc ? asc(schema.regulationRequests.status) : desc(schema.regulationRequests.status);
+    } else if (query.sortBy === 'token') {
+      orderClause = isAsc ? asc(schema.regulationRequests.confirmationToken) : desc(schema.regulationRequests.confirmationToken);
+    }
+
+    const [items, [totalRow], countsResult] = await Promise.all([
+      this.db.query.regulationRequests.findMany({
+        where: conditions.length > 0 ? and(...conditions) : undefined,
+        with: {
+          patient: {
+            columns: { id: true, name: true, cpf: true, cns: true, birthDate: true, gender: true },
+          },
+          requestingHealthCenter: { columns: { id: true, name: true, cnes: true } },
+          requestingUser: { columns: { id: true, name: true } },
+          specialty: { columns: { id: true, name: true } },
+          procedure: { columns: { id: true, code: true, name: true } },
+          procedureGroup: { columns: { id: true, name: true } },
+          executingHealthCenter: { columns: { id: true, name: true, cnes: true } },
+          scheduledByUser: { columns: { id: true, name: true } },
+        },
+        orderBy: [orderClause],
+        limit,
+        offset,
+      }),
+
+      this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.regulationRequests)
+        .where(conditions.length > 0 ? and(...conditions) : undefined),
+
+      this.db.execute(sql`
+        SELECT 
+          count(*)::int as total_all,
+          count(*) FILTER (WHERE status = 'PENDENTE_REGULACAO')::int as to_evaluate,
+          count(*) FILTER (WHERE status = 'PENDENTE_AGENDAMENTO')::int as to_schedule,
+          count(*) FILTER (WHERE status = 'AGENDADA')::int as scheduled,
+          count(*) FILTER (WHERE status = 'DEVOLVIDA')::int as returned,
+          count(*) FILTER (WHERE status = 'NEGADA')::int as denied
+        FROM regulation_requests
+      `),
+    ]);
+
+    const c: any = (countsResult as any)?.[0] || {};
+    return {
+      data: items,
+      total: totalRow?.count || 0,
+      page,
+      limit,
+      counts: {
+        all: Number(c.total_all || 0),
+        toEvaluate: Number(c.to_evaluate || 0),
+        toSchedule: Number(c.to_schedule || 0),
+        scheduled: Number(c.scheduled || 0),
+        returned: Number(c.returned || 0),
+        denied: Number(c.denied || 0),
+      },
+    };
   }
 
   async evaluateRequest(
@@ -493,11 +551,48 @@ export class RegulationService {
     else if (decision === 'NEGAR') newStatus = 'NEGADA';
 
     const now = new Date();
+    const finalPriority = adjustedPriority || existing.priority;
+
+    let clinicalScore = (existing as any).clinicalScore || 0;
+    let scoreBreakdown = (existing as any).scoreBreakdown;
+
+    // Se aprovada para a fila de espera, calcula o Score Clínico imediatamente
+    if (newStatus === 'PENDENTE_AGENDAMENTO') {
+      const createdAt = new Date(existing.createdAt);
+      const waitingDays = Math.max(0, Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24)));
+      const waitingPoints = waitingDays * 1;
+      const priorityPoints =
+        finalPriority === 'URGENCIA' || (finalPriority as string) === 'URGENTE'
+          ? 500
+          : finalPriority === 'PRIORITARIO'
+          ? 200
+          : 0;
+
+      let age = 0;
+      if (existing.patient?.birthDate) {
+        const birthDate = new Date(existing.patient.birthDate);
+        age = Math.max(0, Math.floor((now.getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25)));
+      }
+      const elderlyPoints = age >= 80 ? 300 : age >= 60 ? 100 : 0;
+      clinicalScore = waitingPoints + priorityPoints + elderlyPoints;
+      scoreBreakdown = {
+        waitingDays,
+        waitingPoints,
+        priority: finalPriority,
+        priorityPoints,
+        age,
+        elderlyPoints,
+        pcdPoints: 0,
+        totalScore: clinicalScore,
+      };
+    }
 
     await this.db.update(schema.regulationRequests)
       .set({
         status: newStatus,
-        priority: adjustedPriority || existing.priority,
+        priority: finalPriority,
+        clinicalScore,
+        scoreBreakdown,
         updatedAt: now.toISOString(),
       })
       .where(eq(schema.regulationRequests.id, id));

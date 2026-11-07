@@ -73,30 +73,7 @@ export const WaitingListPage: React.FC = () => {
     return undefined;
   }, [waitingDaysFilter]);
 
-  const {
-    data: waitingListData,
-    isLoading,
-    refetch,
-  } = useWaitingList({
-    procedureId: procedureFilter !== 'ALL' ? procedureFilter : undefined,
-    procedureGroupId: procedureGroupFilter !== 'ALL' ? procedureGroupFilter : undefined,
-    priority: priorityFilter !== 'ALL' ? priorityFilter : undefined,
-    requestingHealthCenterId: requestingCenterFilter !== 'ALL' ? requestingCenterFilter : undefined,
-    search: debouncedSearch.trim() || undefined,
-    minWaitingDays,
-    maxWaitingDays,
-  });
-
-  const requests = waitingListData?.items || [];
-  const kpis = waitingListData?.kpis || {
-    totalWaiting: 0,
-    averageWaitingDays: 0,
-    urgencyCount: 0,
-    priorityCount: 0,
-    availableSlotsCount: 0,
-  };
-
-  // Pagination states
+  // Pagination states (Server-side)
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
 
@@ -111,12 +88,31 @@ export const WaitingListPage: React.FC = () => {
     waitingDaysFilter,
   ]);
 
-  const total = requests.length;
+  const {
+    data: waitingListData,
+    isLoading,
+    refetch,
+  } = useWaitingList({
+    page,
+    limit,
+    procedureId: procedureFilter !== 'ALL' ? procedureFilter : undefined,
+    procedureGroupId: procedureGroupFilter !== 'ALL' ? procedureGroupFilter : undefined,
+    priority: priorityFilter !== 'ALL' ? priorityFilter : undefined,
+    requestingHealthCenterId: requestingCenterFilter !== 'ALL' ? requestingCenterFilter : undefined,
+    search: debouncedSearch.trim() || undefined,
+    minWaitingDays,
+    maxWaitingDays,
+  });
 
-  const paginatedRequests = useMemo(() => {
-    const start = (page - 1) * limit;
-    return requests.slice(start, start + limit);
-  }, [requests, page, limit]);
+  const requests = waitingListData?.items || [];
+  const total = waitingListData?.total || 0;
+  const kpis = waitingListData?.kpis || {
+    totalWaiting: 0,
+    averageWaitingDays: 0,
+    urgencyCount: 0,
+    priorityCount: 0,
+    availableSlotsCount: 0,
+  };
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
@@ -408,7 +404,7 @@ export const WaitingListPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {paginatedRequests.map((req) => {
+                {requests.map((req) => {
                   const b = req.scoreBreakdown;
 
                   return (

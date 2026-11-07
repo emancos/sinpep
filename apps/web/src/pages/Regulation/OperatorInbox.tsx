@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Search,
@@ -53,72 +53,17 @@ export const OperatorInbox: React.FC = () => {
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
   const [requestingCenterFilter, setRequestingCenterFilter] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
 
-  // Modals
-  const [evaluatingRequest, setEvaluatingRequest] = useState<RegulationRequest | null>(null);
-  const [schedulingRequest, setSchedulingRequest] = useState<RegulationRequest | null>(null);
-  const [slotBookingRequest, setSlotBookingRequest] = useState<RegulationRequest | null>(null);
-  const [detailsRequest, setDetailsRequest] = useState<RegulationRequest | null>(null);
-  const [printingRequest, setPrintingRequest] = useState<RegulationRequest | null>(null);
+  // Debounce search input to avoid unnecessary requests on every keypress
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-  // Cancel Schedule Modal
-  const [cancelingScheduleRequest, setCancelingScheduleRequest] = useState<RegulationRequest | null>(null);
-  const [cancelScheduleJustification, setCancelScheduleJustification] = useState('');
-  const [returnToQueue, setReturnToQueue] = useState(true);
-
-  // Queries
-  const { data: inboxResponse, isLoading, refetch } = useRegulationInbox();
-  const { data: healthCentersData } = useHealthCenters({ page: 1, limit: 100 });
-  const cancelScheduleMutation = useCancelRegulationSchedule();
-
-  const requests = inboxResponse?.data || [];
-
-  // Filtered requests
-  const filteredRequests = useMemo(() => {
-    return requests.filter((req) => {
-      if (statusFilter !== 'ALL' && req.status !== statusFilter) return false;
-      if (typeFilter !== 'ALL' && req.type !== typeFilter) return false;
-      if (priorityFilter !== 'ALL' && req.priority !== priorityFilter) return false;
-      if (requestingCenterFilter !== 'ALL' && req.requestingHealthCenterId !== requestingCenterFilter)
-        return false;
-
-      if (searchTerm.trim()) {
-        const s = searchTerm.toLowerCase();
-        const cleanDigits = s.replace(/\D/g, '');
-        const matchesProtocol = (req.protocolNumber || '').toLowerCase().includes(s);
-        const matchesPatient = (req.patient?.name || '').toLowerCase().includes(s);
-        const matchesCpf =
-          (req.patient?.cpf || '').toLowerCase().includes(s) ||
-          (cleanDigits.length > 2 && (req.patient?.cpf || '').replace(/\D/g, '').includes(cleanDigits));
-        const matchesCns =
-          (req.patient?.cns || '').toLowerCase().includes(s) ||
-          (cleanDigits.length > 2 && (req.patient?.cns || '').replace(/\D/g, '').includes(cleanDigits));
-        const matchesToken = (req.confirmationToken || '').toLowerCase().includes(s);
-        const matchesItem = (req.procedure?.name || req.specialty?.name || '').toLowerCase().includes(s);
-        const matchesGroup = (req.procedureGroup?.name || '').toLowerCase().includes(s);
-        const matchesSubProcedures = req.groupProcedures?.some(
-          (gp) =>
-            gp.name?.toLowerCase().includes(s) ||
-            gp.code?.toLowerCase().includes(s) ||
-            gp.sigtapCode?.toLowerCase().includes(s)
-        );
-        return (
-          matchesProtocol ||
-          matchesPatient ||
-          matchesCpf ||
-          matchesCns ||
-          matchesToken ||
-          matchesItem ||
-          matchesGroup ||
-          Boolean(matchesSubProcedures)
-        );
-      }
-
-      return true;
-    });
-  }, [requests, statusFilter, typeFilter, priorityFilter, requestingCenterFilter, searchTerm]);
-
-  // Sorting & Pagination States (Estilo Listagem de Pacientes)
+  // Sorting & Pagination States (Server-side)
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [sortBy, setSortBy] = useState('createdAt');
@@ -136,66 +81,46 @@ export const OperatorInbox: React.FC = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, typeFilter, priorityFilter, requestingCenterFilter, searchTerm]);
+  }, [statusFilter, typeFilter, priorityFilter, requestingCenterFilter, debouncedSearch]);
 
-  // Lista ordenada
-  const sortedRequests = useMemo(() => {
-    const list = [...filteredRequests];
-    list.sort((a, b) => {
-      let comparison = 0;
-      switch (sortBy) {
-        case 'protocolNumber':
-          comparison = (a.protocolNumber || '').localeCompare(b.protocolNumber || '');
-          break;
-        case 'patient':
-          comparison = (a.patient?.name || '').localeCompare(b.patient?.name || '');
-          break;
-        case 'requestingHealthCenter': {
-          const nameA = a.requestingHealthCenter?.name || '';
-          const nameB = b.requestingHealthCenter?.name || '';
-          comparison = nameA.localeCompare(nameB);
-          break;
-        }
-        case 'procedure': {
-          const nameA = a.procedureGroup?.name || a.procedure?.name || a.specialty?.name || '';
-          const nameB = b.procedureGroup?.name || b.procedure?.name || b.specialty?.name || '';
-          comparison = nameA.localeCompare(nameB);
-          break;
-        }
-        case 'priority': {
-          const priorityWeight: Record<string, number> = {
-            URGENCIA: 3,
-            PRIORITARIO: 2,
-            ELETIVO: 1,
-          };
-          comparison = (priorityWeight[a.priority] || 0) - (priorityWeight[b.priority] || 0);
-          break;
-        }
-        case 'status':
-          comparison = (a.status || '').localeCompare(b.status || '');
-          break;
-        case 'token':
-          comparison = (a.confirmationToken || '').localeCompare(b.confirmationToken || '');
-          break;
-        case 'createdAt':
-        default: {
-          const timeA = new Date(a.createdAt).getTime();
-          const timeB = new Date(b.createdAt).getTime();
-          comparison = timeA - timeB;
-          break;
-        }
-      }
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
-    return list;
-  }, [filteredRequests, sortBy, sortOrder]);
+  // Modals
+  const [evaluatingRequest, setEvaluatingRequest] = useState<RegulationRequest | null>(null);
+  const [schedulingRequest, setSchedulingRequest] = useState<RegulationRequest | null>(null);
+  const [slotBookingRequest, setSlotBookingRequest] = useState<RegulationRequest | null>(null);
+  const [detailsRequest, setDetailsRequest] = useState<RegulationRequest | null>(null);
+  const [printingRequest, setPrintingRequest] = useState<RegulationRequest | null>(null);
 
-  const total = sortedRequests.length;
+  // Cancel Schedule Modal
+  const [cancelingScheduleRequest, setCancelingScheduleRequest] = useState<RegulationRequest | null>(null);
+  const [cancelScheduleJustification, setCancelScheduleJustification] = useState('');
+  const [returnToQueue, setReturnToQueue] = useState(true);
 
-  const paginatedRequests = useMemo(() => {
-    const start = (page - 1) * limit;
-    return sortedRequests.slice(start, start + limit);
-  }, [sortedRequests, page, limit]);
+  // Queries (Paginação Server-Side)
+  const { data: inboxResponse, isLoading, refetch } = useRegulationInbox({
+    page,
+    limit,
+    sortBy,
+    sortOrder,
+    status: statusFilter !== 'ALL' ? statusFilter : undefined,
+    type: typeFilter !== 'ALL' ? typeFilter : undefined,
+    priority: priorityFilter !== 'ALL' ? priorityFilter : undefined,
+    requestingHealthCenterId: requestingCenterFilter !== 'ALL' ? requestingCenterFilter : undefined,
+    search: debouncedSearch.trim() || undefined,
+  });
+
+  const { data: healthCentersData } = useHealthCenters({ page: 1, limit: 100 });
+  const cancelScheduleMutation = useCancelRegulationSchedule();
+
+  const requests = inboxResponse?.data || [];
+  const total = inboxResponse?.total || 0;
+  const counts = inboxResponse?.counts || {
+    all: 0,
+    toEvaluate: 0,
+    toSchedule: 0,
+    scheduled: 0,
+    returned: 0,
+    denied: 0,
+  };
 
   const renderSortHeader = (label: string, field: string) => {
     const isSorted = sortBy === field;
@@ -219,18 +144,6 @@ export const OperatorInbox: React.FC = () => {
       </th>
     );
   };
-
-  // Counts
-  const counts = useMemo(() => {
-    return {
-      all: requests.length,
-      toEvaluate: requests.filter((r) => r.status === 'PENDENTE_REGULACAO').length,
-      toSchedule: requests.filter((r) => r.status === 'PENDENTE_AGENDAMENTO').length,
-      scheduled: requests.filter((r) => r.status === 'AGENDADA').length,
-      returned: requests.filter((r) => r.status === 'DEVOLVIDA').length,
-      denied: requests.filter((r) => r.status === 'NEGADA').length,
-    };
-  }, [requests]);
 
   const handleConfirmCancelSchedule = async () => {
     if (!cancelingScheduleRequest) return;
@@ -520,7 +433,7 @@ export const OperatorInbox: React.FC = () => {
             <span className="text-xs">Carregando fila da regulação municipal...</span>
           </div>
         </div>
-      ) : filteredRequests.length === 0 ? (
+      ) : requests.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-10 text-center text-slate-500 shadow-sm text-xs">
           Nenhuma solicitação encontrada para os filtros aplicados.
         </div>
@@ -528,7 +441,7 @@ export const OperatorInbox: React.FC = () => {
         <>
           {/* 1. CARDS PARA MOBILE (md:hidden) */}
           <div className="space-y-3 md:hidden">
-            {paginatedRequests.map((req) => (
+            {requests.map((req) => (
               <div
                 key={req.id}
                 className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-3.5 shadow-sm space-y-3 overflow-hidden"
@@ -719,7 +632,7 @@ export const OperatorInbox: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {paginatedRequests.map((req) => (
+                  {requests.map((req) => (
                     <tr key={req.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
                       <td className="px-4 py-3 font-mono font-bold text-blue-600 dark:text-blue-400">
                         <Link to={`/regulation/requests/${req.id}`} className="hover:underline">

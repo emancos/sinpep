@@ -32,6 +32,8 @@ export interface WaitingListKPIs {
 export interface WaitingListResponse {
   items: WaitingListRequest[];
   total: number;
+  page?: number;
+  limit?: number;
   kpis: WaitingListKPIs;
 }
 
@@ -126,6 +128,8 @@ export interface AutoSchedulingRun {
 
 export const autoSchedulingService = {
   async getWaitingList(params?: {
+    page?: number;
+    limit?: number;
     procedureId?: string;
     procedureGroupId?: string;
     specialtyId?: string;
