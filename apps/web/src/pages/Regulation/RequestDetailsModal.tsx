@@ -184,8 +184,8 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
 
         {/* Content */}
         <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
-          {/* Card Chave de Confirmação (Destaque quando AGENDADA) */}
-          {request.status === 'AGENDADA' && request.confirmationToken && (
+          {/* Card Chave de Confirmação (Destaque quando AGENDADA ou com chave gerada) */}
+          {Boolean(request.confirmationToken) && (
             <div className="p-4 bg-gradient-to-r from-emerald-600 to-teal-700 rounded-md text-white shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center space-x-3.5">
                 <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-md">

@@ -536,7 +536,7 @@ export const RequestDetailsPage: React.FC = () => {
         {/* Coluna Lateral (Direita - 1/3) */}
         <div className="space-y-6">
           {/* Card Se Estiver Agendada */}
-          {request.status === 'AGENDADA' && (
+          {(request.status === 'AGENDADA' || Boolean(request.confirmationToken)) && (
             <div className="bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-5 shadow-xs space-y-3">
               <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-sm">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />

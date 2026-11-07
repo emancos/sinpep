@@ -171,44 +171,51 @@ export const OperatorInbox: React.FC = () => {
     switch (status) {
       case 'PENDENTE_REGULACAO':
         return (
-          <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-            Pendente Regulação
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-amber-50 text-amber-800 border border-amber-200/90 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/70 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+            <span>Pendente Regulação</span>
           </span>
         );
       case 'PENDENTE_AGENDAMENTO':
         return (
-          <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-            Aguardando Agendamento
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-blue-50 text-blue-800 border border-blue-200/90 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/70 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+            <span>Aguardando Agendamento</span>
           </span>
         );
       case 'AGENDADA':
         return (
-          <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
-            Agendada
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-emerald-50 text-emerald-800 border border-emerald-200/90 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/70 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+            <span>Agendada</span>
           </span>
         );
       case 'DEVOLVIDA':
         return (
-          <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 animate-pulse">
-            Devolvida p/ UBS
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap bg-orange-50 text-orange-800 border border-orange-200/90 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800/70 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping shrink-0" />
+            <span>Devolvida p/ UBS</span>
           </span>
         );
       case 'NEGADA':
         return (
-          <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-            Indeferida / Negada
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-rose-50 text-rose-800 border border-rose-200/90 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/70 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+            <span>Indeferida / Negada</span>
           </span>
         );
       case 'AGENDAMENTO_CANCELADO':
         return (
-          <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-300">
-            Agendamento Cancelado
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-slate-100 text-slate-700 border border-slate-200/90 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+            <span>Agendamento Cancelado</span>
           </span>
         );
       case 'CANCELADA':
         return (
-          <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-300">
-            Cancelada
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-slate-100 text-slate-600 border border-slate-200/90 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+            <span>Cancelada</span>
           </span>
         );
       default:
@@ -627,7 +634,6 @@ export const OperatorInbox: React.FC = () => {
                     {renderSortHeader('Procedimento / Especialidade', 'procedure')}
                     {renderSortHeader('Prioridade', 'priority')}
                     {renderSortHeader('Status', 'status')}
-                    {renderSortHeader('Chave Confirmação', 'token')}
                     <th className="px-4 py-3 text-right">Ações Regulatórias</th>
                   </tr>
                 </thead>
@@ -710,17 +716,7 @@ export const OperatorInbox: React.FC = () => {
 
                       <td className="px-4 py-3">{getPriorityBadge(req.priority)}</td>
 
-                      <td className="px-4 py-3">{getStatusBadge(req.status)}</td>
-
-                      <td className="px-4 py-3 font-mono">
-                        {req.confirmationToken ? (
-                          <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-md font-bold tracking-wider">
-                            {req.confirmationToken}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 text-[11px]">—</span>
-                        )}
-                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">{getStatusBadge(req.status)}</td>
 
                       <td className="px-4 py-3 text-right space-x-1.5 whitespace-nowrap">
                         <button

@@ -86,7 +86,7 @@ export const RegulationRequestPrintModal: React.FC<RegulationRequestPrintModalPr
     ? `${request.procedure.code} - ${request.procedure.name}`
     : request.specialty?.name || 'Consulta / Procedimento Especializado';
 
-  const isScheduled = request.status === 'AGENDADA' && (request.scheduledDate || request.executingHealthCenter);
+  const isScheduled = request.status === 'AGENDADA' || Boolean(request.confirmationToken);
 
   const modalContent = (
     <div
@@ -161,7 +161,7 @@ export const RegulationRequestPrintModal: React.FC<RegulationRequestPrintModalPr
               </div>
             </div>
 
-            <div className="w-40 text-right shrink-0 border-l border-slate-300 pl-3">
+            <div className="w-44 text-right shrink-0 border-l border-slate-300 pl-3">
               <div className="text-[9px] font-bold uppercase text-slate-500">Documento Oficial</div>
               <div className="text-[11px] font-extrabold text-emerald-800 leading-tight">
                 {isScheduled ? 'COMPROVANTE DE AGENDAMENTO' : 'FICHA DE SOLICITAÇÃO'}
@@ -169,7 +169,12 @@ export const RegulationRequestPrintModal: React.FC<RegulationRequestPrintModalPr
               <div className="text-[10px] font-mono font-bold text-slate-900 mt-1">
                 #{request.protocolNumber}
               </div>
-              <div className="text-[9px] text-slate-500">
+              {request.confirmationToken && (
+                <div className="text-[10px] font-mono font-black text-emerald-800 mt-0.5">
+                  CHAVE: {request.confirmationToken}
+                </div>
+              )}
+              <div className="text-[9px] text-slate-500 mt-0.5">
                 Emitido em {requestDateFormatted} às {requestTimeFormatted}
               </div>
             </div>
@@ -337,9 +342,16 @@ export const RegulationRequestPrintModal: React.FC<RegulationRequestPrintModalPr
                   <span>Dados do Atendimento Agendado</span>
                 </div>
                 {request.confirmationToken && (
-                  <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded border border-emerald-300 font-mono text-xs font-bold text-emerald-900">
-                    <Key className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Chave: {request.confirmationToken}</span>
+                  <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-md border-2 border-emerald-600 shadow-xs">
+                    <Key className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div className="flex flex-col text-left">
+                      <span className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider">
+                        Chave de Confirmação
+                      </span>
+                      <span className="font-mono text-sm font-black tracking-widest text-emerald-950">
+                        {request.confirmationToken}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -399,6 +411,11 @@ export const RegulationRequestPrintModal: React.FC<RegulationRequestPrintModalPr
                 <strong>Apresentação obrigatória:</strong> Documento oficial de identificação com foto (RG/CNH),
                 Cartão SUS e este comprovante.
               </li>
+              {request.confirmationToken && (
+                <li>
+                  <strong>Chave de Validação:</strong> Apresente a Chave ({request.confirmationToken}) na recepção da Unidade Executante para validar o seu atendimento.
+                </li>
+              )}
               <li>
                 {isScheduled
                   ? 'Chegue ao local de atendimento com no mínimo 15 minutos de antecedência do horário marcado.'
