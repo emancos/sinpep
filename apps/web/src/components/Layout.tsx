@@ -225,7 +225,7 @@ export const Layout = () => {
 
         {/* Footer info in sidebar */}
         <div className={`p-4 border-t border-white/10 dark:border-[#002244]/50 text-xs flex flex-col gap-1 text-blue-200/70 text-center transition-all duration-300 ${isCollapsed ? 'hidden' : 'flex'}`}>
-          <span>v1.3.0 &copy; {new Date().getFullYear()}</span>
+          <span>v1.3.2 &copy; {new Date().getFullYear()}</span>
         </div>
       </aside>
 

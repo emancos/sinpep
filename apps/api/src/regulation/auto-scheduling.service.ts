@@ -225,8 +225,10 @@ export class AutoSchedulingService {
       };
     });
 
-    const kpiRow: any = (kpisResult as any)?.[0] || {};
-    const slotRow: any = (slotsResult as any)?.[0] || {};
+    const kpiRows = (kpisResult as any)?.rows || (Array.isArray(kpisResult) ? kpisResult : []);
+    const slotRows = (slotsResult as any)?.rows || (Array.isArray(slotsResult) ? slotsResult : []);
+    const kpiRow: any = kpiRows[0] || {};
+    const slotRow: any = slotRows[0] || {};
 
     return {
       items,

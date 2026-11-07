@@ -475,6 +475,10 @@ export class RegulationService {
       orderClause = isAsc ? asc(schema.regulationRequests.confirmationToken) : desc(schema.regulationRequests.confirmationToken);
     }
 
+    const centerFilter = query.requestingHealthCenterId
+      ? sql`WHERE requesting_health_center_id = ${query.requestingHealthCenterId}`
+      : sql``;
+
     const [items, [totalRow], countsResult] = await Promise.all([
       this.db.query.regulationRequests.findMany({
         where: conditions.length > 0 ? and(...conditions) : undefined,
@@ -509,10 +513,12 @@ export class RegulationService {
           count(*) FILTER (WHERE status = 'DEVOLVIDA')::int as returned,
           count(*) FILTER (WHERE status = 'NEGADA')::int as denied
         FROM regulation_requests
+        ${centerFilter}
       `),
     ]);
 
-    const c: any = (countsResult as any)?.[0] || {};
+    const countsRows = (countsResult as any)?.rows || (Array.isArray(countsResult) ? countsResult : []);
+    const c: any = countsRows[0] || {};
     return {
       data: items,
       total: totalRow?.count || 0,
