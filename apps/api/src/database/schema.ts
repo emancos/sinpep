@@ -1565,6 +1565,68 @@ export const dashboardNoticesRelations = relations(dashboardNotices, ({ one }) =
   }),
 }));
 
+// ==========================================
+// BOLETIM DE PRODUÇÃO AMBULATORIAL (BPA)
+// ==========================================
+
+export const bpaBatches = pgTable("bpa_batches", {
+  id: uuid().primaryKey().notNull(),
+  competencia: text("competencia").notNull(), // AAAA-MM
+  healthCenterId: uuid("health_center_id").notNull(),
+  totalRecords: integer("total_records").notNull(),
+  sha256Hash: text("sha256_hash").notNull(),
+  fileContent: text("file_content").notNull(),
+  metadata: jsonb("metadata").default({}),
+  createdById: uuid("created_by_id").notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  index("bpa_batches_comp_unit_idx").using("btree", table.competencia, table.healthCenterId),
+  foreignKey({
+    columns: [table.healthCenterId],
+    foreignColumns: [healthCenters.id],
+    name: "bpa_batches_health_center_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.createdById],
+    foreignColumns: [users.id],
+    name: "bpa_batches_created_by_id_fkey"
+  }).onUpdate("cascade").onDelete("restrict"),
+]);
+
+export const bpaBatchesRelations = relations(bpaBatches, ({ one }) => ({
+  healthCenter: one(healthCenters, {
+    fields: [bpaBatches.healthCenterId],
+    references: [healthCenters.id],
+  }),
+  createdBy: one(users, {
+    fields: [bpaBatches.createdById],
+    references: [users.id],
+  }),
+}));
+
+export const bpaExportRules = pgTable("bpa_export_rules", {
+  id: uuid().primaryKey().notNull(),
+  healthCenterId: uuid("health_center_id"),
+  procedureCode: text("procedure_code").notNull(),
+  cboOverride: text("cbo_override").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  foreignKey({
+    columns: [table.healthCenterId],
+    foreignColumns: [healthCenters.id],
+    name: "bpa_export_rules_health_center_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+]);
+
+export const bpaExportRulesRelations = relations(bpaExportRules, ({ one }) => ({
+  healthCenter: one(healthCenters, {
+    fields: [bpaExportRules.healthCenterId],
+    references: [healthCenters.id],
+  }),
+}));
+
+
 
 
 
