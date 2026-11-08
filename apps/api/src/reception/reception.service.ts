@@ -1,6 +1,6 @@
 import { Injectable, Inject, HttpException, HttpStatus } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, inArray, and, ilike, or } from 'drizzle-orm';
+import { eq, inArray, and, ilike, or, asc } from 'drizzle-orm';
 import * as schema from '../database/schema';
 import axios from 'axios';
 import * as crypto from 'crypto';
@@ -18,178 +18,254 @@ export class ReceptionService {
   ) {}
 
   async getEsusSchedule(date: string, cnes: string) {
-    if (!process.env.ESUS_API_SECRET) {
-      throw new HttpException('ESUS_API_SECRET não configurado.', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    let records: any[] = [];
 
-    try {
-      const response = await axios.post(
-        'https://regulacao-api.saude.gov.br/regulacao-producao/_search',
-        {
-          size: 500,
-          sort: [
-            {
-              "hrMarcacao.keyword": {
-                "order": "asc"
+    // 1. Consulta registros remotos na API do e-SUS Regulação (se configurado)
+    if (process.env.ESUS_API_SECRET) {
+      try {
+        const response = await axios.post(
+          'https://regulacao-api.saude.gov.br/regulacao-producao/_search',
+          {
+            size: 500,
+            sort: [
+              {
+                "hrMarcacao.keyword": {
+                  "order": "asc"
+                }
               }
-            }
-          ],
-          query: {
-            bool: {
-              must: [
-                {
-                  term: {
-                    "coCnesEstabelecimentoExecutante": cnes || "2606712"
-                  }
-                },
-                {
-                  range: {
-                    dtMarcacao: {
-                      gte: date,
-                      lte: date,
-                      format: "yyyy-MM-dd"
+            ],
+            query: {
+              bool: {
+                must: [
+                  {
+                    term: {
+                      "coCnesEstabelecimentoExecutante": cnes || "2606712"
+                    }
+                  },
+                  {
+                    range: {
+                      dtMarcacao: {
+                        gte: date,
+                        lte: date,
+                        format: "yyyy-MM-dd"
+                      }
                     }
                   }
-                }
-              ]
+                ]
+              }
+            }
+          },
+          {
+            headers: {
+              'Authorization': `Basic ${process.env.ESUS_API_SECRET}`,
+              'Content-Type': 'application/json',
+              'User-Agent': 'SINPeP-Regulacao/1.0',
+            },
+            timeout: 7000,
+          }
+        );
+
+        const hits = response.data?.hits?.hits || [];
+        records = hits.map((hit: any) => hit._source);
+
+        // Sincroniza / atualiza CPF e credenciais dos médicos do e-SUS
+        for (const record of records) {
+          if (record.nuCnsProfissionalSolicitante && record.nuCpfProfissionalSolicitante) {
+            try {
+              await this.doctorsService.updateDoctorCpfAndCredentialsByCns(
+                record.nuCnsProfissionalSolicitante,
+                record.nuCpfProfissionalSolicitante
+              );
+            } catch (syncErr) {
+              console.error('[Auto-Doctor-Sync] Erro ao sincronizar CPF do médico solicitante:', syncErr);
             }
           }
-        },
-        {
-          headers: {
-            'Authorization': `Basic ${process.env.ESUS_API_SECRET}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      const hits = response.data?.hits?.hits || [];
-      const records = hits.map((hit: any) => hit._source);
-
-      // Sincroniza / atualiza CPF e senha dos médicos que ainda estejam no formato XXX.DDD.DDD.XX,
-      // utilizando como chave de verificação o CNS (campo nuCnsProfissionalSolicitante do JSON do e-SUS)
-      for (const record of records) {
-        if (record.nuCnsProfissionalSolicitante && record.nuCpfProfissionalSolicitante) {
-          try {
-            await this.doctorsService.updateDoctorCpfAndCredentialsByCns(
-              record.nuCnsProfissionalSolicitante,
-              record.nuCpfProfissionalSolicitante
-            );
-          } catch (syncErr) {
-            console.error('[Auto-Doctor-Sync] Erro ao sincronizar CPF do médico solicitante:', syncErr);
+          if (record.nuCnsProfissionalExecutante && record.nuCpfProfissionalExecutante) {
+            try {
+              await this.doctorsService.updateDoctorCpfAndCredentialsByCns(
+                record.nuCnsProfissionalExecutante,
+                record.nuCpfProfissionalExecutante
+              );
+            } catch (syncErr) {
+              console.error('[Auto-Doctor-Sync] Erro ao sincronizar CPF do médico executante:', syncErr);
+            }
           }
         }
-        if (record.nuCnsProfissionalExecutante && record.nuCpfProfissionalExecutante) {
-          try {
-            await this.doctorsService.updateDoctorCpfAndCredentialsByCns(
-              record.nuCnsProfissionalExecutante,
-              record.nuCpfProfissionalExecutante
-            );
-          } catch (syncErr) {
-            console.error('[Auto-Doctor-Sync] Erro ao sincronizar CPF do médico executante:', syncErr);
-          }
-        }
+      } catch (esusError: any) {
+        console.warn('[Reception] Aviso na comunicação com a API remota do e-SUS:', esusError?.message || esusError);
       }
-
-      // Extract CPFs
-      const cpfs = Array.from(new Set(records.map((r: any) => r.pacienteNuCpf).filter(Boolean))) as string[];
-      let localPatients: Record<string, string> = {};
-      
-      if (cpfs.length > 0) {
-        const patients = await this.db.select({ id: schema.patients.id, cpf: schema.patients.cpf }).from(schema.patients).where(inArray(schema.patients.cpf, cpfs));
-        localPatients = patients.reduce((acc, p) => {
-          if (p.cpf) acc[p.cpf] = p.id;
-          return acc;
-        }, {} as Record<string, string>);
-      }
-
-      // Check attendance queue and queue settings for today
-      const setting = await this.db.select().from(schema.queueSettings).where(eq(schema.queueSettings.id, 'priority_rule'));
-      const priorityRule = (setting[0]?.value as 'PRIORITY_FIRST' | 'INTERLEAVED') || 'PRIORITY_FIRST';
-
-      const queueItems = await this.db.select().from(schema.attendanceQueue).where(eq(schema.attendanceQueue.date, date));
-
-      // Mapear o horário marcado (hrMarcacao) de cada agendamento do e-SUS
-      const timeByEsusId = new Map<string, string>();
-      for (const record of records) {
-        if (record.coSolicitacao) {
-          timeByEsusId.set(record.coSolicitacao, record.hrMarcacao || 'Sem horário');
-        }
-      }
-
-      // Agrupar itens da fila separadamente por Especialidade E Horário (ex: "CONSULTA EM UROLOGIA___11:00", "CONSULTA EM UROLOGIA___15:00")
-      const queueBySpecAndTime: Record<string, typeof queueItems> = {};
-      for (const q of queueItems) {
-        const time = (q.esusSolicitacaoId && timeByEsusId.get(q.esusSolicitacaoId)) || 'Sem horário';
-        const groupKey = `${q.specialtyName}___${time}`;
-        if (!queueBySpecAndTime[groupKey]) {
-          queueBySpecAndTime[groupKey] = [];
-        }
-        queueBySpecAndTime[groupKey].push(q);
-      }
-
-      // Para cada grupo (especialidade + horário), calcular a ordem de 1 até N separadamente
-      const orderMap = new Map<string, number>();
-      for (const groupItems of Object.values(queueBySpecAndTime)) {
-        const aguardando = groupItems.filter(i => i.status === 'AGUARDANDO');
-        const others = groupItems.filter(i => i.status !== 'AGUARDANDO');
-
-        const prioritarios = aguardando
-          .filter(i => i.priority === 'PRIORITARIO')
-          .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
-
-        const convencionais = aguardando
-          .filter(i => i.priority !== 'PRIORITARIO')
-          .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
-
-        let orderedAguardando: typeof queueItems = [];
-        if (priorityRule === 'INTERLEAVED') {
-          const maxLen = Math.max(prioritarios.length, convencionais.length);
-          for (let i = 0; i < maxLen; i++) {
-            if (i < prioritarios.length) orderedAguardando.push(prioritarios[i]);
-            if (i < convencionais.length) orderedAguardando.push(convencionais[i]);
-          }
-        } else {
-          orderedAguardando = [...prioritarios, ...convencionais];
-        }
-
-        const finalOrdered = [...orderedAguardando, ...others];
-        finalOrdered.forEach((item, index) => {
-          orderMap.set(item.id, index + 1);
-        });
-      }
-
-      const groupedBySpecialty: Record<string, any[]> = {};
-
-      for (const record of records) {
-        const spec = record.noProcedimentoInterno || 'GERAL';
-        if (!groupedBySpecialty[spec]) {
-          groupedBySpecialty[spec] = [];
-        }
-
-        const patientId = record.pacienteNuCpf ? localPatients[record.pacienteNuCpf] : null;
-        const qItem = queueItems.find(q => q.esusSolicitacaoId === record.coSolicitacao);
-        const calculatedOrder = qItem ? orderMap.get(qItem.id) || qItem.queueOrder : null;
-
-        groupedBySpecialty[spec].push({
-          ...record,
-          isRegistered: !!patientId,
-          patientId: patientId || null,
-          isQueued: !!qItem,
-          queueId: qItem ? qItem.id : null,
-          queueStatus: qItem ? qItem.status : null,
-          queueOrder: calculatedOrder,
-          attendanceOrder: calculatedOrder,
-          priority: qItem ? qItem.priority : null,
-          priorityRule,
-        });
-      }
-
-      return groupedBySpecialty;
-    } catch (error) {
-      console.error("Erro na API E-SUS:", error.response?.data || error.message);
-      throw new HttpException('Falha ao buscar agenda do e-SUS', HttpStatus.BAD_GATEWAY);
     }
+
+    // 2. Consulta agendamentos nativos do SINPeP na data e estabelecimento executante
+    try {
+      const localSlots = await this.db.query.scheduleSlots.findMany({
+        where: and(
+          eq(schema.scheduleSlots.date, date),
+          eq(schema.scheduleSlots.status, 'AGENDADO'),
+        ),
+        with: {
+          patient: true,
+          regulationRequest: {
+            with: {
+              requestingHealthCenter: true,
+            },
+          },
+          schedule: {
+            with: {
+              executingHealthCenter: true,
+              procedure: true,
+              procedureGroup: true,
+              doctor: {
+                with: { user: true },
+              },
+            },
+          },
+        },
+        orderBy: [asc(schema.scheduleSlots.time)],
+      });
+
+      // Filtra pelo CNES da unidade executante (se cnes informado)
+      const filteredSlots = cnes
+        ? localSlots.filter((s) => !s.schedule?.executingHealthCenter?.cnes || s.schedule?.executingHealthCenter?.cnes === cnes)
+        : localSlots;
+
+      const existingProtocols = new Set(records.map((r) => r.coSolicitacao).filter(Boolean));
+
+      for (const slot of filteredSlots) {
+        const protocolNumber = slot.regulationRequest?.protocolNumber || `SINPEP-${slot.id.slice(0, 8)}`;
+        if (existingProtocols.has(protocolNumber)) {
+          continue; // Evita duplicações caso já tenha vindo do e-SUS
+        }
+
+        const specName =
+          slot.schedule?.procedure?.name ||
+          slot.schedule?.procedureGroup?.name ||
+          'CONSULTA GERAL';
+
+        const doctorName = (slot.schedule as any)?.doctor?.user?.name || 'Profissional';
+        const unitName = slot.schedule?.executingHealthCenter?.name || 'Unidade Executante';
+        const unitCnes = slot.schedule?.executingHealthCenter?.cnes || cnes || '2606712';
+
+        records.push({
+          coSolicitacao: protocolNumber,
+          hrMarcacao: slot.time || 'Sem horário',
+          dtMarcacao: slot.date,
+          noProcedimentoInterno: specName,
+          pacienteNome: slot.patient?.name || 'Paciente',
+          pacienteNuCpf: slot.patient?.cpf || '',
+          pacienteNuCns: slot.patient?.cns || '',
+          pacienteNoMunicipioResidencia: 'São Bento',
+          noEstabelecimentoExecutante: unitName,
+          coCnesEstabelecimentoExecutante: unitCnes,
+          noProfissionalExecutante: doctorName,
+          nuCnsProfissionalExecutante: slot.schedule?.doctor?.cns || '',
+          nuCpfProfissionalExecutante: slot.schedule?.doctor?.cpf || '',
+          confirmationToken: slot.regulationRequest?.confirmationToken || null,
+          regulationRequestId: slot.regulationRequestId || null,
+          slotId: slot.id,
+          source: 'SINPEP',
+          patientId: slot.patientId,
+        });
+      }
+    } catch (localErr) {
+      console.error('[Reception] Erro ao carregar agendamentos nativos do SINPeP:', localErr);
+    }
+
+    // Extract CPFs
+    const cpfs = Array.from(new Set(records.map((r: any) => r.pacienteNuCpf).filter(Boolean))) as string[];
+    let localPatients: Record<string, string> = {};
+    
+    if (cpfs.length > 0) {
+      const patients = await this.db.select({ id: schema.patients.id, cpf: schema.patients.cpf }).from(schema.patients).where(inArray(schema.patients.cpf, cpfs));
+      localPatients = patients.reduce((acc, p) => {
+        if (p.cpf) acc[p.cpf] = p.id;
+        return acc;
+      }, {} as Record<string, string>);
+    }
+
+    // Check attendance queue and queue settings for today
+    const setting = await this.db.select().from(schema.queueSettings).where(eq(schema.queueSettings.id, 'priority_rule'));
+    const priorityRule = (setting[0]?.value as 'PRIORITY_FIRST' | 'INTERLEAVED') || 'PRIORITY_FIRST';
+
+    const queueItems = await this.db.select().from(schema.attendanceQueue).where(eq(schema.attendanceQueue.date, date));
+
+    // Mapear o horário marcado (hrMarcacao) de cada agendamento do e-SUS
+    const timeByEsusId = new Map<string, string>();
+    for (const record of records) {
+      if (record.coSolicitacao) {
+        timeByEsusId.set(record.coSolicitacao, record.hrMarcacao || 'Sem horário');
+      }
+    }
+
+    // Agrupar itens da fila separadamente por Especialidade E Horário (ex: "CONSULTA EM UROLOGIA___11:00", "CONSULTA EM UROLOGIA___15:00")
+    const queueBySpecAndTime: Record<string, typeof queueItems> = {};
+    for (const q of queueItems) {
+      const time = (q.esusSolicitacaoId && timeByEsusId.get(q.esusSolicitacaoId)) || 'Sem horário';
+      const groupKey = `${q.specialtyName}___${time}`;
+      if (!queueBySpecAndTime[groupKey]) {
+        queueBySpecAndTime[groupKey] = [];
+      }
+      queueBySpecAndTime[groupKey].push(q);
+    }
+
+    // Para cada grupo (especialidade + horário), calcular a ordem de 1 até N separadamente
+    const orderMap = new Map<string, number>();
+    for (const groupItems of Object.values(queueBySpecAndTime)) {
+      const aguardando = groupItems.filter(i => i.status === 'AGUARDANDO');
+      const others = groupItems.filter(i => i.status !== 'AGUARDANDO');
+
+      const prioritarios = aguardando
+        .filter(i => i.priority === 'PRIORITARIO')
+        .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+
+      const convencionais = aguardando
+        .filter(i => i.priority !== 'PRIORITARIO')
+        .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+
+      let orderedAguardando: typeof queueItems = [];
+      if (priorityRule === 'INTERLEAVED') {
+        const maxLen = Math.max(prioritarios.length, convencionais.length);
+        for (let i = 0; i < maxLen; i++) {
+          if (i < prioritarios.length) orderedAguardando.push(prioritarios[i]);
+          if (i < convencionais.length) orderedAguardando.push(convencionais[i]);
+        }
+      } else {
+        orderedAguardando = [...prioritarios, ...convencionais];
+      }
+
+      const finalOrdered = [...orderedAguardando, ...others];
+      finalOrdered.forEach((item, index) => {
+        orderMap.set(item.id, index + 1);
+      });
+    }
+
+    const groupedBySpecialty: Record<string, any[]> = {};
+
+    for (const record of records) {
+      const spec = record.noProcedimentoInterno || 'GERAL';
+      if (!groupedBySpecialty[spec]) {
+        groupedBySpecialty[spec] = [];
+      }
+
+      const patientId = record.patientId || (record.pacienteNuCpf ? localPatients[record.pacienteNuCpf] : null);
+      const qItem = queueItems.find(q => q.esusSolicitacaoId === record.coSolicitacao);
+      const calculatedOrder = qItem ? orderMap.get(qItem.id) || qItem.queueOrder : null;
+
+      groupedBySpecialty[spec].push({
+        ...record,
+        isRegistered: !!patientId,
+        patientId: patientId || null,
+        isQueued: !!qItem,
+        queueId: qItem ? qItem.id : null,
+        queueStatus: qItem ? qItem.status : null,
+        queueOrder: calculatedOrder,
+        attendanceOrder: calculatedOrder,
+        priority: qItem ? qItem.priority : null,
+        priorityRule,
+      });
+    }
+
+    return groupedBySpecialty;
   }
 
   async enqueuePatient(
