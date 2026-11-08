@@ -154,7 +154,7 @@ export const Reports = () => {
       </div>
 
       {/* Modern Segmented Control */}
-      <div className="p-1.5 bg-slate-200/70 dark:bg-slate-800/80 rounded-xl inline-flex flex-wrap lg:flex-nowrap w-full lg:w-auto shadow-inner border border-slate-300/50 dark:border-slate-700/50 gap-1">
+      <div className="p-1.5 bg-slate-200/70 dark:bg-slate-800/80 rounded-2xl border border-slate-300/50 dark:border-slate-700/50 shadow-inner flex flex-wrap items-center gap-1.5 w-full">
         {availableTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -162,13 +162,13 @@ export const Reports = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold transition-all duration-300 cursor-pointer ${
+              className={`flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap ${
                 isActive
-                  ? 'bg-white dark:bg-slate-900 text-[#003B77] dark:text-blue-400 shadow-md transform scale-[1.02]'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'
+                  ? 'bg-white dark:bg-slate-900 text-[#003B77] dark:text-blue-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-slate-700/40'
               }`}
             >
-              <Icon className={`w-4 h-4 ${isActive ? 'animate-pulse' : ''}`} />
+              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
               <span>{tab.label}</span>
             </button>
           );
