@@ -428,8 +428,23 @@ export const Login: React.FC = () => {
                         </div>
                     )}
 
+                    {/* Links Institucionais Públicos */}
+                    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400 mt-6 pt-4 border-t border-slate-200/80 dark:border-slate-800/80">
+                        <Link to="/about" className="hover:text-[#0051A2] dark:hover:text-blue-400 font-medium transition-colors">
+                            Sobre o Sistema
+                        </Link>
+                        <span className="text-slate-300 dark:text-slate-700 select-none">•</span>
+                        <Link to="/terms" className="hover:text-[#0051A2] dark:hover:text-blue-400 font-medium transition-colors">
+                            Termos de Uso
+                        </Link>
+                        <span className="text-slate-300 dark:text-slate-700 select-none">•</span>
+                        <Link to="/privacy" className="hover:text-[#0051A2] dark:hover:text-blue-400 font-medium transition-colors">
+                            Políticas de Privacidade
+                        </Link>
+                    </div>
+
                     {/* Footer */}
-                    <div className="text-center mt-8 text-2xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/80 pt-5">
+                    <div className="text-center mt-4 text-2xs text-slate-500 dark:text-slate-400 pt-1">
                         <div className="flex items-center justify-center gap-2">
                             <img
                                 src="/logo.png"

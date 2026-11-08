@@ -108,11 +108,16 @@ export const Reports = () => {
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
 
+  // Suporte a drag-to-scroll com mouse
+  const isDraggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const scrollLeftRef = useRef(0);
+
   const checkScrollability = () => {
     const el = tabsTrackRef.current;
     if (!el) return;
-    const canScrollLeft = el.scrollLeft > 2;
-    const canScrollRight = Math.ceil(el.scrollLeft + el.clientWidth) < el.scrollWidth - 2;
+    const canScrollLeft = el.scrollLeft > 4;
+    const canScrollRight = Math.ceil(el.scrollLeft + el.clientWidth) < el.scrollWidth - 4;
     setShowLeftArrow(canScrollLeft);
     setShowRightArrow(canScrollRight);
   };
@@ -152,9 +157,43 @@ export const Reports = () => {
   const handleScroll = (direction: 'left' | 'right') => {
     const el = tabsTrackRef.current;
     if (!el) return;
-    const scrollAmount = direction === 'left' ? -260 : 260;
+    const scrollAmount = direction === 'left' ? -240 : 240;
     el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     setTimeout(checkScrollability, 300);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    const el = tabsTrackRef.current;
+    if (!el) return;
+    isDraggingRef.current = true;
+    startXRef.current = e.pageX - el.offsetLeft;
+    scrollLeftRef.current = el.scrollLeft;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingRef.current) return;
+    const el = tabsTrackRef.current;
+    if (!el) return;
+    e.preventDefault();
+    const x = e.pageX - el.offsetLeft;
+    const walk = (x - startXRef.current) * 1.5;
+    el.scrollLeft = scrollLeftRef.current - walk;
+    checkScrollability();
+  };
+
+  const handleMouseUpOrLeave = () => {
+    isDraggingRef.current = false;
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    const el = tabsTrackRef.current;
+    if (!el) return;
+    if (el.scrollWidth > el.clientWidth) {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        el.scrollLeft += e.deltaY;
+        checkScrollability();
+      }
+    }
   };
 
   const handleExportPDF = async () => {
@@ -203,29 +242,33 @@ export const Reports = () => {
         </button>
       </div>
 
-      {/* Modern Underline Tab Bar with Horizontal Smooth Scroll & Fade Indicators */}
-      <div className="relative border-b border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 rounded-t-xl px-1 sm:px-2">
+      {/* Modern Segmented Tab Bar com Rolagem Horizontal Suave Contida e Setas Integradas */}
+      <div className="relative w-full bg-slate-200/70 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-300/60 dark:border-slate-700/60 shadow-inner overflow-hidden">
         {/* Seta e fade esquerdo */}
         {showLeftArrow && (
-          <>
-            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-14 bg-gradient-to-r from-white dark:from-slate-900 via-white/80 dark:via-slate-900/80 to-transparent z-10" />
+          <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center pl-1.5 pr-4 bg-gradient-to-r from-slate-200/95 dark:from-slate-800 via-slate-200/90 dark:via-slate-800/90 to-transparent">
             <button
               type="button"
               onClick={() => handleScroll('left')}
-              className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-md border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition cursor-pointer"
+              className="w-7 h-7 flex items-center justify-center rounded-xl bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 shadow-sm border border-slate-200 dark:border-slate-600 hover:scale-105 active:scale-95 transition-all cursor-pointer"
               title="Rolar abas para a esquerda"
               aria-label="Rolar abas para a esquerda"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-          </>
+          </div>
         )}
 
-        {/* Trilha horizontal das abas */}
+        {/* Trilha horizontal contida das abas */}
         <div
           ref={tabsTrackRef}
           onScroll={checkScrollability}
-          className="flex items-center gap-1.5 sm:gap-3 overflow-x-auto scroll-smooth w-full pt-1 pb-0 pr-12 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUpOrLeave}
+          onMouseLeave={handleMouseUpOrLeave}
+          onWheel={handleWheel}
+          className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto scroll-smooth w-full py-0.5 px-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden select-none"
         >
           {availableTabs.map((tab) => {
             const Icon = tab.icon;
@@ -236,13 +279,17 @@ export const Reports = () => {
                 type="button"
                 data-tab-id={tab.id}
                 onClick={() => handleTabSelect(tab.id)}
-                className={`flex items-center gap-2 px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap cursor-pointer select-none rounded-t-lg -mb-[2px] ${
+                className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap shrink-0 cursor-pointer ${
                   isActive
-                    ? 'border-[#0051A2] text-[#0051A2] dark:text-blue-400 dark:border-blue-500 bg-blue-50/70 dark:bg-blue-950/40'
-                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-slate-800/40'
+                    ? 'bg-white dark:bg-slate-900 text-[#003B77] dark:text-blue-400 shadow-sm border border-slate-300/80 dark:border-slate-700 ring-1 ring-black/[0.04]'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50'
                 }`}
               >
-                <Icon className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-[#0051A2] dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`} />
+                <Icon
+                  className={`w-4 h-4 shrink-0 transition-colors ${
+                    isActive ? 'text-[#0051A2] dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
+                  }`}
+                />
                 <span>{tab.label}</span>
               </button>
             );
@@ -251,18 +298,17 @@ export const Reports = () => {
 
         {/* Seta e fade direito */}
         {showRightArrow && (
-          <>
-            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-14 bg-gradient-to-l from-white dark:from-slate-900 via-white/80 dark:via-slate-900/80 to-transparent z-10" />
+          <div className="absolute right-0 top-0 bottom-0 z-10 flex items-center pr-1.5 pl-4 bg-gradient-to-l from-slate-200/95 dark:from-slate-800 via-slate-200/90 dark:via-slate-800/90 to-transparent">
             <button
               type="button"
               onClick={() => handleScroll('right')}
-              className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-md border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition cursor-pointer"
+              className="w-7 h-7 flex items-center justify-center rounded-xl bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 shadow-sm border border-slate-200 dark:border-slate-600 hover:scale-105 active:scale-95 transition-all cursor-pointer"
               title="Rolar abas para a direita"
               aria-label="Rolar abas para a direita"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
-          </>
+          </div>
         )}
       </div>
 

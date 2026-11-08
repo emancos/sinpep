@@ -46,6 +46,9 @@ import { RequestDetailsPage } from './pages/Regulation/RequestDetailsPage';
 import { SchedulesPage } from './pages/Schedules';
 import { CreateOrEditSchedule } from './pages/Schedules/CreateOrEditSchedule';
 import BpaPage from './pages/BPA';
+import { AboutSystem } from './pages/Public/AboutSystem';
+import { TermsOfUse } from './pages/Public/TermsOfUse';
+import { PrivacyPolicy } from './pages/Public/PrivacyPolicy';
 import './App.css';
 
 function App() {
@@ -58,6 +61,14 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+
+              {/* Rotas Públicas Institucionais */}
+              <Route path="/about" element={<AboutSystem />} />
+              <Route path="/sobre" element={<AboutSystem />} />
+              <Route path="/terms" element={<TermsOfUse />} />
+              <Route path="/termos" element={<TermsOfUse />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/privacidade" element={<PrivacyPolicy />} />
 
               {/* Protected routes wrapped in Layout */}
               <Route element={<ProtectedRoute />}>
