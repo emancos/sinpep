@@ -1,16 +1,16 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, Inject } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { Inject } from '@nestjs/common';
 import { eq, and, sql, desc } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import * as schema from '../database/schema';
+import { DATABASE_CONNECTION } from '../database/database.constants';
 import { BpaHeaderDto, BpaRecordDto, CreateBpaBatchDto } from './dto/bpa.dto';
 import { extractLogradouro, generateBpaITxt, removeAccents } from './bpa-formatter.util';
 
 @Injectable()
 export class BpaService {
   constructor(
-    @Inject('DRIZZLE')
+    @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
   ) {}
 
