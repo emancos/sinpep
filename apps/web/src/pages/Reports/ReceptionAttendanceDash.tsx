@@ -78,6 +78,11 @@ export const ReceptionAttendanceDash: React.FC = () => {
           <strong className="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1 block">
             {statusTotals.total || 0}
           </strong>
+          {(statusTotals.from_esus > 0 || statusTotals.from_sinpep > 0) && (
+            <span className="text-3xs text-slate-400 block mt-0.5">
+              e-SUS: {statusTotals.from_esus || 0} | SINPeP: {statusTotals.from_sinpep || 0}
+            </span>
+          )}
         </div>
 
         <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 text-center">
@@ -128,6 +133,7 @@ export const ReceptionAttendanceDash: React.FC = () => {
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-800">
               <tr>
                 <th className="py-2.5 px-3 text-center">Ordem</th>
+                <th className="py-2.5 px-3">Origem</th>
                 <th className="py-2.5 px-3">Horário</th>
                 <th className="py-2.5 px-3">Paciente</th>
                 <th className="py-2.5 px-3">CPF</th>
@@ -139,7 +145,7 @@ export const ReceptionAttendanceDash: React.FC = () => {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {attendanceList.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
+                  <td colSpan={8} className="py-8 text-center text-slate-400">
                     Nenhum atendimento na recepção registrado para a data selecionada.
                   </td>
                 </tr>
@@ -155,6 +161,15 @@ export const ReceptionAttendanceDash: React.FC = () => {
                     <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                       <td className="py-2.5 px-3 text-center font-bold text-slate-700 dark:text-slate-300">
                         {item.queue_order || idx + 1}º
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className={`px-2 py-0.5 rounded text-3xs font-semibold ${
+                          item.origin?.includes('e-SUS')
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                            : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                        }`}>
+                          {item.origin || 'SINPeP'}
+                        </span>
                       </td>
                       <td className="py-2.5 px-3 font-mono font-medium text-slate-800 dark:text-slate-200">
                         {item.time || '—'}

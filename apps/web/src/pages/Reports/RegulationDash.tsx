@@ -19,6 +19,7 @@ export const RegulationDash: React.FC = () => {
   const [endDate, setEndDate] = useState('');
   const [risk, setRisk] = useState('');
   const [status, setStatus] = useState('');
+  const [origin, setOrigin] = useState('');
 
   const fetchReport = () => {
     setLoading(true);
@@ -28,6 +29,7 @@ export const RegulationDash: React.FC = () => {
         endDate: endDate || undefined,
         risk: risk || undefined,
         status: status || undefined,
+        origin: origin || undefined,
       })
       .then((res) => {
         setData(res);
@@ -41,7 +43,7 @@ export const RegulationDash: React.FC = () => {
 
   useEffect(() => {
     fetchReport();
-  }, [startDate, endDate, risk, status]);
+  }, [startDate, endDate, risk, status, origin]);
 
   if (loading && !data) {
     return (
@@ -120,6 +122,32 @@ export const RegulationDash: React.FC = () => {
             <option value="DEVOLVIDA">Devolvida</option>
             <option value="NEGADA">Negada</option>
           </select>
+
+          <select
+            value={origin}
+            onChange={(e) => setOrigin(e.target.value)}
+            className="px-2.5 py-1 text-xs rounded-lg border border-blue-300 dark:border-blue-700 bg-blue-50/70 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300 font-semibold"
+          >
+            <option value="">Origem: Todas (SINPeP + e-SUS)</option>
+            <option value="ESUS">Apenas e-SUS Regulação</option>
+            <option value="SINPEP">Apenas SINPeP</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Indicador de Integração de Fontes */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-900/40 text-xs">
+        <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200 font-medium">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Base Integrada: dados sincronizados do <strong>e-SUS Regulação</strong> e solicitações nativas do <strong>SINPeP</strong>.</span>
+        </div>
+        <div className="flex items-center gap-3 text-2xs font-semibold">
+          <span className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+            e-SUS: {statusCounts.esus_total || 0} solicitações
+          </span>
+          <span className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+            SINPeP: {statusCounts.sinpep_total || 0} solicitações
+          </span>
         </div>
       </div>
 

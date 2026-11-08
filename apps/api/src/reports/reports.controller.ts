@@ -44,6 +44,7 @@ export class ReportsController {
     @Query('specialtyId') specialtyId?: string,
     @Query('risk') risk?: string,
     @Query('status') status?: string,
+    @Query('origin') origin?: string,
   ) {
     return this.reportsService.getRegulationReport({
       startDate,
@@ -51,6 +52,7 @@ export class ReportsController {
       specialtyId,
       risk,
       status,
+      origin,
     });
   }
 
@@ -65,6 +67,7 @@ export class ReportsController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('status') status?: string,
+    @Query('origin') origin?: string,
   ) {
     const profileName = req.user.activeProfileName || '';
     const isAdmin = req.user.permissions?.includes('admin:access') || profileName === 'Administrador';
@@ -74,6 +77,7 @@ export class ReportsController {
       startDate,
       endDate,
       status,
+      origin,
     });
   }
 

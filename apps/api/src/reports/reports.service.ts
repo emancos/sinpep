@@ -11,7 +11,7 @@ export class ReportsService {
   ) {}
 
   // =========================================================================
-  // RELATÓRIOS GLOBAIS EXISTENTES
+  // RELATÓRIOS GLOBAIS INTEGRADOS (SINPeP & e-SUS Regulação)
   // =========================================================================
 
   async getEpidemiological() {
@@ -24,35 +24,114 @@ export class ReportsService {
       pcd: sql<number>`SUM(CASE WHEN ${schema.patientAnamnesis.isPcd} = true THEN 1 ELSE 0 END)::int`,
     }).from(schema.patientAnamnesis);
 
-    const topCid = await this.db.select({
-      code: schema.medicalRecords.cid10,
-      count: count(schema.medicalRecords.id),
-    })
-    .from(schema.medicalRecords)
-    .where(sql`${schema.medicalRecords.cid10} IS NOT NULL AND ${schema.medicalRecords.cid10} != ''`)
-    .groupBy(schema.medicalRecords.cid10)
-    .orderBy(desc(count(schema.medicalRecords.id)))
-    .limit(10);
+    // Unifica CIDs de atendimentos clínicos (SINPeP) com solicitações regulatórias do e-SUS Regulação e SINPeP
+    const topCidRes = await this.db.execute(sql`
+      SELECT 
+        clean_cid as code,
+        MAX(display_name) as description,
+        SUM(total)::int as count,
+        SUM(sinpep_count)::int as from_sinpep,
+        SUM(esus_count)::int as from_esus
+      FROM (
+        SELECT 
+          SPLIT_PART(mr.cid10, ' - ', 1) as clean_cid,
+          COALESCE(c.description, mr.cid10) as display_name,
+          COUNT(*)::int as total,
+          COUNT(*)::int as sinpep_count,
+          0::int as esus_count
+        FROM medical_records mr
+        LEFT JOIN cid10 c ON c.code = SPLIT_PART(mr.cid10, ' - ', 1)
+        WHERE mr.cid10 IS NOT NULL AND mr.cid10 != ''
+        GROUP BY clean_cid, display_name
+
+        UNION ALL
+
+        SELECT 
+          SPLIT_PART(rr.cid10, ' - ', 1) as clean_cid,
+          CASE 
+            WHEN rr.cid10 LIKE '% - %' THEN SUBSTRING(rr.cid10 FROM POSITION(' - ' IN rr.cid10) + 3)
+            ELSE COALESCE(c.description, rr.cid10)
+          END as display_name,
+          COUNT(*)::int as total,
+          COUNT(*) FILTER (WHERE rr.protocol_number LIKE 'REG-%')::int as sinpep_count,
+          COUNT(*) FILTER (WHERE rr.protocol_number NOT LIKE 'REG-%')::int as esus_count
+        FROM regulation_requests rr
+        LEFT JOIN cid10 c ON c.code = SPLIT_PART(rr.cid10, ' - ', 1)
+        WHERE rr.cid10 IS NOT NULL AND rr.cid10 != ''
+        GROUP BY clean_cid, display_name
+      ) unified_cid
+      GROUP BY clean_cid
+      ORDER BY count DESC
+      LIMIT 10
+    `);
+
+    const topCidRows = (topCidRes as any)?.rows || (Array.isArray(topCidRes) ? topCidRes : []);
 
     return {
       comorbidities: anamnesisCount[0],
-      topCid
+      topCid: topCidRows,
     };
   }
 
   async getOperational() {
+    // Contagem de atendimentos clínicos do prontuário
     const recordsCount = await this.db.select({ count: count() }).from(schema.medicalRecords);
     
+    // Contagem de solicitações regulatórias divididas por procedência (SINPeP vs e-SUS Regulação)
+    const regulationCountRes = await this.db.execute(sql`
+      SELECT 
+        COUNT(*)::int as total_regulation,
+        COUNT(*) FILTER (WHERE protocol_number NOT LIKE 'REG-%')::int as esus_requests,
+        COUNT(*) FILTER (WHERE protocol_number LIKE 'REG-%')::int as sinpep_requests
+      FROM regulation_requests
+    `);
+    const regRows = (regulationCountRes as any)?.rows || [];
+    const regCounts = regRows[0] || { total_regulation: 0, esus_requests: 0, sinpep_requests: 0 };
+
+    // Contagem de acolhimento na recepção por procedência
+    const queueCountRes = await this.db.execute(sql`
+      SELECT 
+        COUNT(*)::int as total_queue,
+        COUNT(*) FILTER (WHERE esus_solicitacao_id IS NOT NULL)::int as esus_queue,
+        COUNT(*) FILTER (WHERE esus_solicitacao_id IS NULL)::int as sinpep_queue
+      FROM attendance_queue
+    `);
+    const queueRows = (queueCountRes as any)?.rows || [];
+    const queueCounts = queueRows[0] || { total_queue: 0, esus_queue: 0, sinpep_queue: 0 };
+
+    // Atendimentos e demandas consolidadas por mês (últimos 6 meses)
     const recordsByMonth = await this.db.execute(sql`
       SELECT 
-        TO_CHAR(created_at, 'YYYY-MM') as month,
-        COUNT(*)::int as count
-      FROM medical_records
-      WHERE created_at >= NOW() - INTERVAL '6 months'
+        month,
+        SUM(count)::int as count,
+        SUM(sinpep_count)::int as sinpep_count,
+        SUM(esus_count)::int as esus_count
+      FROM (
+        SELECT 
+          TO_CHAR(created_at, 'YYYY-MM') as month,
+          COUNT(*)::int as count,
+          COUNT(*)::int as sinpep_count,
+          0::int as esus_count
+        FROM medical_records
+        WHERE created_at >= NOW() - INTERVAL '6 months'
+        GROUP BY month
+
+        UNION ALL
+
+        SELECT 
+          TO_CHAR(created_at, 'YYYY-MM') as month,
+          COUNT(*)::int as count,
+          COUNT(*) FILTER (WHERE protocol_number LIKE 'REG-%')::int as sinpep_count,
+          COUNT(*) FILTER (WHERE protocol_number NOT LIKE 'REG-%')::int as esus_count
+        FROM regulation_requests
+        WHERE created_at >= NOW() - INTERVAL '6 months'
+        GROUP BY month
+      ) combined_months
       GROUP BY month
       ORDER BY month ASC
     `);
 
+    // Top médicos por volume de atendimentos clínicos realizados
     const recordsByDoctor = await this.db.execute(sql`
       SELECT 
         u.name as doctor_name,
@@ -67,26 +146,67 @@ export class ReportsService {
     const monthRows = (recordsByMonth as any)?.rows || (Array.isArray(recordsByMonth) ? recordsByMonth : []);
     const docRows = (recordsByDoctor as any)?.rows || (Array.isArray(recordsByDoctor) ? recordsByDoctor : []);
 
+    const totalMedical = recordsCount[0]?.count || 0;
+    const totalReg = regCounts.total_regulation || 0;
+    const totalQueue = queueCounts.total_queue || 0;
+    const totalConsolidated = totalMedical + totalReg;
+
+    const totalEsus = (regCounts.esus_requests || 0) + (queueCounts.esus_queue || 0);
+    const totalSinpep = totalMedical + (regCounts.sinpep_requests || 0) + (queueCounts.sinpep_queue || 0);
+
     return {
-      totalRecords: recordsCount[0]?.count || 0,
+      totalRecords: totalMedical,
+      totalRegulationRequests: totalReg,
+      totalReceptionQueue: totalQueue,
+      totalConsolidated,
+      byOrigin: {
+        sinpep: totalSinpep,
+        esus: totalEsus,
+        percentageEsus: (totalEsus + totalSinpep) > 0 ? Math.round((totalEsus / (totalEsus + totalSinpep)) * 100) : 0,
+        percentageSinpep: (totalEsus + totalSinpep) > 0 ? Math.round((totalSinpep / (totalEsus + totalSinpep)) * 100) : 0,
+      },
       recordsByMonth: monthRows,
       recordsByDoctor: docRows,
     };
   }
 
   async getProcedures() {
-    const examsStats = await this.db.execute(sql`
+    // Unifica procedimentos/exames da Regulação (SINPeP + e-SUS Regulação) e exames solicitados no prontuário
+    const proceduresStats = await this.db.execute(sql`
       SELECT 
-        jsonb_array_elements_text(requested_exams) as exam,
-        COUNT(*)::int as count
-      FROM medical_records
-      WHERE jsonb_array_length(requested_exams) > 0
+        exam,
+        SUM(count)::int as count,
+        SUM(sinpep_count)::int as from_sinpep,
+        SUM(esus_count)::int as from_esus
+      FROM (
+        SELECT 
+          COALESCE(pg.name, proc.name, s.name, 'Procedimento Regulado') as exam,
+          COUNT(*)::int as count,
+          COUNT(*) FILTER (WHERE r.protocol_number LIKE 'REG-%')::int as sinpep_count,
+          COUNT(*) FILTER (WHERE r.protocol_number NOT LIKE 'REG-%')::int as esus_count
+        FROM regulation_requests r
+        LEFT JOIN procedures proc ON r.procedure_id = proc.id
+        LEFT JOIN procedure_groups pg ON (r.procedure_group_id = pg.id OR proc.procedure_group_id = pg.id)
+        LEFT JOIN specialties s ON r.specialty_id = s.id
+        GROUP BY exam
+
+        UNION ALL
+
+        SELECT 
+          jsonb_array_elements_text(requested_exams) as exam,
+          COUNT(*)::int as count,
+          COUNT(*)::int as sinpep_count,
+          0::int as esus_count
+        FROM medical_records
+        WHERE jsonb_array_length(requested_exams) > 0
+        GROUP BY exam
+      ) unified_exams
       GROUP BY exam
       ORDER BY count DESC
       LIMIT 15
     `);
 
-    const rows = (examsStats as any)?.rows || (Array.isArray(examsStats) ? examsStats : []);
+    const rows = (proceduresStats as any)?.rows || (Array.isArray(proceduresStats) ? proceduresStats : []);
     return {
       topExams: rows,
     };
@@ -129,7 +249,7 @@ export class ReportsService {
   // =========================================================================
 
   /**
-   * 1. Relatório da Central de Regulação (Regulador & Administrador)
+   * 1. Relatório da Central de Regulação (Regulador & Administrador) - Integrado SINPeP & e-SUS
    */
   async getRegulationReport(filters: {
     startDate?: string;
@@ -137,17 +257,23 @@ export class ReportsService {
     specialtyId?: string;
     risk?: string;
     status?: string;
+    origin?: string;
   }) {
     const conditions: string[] = ['1=1'];
     if (filters.startDate) conditions.push(`r.created_at >= '${filters.startDate} 00:00:00'`);
     if (filters.endDate) conditions.push(`r.created_at <= '${filters.endDate} 23:59:59'`);
-    if (filters.specialtyId) conditions.push(`r.specialty_id = '${filters.specialtyId}'`);
+    if (filters.specialtyId) conditions.push(`(r.specialty_id = '${filters.specialtyId}' OR proc.id = '${filters.specialtyId}' OR pg.id = '${filters.specialtyId}')`);
     if (filters.risk) conditions.push(`r.risk_classification = '${filters.risk}'`);
     if (filters.status) conditions.push(`r.status = '${filters.status}'`);
+    if (filters.origin === 'SINPEP') {
+      conditions.push(`r.protocol_number LIKE 'REG-%'`);
+    } else if (filters.origin === 'ESUS') {
+      conditions.push(`r.protocol_number NOT LIKE 'REG-%'`);
+    }
 
     const whereClause = sql.raw(conditions.join(' AND '));
 
-    // Status counts
+    // Status counts consolidados com segregação de origem (SINPeP vs e-SUS)
     const statusRes = await this.db.execute(sql`
       SELECT 
         count(*)::int as total,
@@ -155,12 +281,25 @@ export class ReportsService {
         count(*) FILTER (WHERE r.status = 'PENDENTE_AGENDAMENTO')::int as waiting_list,
         count(*) FILTER (WHERE r.status = 'AGENDADA')::int as scheduled,
         count(*) FILTER (WHERE r.status = 'DEVOLVIDA')::int as returned,
-        count(*) FILTER (WHERE r.status = 'NEGADA')::int as denied
+        count(*) FILTER (WHERE r.status = 'NEGADA')::int as denied,
+        count(*) FILTER (WHERE r.protocol_number NOT LIKE 'REG-%')::int as esus_total,
+        count(*) FILTER (WHERE r.protocol_number LIKE 'REG-%')::int as sinpep_total
       FROM regulation_requests r
+      LEFT JOIN procedures proc ON r.procedure_id = proc.id
+      LEFT JOIN procedure_groups pg ON (r.procedure_group_id = pg.id OR proc.procedure_group_id = pg.id)
       WHERE ${whereClause}
     `);
     const statusRows = (statusRes as any)?.rows || [];
-    const statusCounts = statusRows[0] || { total: 0, to_evaluate: 0, waiting_list: 0, scheduled: 0, returned: 0, denied: 0 };
+    const statusCounts = statusRows[0] || {
+      total: 0,
+      to_evaluate: 0,
+      waiting_list: 0,
+      scheduled: 0,
+      returned: 0,
+      denied: 0,
+      esus_total: 0,
+      sinpep_total: 0,
+    };
 
     // Risco counts
     const riskRes = await this.db.execute(sql`
@@ -168,39 +307,49 @@ export class ReportsService {
         r.risk_classification as risk,
         count(*)::int as count
       FROM regulation_requests r
+      LEFT JOIN procedures proc ON r.procedure_id = proc.id
+      LEFT JOIN procedure_groups pg ON (r.procedure_group_id = pg.id OR proc.procedure_group_id = pg.id)
       WHERE ${whereClause}
       GROUP BY r.risk_classification
       ORDER BY count DESC
     `);
     const riskBreakdown = (riskRes as any)?.rows || [];
 
-    // Por especialidade
+    // Por especialidade / grupo de procedimentos (suportando integralmente SINPeP e e-SUS Regulação)
     const specRes = await this.db.execute(sql`
       SELECT 
-        s.name as specialty_name,
+        COALESCE(s.name, pg.name, proc.name, 'Não Classificado') as specialty_name,
         count(r.id)::int as total_requests,
         count(*) FILTER (WHERE r.status = 'AGENDADA')::int as scheduled,
-        count(*) FILTER (WHERE r.status = 'PENDENTE_AGENDAMENTO')::int as waiting
+        count(*) FILTER (WHERE r.status = 'PENDENTE_AGENDAMENTO')::int as waiting,
+        count(*) FILTER (WHERE r.protocol_number NOT LIKE 'REG-%')::int as esus_count,
+        count(*) FILTER (WHERE r.protocol_number LIKE 'REG-%')::int as sinpep_count
       FROM regulation_requests r
-      JOIN specialties s ON r.specialty_id = s.id
+      LEFT JOIN specialties s ON r.specialty_id = s.id
+      LEFT JOIN procedures proc ON r.procedure_id = proc.id
+      LEFT JOIN procedure_groups pg ON (r.procedure_group_id = pg.id OR proc.procedure_group_id = pg.id)
       WHERE ${whereClause}
-      GROUP BY s.name
+      GROUP BY specialty_name
       ORDER BY total_requests DESC
       LIMIT 10
     `);
     const bySpecialty = (specRes as any)?.rows || [];
 
-    // Por UBS Solicitante
+    // Por UBS Solicitante (suportando integralmente SINPeP e e-SUS Regulação)
     const ubsRes = await this.db.execute(sql`
       SELECT 
-        hc.name as ubs_name,
+        COALESCE(hc.name, 'Unidade Não Identificada') as ubs_name,
         count(r.id)::int as total_requests,
         count(*) FILTER (WHERE r.status = 'DEVOLVIDA')::int as returned,
-        count(*) FILTER (WHERE r.status = 'AGENDADA')::int as scheduled
+        count(*) FILTER (WHERE r.status = 'AGENDADA')::int as scheduled,
+        count(*) FILTER (WHERE r.protocol_number NOT LIKE 'REG-%')::int as esus_count,
+        count(*) FILTER (WHERE r.protocol_number LIKE 'REG-%')::int as sinpep_count
       FROM regulation_requests r
-      JOIN health_centers hc ON r.requesting_health_center_id = hc.id
+      LEFT JOIN health_centers hc ON r.requesting_health_center_id = hc.id
+      LEFT JOIN procedures proc ON r.procedure_id = proc.id
+      LEFT JOIN procedure_groups pg ON (r.procedure_group_id = pg.id OR proc.procedure_group_id = pg.id)
       WHERE ${whereClause}
-      GROUP BY hc.name
+      GROUP BY ubs_name
       ORDER BY total_requests DESC
       LIMIT 10
     `);
@@ -211,16 +360,22 @@ export class ReportsService {
       riskBreakdown,
       bySpecialty,
       bySolicitingUnit,
+      byOrigin: {
+        total: statusCounts.total || 0,
+        sinpep: statusCounts.sinpep_total || 0,
+        esus: statusCounts.esus_total || 0,
+      },
     };
   }
 
   /**
-   * 2. Relatório de Encaminhamentos da UBS (Solicitante & Administrador)
+   * 2. Relatório de Encaminhamentos da UBS (Solicitante & Administrador) - Integrado
    */
   async getSolicitorReport(healthCenterId: string, filters: {
     startDate?: string;
     endDate?: string;
     status?: string;
+    origin?: string;
   }) {
     if (!healthCenterId) {
       throw new NotFoundException('Unidade Solicitante não identificada.');
@@ -230,10 +385,15 @@ export class ReportsService {
     if (filters.startDate) conditions.push(`r.created_at >= '${filters.startDate} 00:00:00'`);
     if (filters.endDate) conditions.push(`r.created_at <= '${filters.endDate} 23:59:59'`);
     if (filters.status) conditions.push(`r.status = '${filters.status}'`);
+    if (filters.origin === 'SINPEP') {
+      conditions.push(`r.protocol_number LIKE 'REG-%'`);
+    } else if (filters.origin === 'ESUS') {
+      conditions.push(`r.protocol_number NOT LIKE 'REG-%'`);
+    }
 
     const whereClause = sql.raw(conditions.join(' AND '));
 
-    // Resumo da UBS
+    // Resumo da UBS com contagens e procedência
     const summaryRes = await this.db.execute(sql`
       SELECT 
         count(*)::int as total,
@@ -241,14 +401,25 @@ export class ReportsService {
         count(*) FILTER (WHERE r.status = 'PENDENTE_AGENDAMENTO')::int as waiting_list,
         count(*) FILTER (WHERE r.status = 'AGENDADA')::int as scheduled,
         count(*) FILTER (WHERE r.status = 'DEVOLVIDA')::int as returned,
-        count(*) FILTER (WHERE r.status = 'NEGADA')::int as denied
+        count(*) FILTER (WHERE r.status = 'NEGADA')::int as denied,
+        count(*) FILTER (WHERE r.protocol_number NOT LIKE 'REG-%')::int as esus_count,
+        count(*) FILTER (WHERE r.protocol_number LIKE 'REG-%')::int as sinpep_count
       FROM regulation_requests r
       WHERE ${whereClause}
     `);
     const summaryRows = (summaryRes as any)?.rows || [];
-    const summary = summaryRows[0] || { total: 0, to_evaluate: 0, waiting_list: 0, scheduled: 0, returned: 0, denied: 0 };
+    const summary = summaryRows[0] || {
+      total: 0,
+      to_evaluate: 0,
+      waiting_list: 0,
+      scheduled: 0,
+      returned: 0,
+      denied: 0,
+      esus_count: 0,
+      sinpep_count: 0,
+    };
 
-    // Pacientes agendados da UBS para busca ativa e entrega de guias
+    // Pacientes agendados da UBS para busca ativa e entrega de guias (SINPeP + e-SUS Regulação)
     const scheduledListRes = await this.db.execute(sql`
       SELECT 
         r.id,
@@ -259,11 +430,17 @@ export class ReportsService {
         p.name as patient_name,
         p.cpf as patient_cpf,
         p.cns as patient_cns,
-        s.name as specialty_name,
-        hc.name as executing_unit
+        COALESCE(s.name, pg.name, proc.name, 'Geral') as specialty_name,
+        COALESCE(hc.name, 'Unidade Executante') as executing_unit,
+        CASE 
+          WHEN r.protocol_number NOT LIKE 'REG-%' THEN 'e-SUS Regulação'
+          ELSE 'SINPeP'
+        END as origin
       FROM regulation_requests r
       JOIN patients p ON r.patient_id = p.id
-      JOIN specialties s ON r.specialty_id = s.id
+      LEFT JOIN specialties s ON r.specialty_id = s.id
+      LEFT JOIN procedures proc ON r.procedure_id = proc.id
+      LEFT JOIN procedure_groups pg ON (r.procedure_group_id = pg.id OR proc.procedure_group_id = pg.id)
       LEFT JOIN health_centers hc ON r.executing_health_center_id = hc.id
       WHERE r.requesting_health_center_id = ${healthCenterId}
         AND r.status = 'AGENDADA'
@@ -436,12 +613,12 @@ export class ReportsService {
   }
 
   /**
-   * 5. Relatório de Presença e Fluxo de Recepção (Recepcionista & Coordenador & Admin)
+   * 5. Relatório de Presença e Fluxo de Recepção (Recepcionista & Coordenador & Admin) - Integrado
    */
   async getReceptionAttendanceReport(healthCenterId?: string, date?: string) {
     const queryDate = date || new Date().toISOString().split('T')[0];
 
-    // Lista nominal de atendimento e presença no dia
+    // Lista nominal de atendimento e presença no dia com identificação clara de procedência (e-SUS vs SINPeP)
     const attendanceRes = await this.db.execute(sql`
       SELECT 
         aq.id,
@@ -454,7 +631,12 @@ export class ReportsService {
         aq.created_at,
         p.name as patient_name,
         p.cpf as patient_cpf,
-        p.cns as patient_cns
+        p.cns as patient_cns,
+        CASE 
+          WHEN aq.esus_solicitacao_id IS NOT NULL THEN 'e-SUS Regulação'
+          ELSE 'SINPeP'
+        END as origin,
+        aq.esus_solicitacao_id
       FROM attendance_queue aq
       LEFT JOIN patients p ON aq.patient_id = p.id
       WHERE aq.date = ${queryDate}
@@ -462,19 +644,29 @@ export class ReportsService {
     `);
     const attendanceList = (attendanceRes as any)?.rows || [];
 
-    // Totais de status do dia
+    // Totais de status do dia com contagem segregada por procedência
     const totalsRes = await this.db.execute(sql`
       SELECT 
         count(*)::int as total,
         count(*) FILTER (WHERE status = 'AGUARDANDO')::int as waiting,
         count(*) FILTER (WHERE status IN ('CHAMADO', 'EM_ATENDIMENTO'))::int as in_attendance,
         count(*) FILTER (WHERE status = 'FINALIZADO')::int as completed,
-        count(*) FILTER (WHERE status = 'NAO_COMPARECEU')::int as no_show
+        count(*) FILTER (WHERE status = 'NAO_COMPARECEU')::int as no_show,
+        count(*) FILTER (WHERE esus_solicitacao_id IS NOT NULL)::int as from_esus,
+        count(*) FILTER (WHERE esus_solicitacao_id IS NULL)::int as from_sinpep
       FROM attendance_queue
       WHERE date = ${queryDate}
     `);
     const totalRows = (totalsRes as any)?.rows || [];
-    const statusTotals = totalRows[0] || { total: 0, waiting: 0, in_attendance: 0, completed: 0, no_show: 0 };
+    const statusTotals = totalRows[0] || {
+      total: 0,
+      waiting: 0,
+      in_attendance: 0,
+      completed: 0,
+      no_show: 0,
+      from_esus: 0,
+      from_sinpep: 0,
+    };
 
     return {
       date: queryDate,

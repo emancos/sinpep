@@ -11,6 +11,7 @@ export const SolicitorDash: React.FC = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [status, setStatus] = useState('');
+  const [origin, setOrigin] = useState('');
 
   const fetchReport = () => {
     setLoading(true);
@@ -19,6 +20,7 @@ export const SolicitorDash: React.FC = () => {
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         status: status || undefined,
+        origin: origin || undefined,
       })
       .then((res) => {
         setData(res);
@@ -32,7 +34,7 @@ export const SolicitorDash: React.FC = () => {
 
   useEffect(() => {
     fetchReport();
-  }, [startDate, endDate, status]);
+  }, [startDate, endDate, status, origin]);
 
   if (loading && !data) {
     return (
@@ -97,6 +99,16 @@ export const SolicitorDash: React.FC = () => {
             <option value="AGENDADA">Agendada</option>
             <option value="DEVOLVIDA">Devolvida</option>
             <option value="NEGADA">Negada</option>
+          </select>
+
+          <select
+            value={origin}
+            onChange={(e) => setOrigin(e.target.value)}
+            className="px-2.5 py-1 text-xs rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 font-semibold"
+          >
+            <option value="">Origem: Todas (SINPeP + e-SUS)</option>
+            <option value="ESUS">e-SUS Regulação</option>
+            <option value="SINPEP">SINPeP</option>
           </select>
         </div>
       </div>
@@ -186,6 +198,7 @@ export const SolicitorDash: React.FC = () => {
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-800">
               <tr>
                 <th className="py-2.5 px-3">Protocolo</th>
+                <th className="py-2.5 px-3">Origem</th>
                 <th className="py-2.5 px-3">Paciente</th>
                 <th className="py-2.5 px-3">CPF / CNS</th>
                 <th className="py-2.5 px-3">Especialidade</th>
@@ -197,7 +210,7 @@ export const SolicitorDash: React.FC = () => {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {scheduledPatients.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
+                  <td colSpan={8} className="py-8 text-center text-slate-400">
                     Nenhum agendamento encontrado para o filtro selecionado.
                   </td>
                 </tr>
@@ -206,6 +219,15 @@ export const SolicitorDash: React.FC = () => {
                   <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                     <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-300">
                       {p.protocol}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span className={`px-2 py-0.5 rounded text-3xs font-semibold ${
+                        p.origin?.includes('e-SUS')
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                          : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                      }`}>
+                        {p.origin || 'SINPeP'}
+                      </span>
                     </td>
                     <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
                       {p.patient_name}
