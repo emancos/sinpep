@@ -71,7 +71,7 @@ export class ReportsController {
   ) {
     const profileName = req.user.activeProfileName || '';
     const isAdmin = req.user.permissions?.includes('admin:access') || profileName === 'Administrador';
-    const targetHcId = (!isAdmin || !queryHealthCenterId) ? req.user.healthCenterId : queryHealthCenterId;
+    const targetHcId = queryHealthCenterId || (isAdmin ? undefined : req.user.healthCenterId);
 
     return this.reportsService.getSolicitorReport(targetHcId, {
       startDate,
@@ -94,7 +94,7 @@ export class ReportsController {
   ) {
     const profileName = req.user.activeProfileName || '';
     const isAdmin = req.user.permissions?.includes('admin:access') || profileName === 'Administrador';
-    const targetHcId = (!isAdmin || !queryHealthCenterId) ? req.user.healthCenterId : queryHealthCenterId;
+    const targetHcId = queryHealthCenterId || (isAdmin ? undefined : req.user.healthCenterId);
 
     return this.reportsService.getUnitOperationalReport(targetHcId, {
       startDate,
@@ -115,7 +115,7 @@ export class ReportsController {
   ) {
     const profileName = req.user.activeProfileName || '';
     const isAdmin = req.user.permissions?.includes('admin:access') || profileName === 'Administrador';
-    const targetUserId = (!isAdmin || !queryDoctorId) ? req.user.id : queryDoctorId;
+    const targetUserId = queryDoctorId || (isAdmin ? undefined : req.user.id);
 
     return this.reportsService.getDoctorProductionReport(targetUserId, {
       startDate,
@@ -135,7 +135,7 @@ export class ReportsController {
   ) {
     const profileName = req.user.activeProfileName || '';
     const isAdmin = req.user.permissions?.includes('admin:access') || profileName === 'Administrador';
-    const targetHcId = (!isAdmin || !queryHealthCenterId) ? req.user.healthCenterId : queryHealthCenterId;
+    const targetHcId = queryHealthCenterId || (isAdmin ? undefined : req.user.healthCenterId);
 
     return this.reportsService.getReceptionAttendanceReport(targetHcId, date);
   }

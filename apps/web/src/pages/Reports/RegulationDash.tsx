@@ -4,6 +4,8 @@ import { reportsService } from '../../services/reports';
 import { Loader2, Layers, AlertTriangle, Building2, Filter } from 'lucide-react';
 
 const RISK_COLORS: Record<string, string> = {
+  PRIORITARIO: '#ef4444',
+  ELETIVO: '#3b82f6',
   VERMELHO: '#ef4444',
   AMARELO: '#f59e0b',
   VERDE: '#10b981',
@@ -103,7 +105,9 @@ export const RegulationDash: React.FC = () => {
             onChange={(e) => setRisk(e.target.value)}
             className="px-2.5 py-1 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
           >
-            <option value="">Todos os Riscos</option>
+            <option value="">Todas as Prioridades</option>
+            <option value="PRIORITARIO">Prioritário / Urgente</option>
+            <option value="ELETIVO">Eletivo</option>
             <option value="VERMELHO">Vermelho (Emergência)</option>
             <option value="AMARELO">Amarelo (Urgência)</option>
             <option value="VERDE">Verde (Pouco Urgente)</option>
@@ -196,7 +200,7 @@ export const RegulationDash: React.FC = () => {
           <div className="flex items-center gap-2 mb-4">
             <AlertTriangle className="w-4 h-4 text-rose-500" />
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-              Solicitações por Grau de Risco (Manchester)
+              Solicitações por Prioridade / Classificação
             </h3>
           </div>
           <div className="h-64">

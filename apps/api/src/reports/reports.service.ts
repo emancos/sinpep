@@ -263,7 +263,7 @@ export class ReportsService {
     if (filters.startDate) conditions.push(`r.created_at >= '${filters.startDate} 00:00:00'`);
     if (filters.endDate) conditions.push(`r.created_at <= '${filters.endDate} 23:59:59'`);
     if (filters.specialtyId) conditions.push(`(r.specialty_id = '${filters.specialtyId}' OR proc.id = '${filters.specialtyId}' OR pg.id = '${filters.specialtyId}')`);
-    if (filters.risk) conditions.push(`r.risk_classification = '${filters.risk}'`);
+    if (filters.risk) conditions.push(`r.priority::text = '${filters.risk}'`);
     if (filters.status) conditions.push(`r.status = '${filters.status}'`);
     if (filters.origin === 'SINPEP') {
       conditions.push(`r.protocol_number LIKE 'REG-%'`);
@@ -301,16 +301,16 @@ export class ReportsService {
       sinpep_total: 0,
     };
 
-    // Risco counts
+    // Risco/Prioridade counts (utiliza a coluna priority do banco)
     const riskRes = await this.db.execute(sql`
       SELECT 
-        r.risk_classification as risk,
+        r.priority::text as risk,
         count(*)::int as count
       FROM regulation_requests r
       LEFT JOIN procedures proc ON r.procedure_id = proc.id
       LEFT JOIN procedure_groups pg ON (r.procedure_group_id = pg.id OR proc.procedure_group_id = pg.id)
       WHERE ${whereClause}
-      GROUP BY r.risk_classification
+      GROUP BY r.priority
       ORDER BY count DESC
     `);
     const riskBreakdown = (riskRes as any)?.rows || [];
@@ -371,17 +371,16 @@ export class ReportsService {
   /**
    * 2. Relatório de Encaminhamentos da UBS (Solicitante & Administrador) - Integrado
    */
-  async getSolicitorReport(healthCenterId: string, filters: {
+  async getSolicitorReport(healthCenterId: string | undefined, filters: {
     startDate?: string;
     endDate?: string;
     status?: string;
     origin?: string;
   }) {
-    if (!healthCenterId) {
-      throw new NotFoundException('Unidade Solicitante não identificada.');
+    const conditions: string[] = ['1=1'];
+    if (healthCenterId) {
+      conditions.push(`r.requesting_health_center_id = '${healthCenterId}'`);
     }
-
-    const conditions: string[] = [`r.requesting_health_center_id = '${healthCenterId}'`];
     if (filters.startDate) conditions.push(`r.created_at >= '${filters.startDate} 00:00:00'`);
     if (filters.endDate) conditions.push(`r.created_at <= '${filters.endDate} 23:59:59'`);
     if (filters.status) conditions.push(`r.status = '${filters.status}'`);
@@ -442,7 +441,7 @@ export class ReportsService {
       LEFT JOIN procedures proc ON r.procedure_id = proc.id
       LEFT JOIN procedure_groups pg ON (r.procedure_group_id = pg.id OR proc.procedure_group_id = pg.id)
       LEFT JOIN health_centers hc ON r.executing_health_center_id = hc.id
-      WHERE r.requesting_health_center_id = ${healthCenterId}
+      WHERE ${whereClause}
         AND r.status = 'AGENDADA'
         ${filters.startDate ? sql`AND r.scheduled_date >= ${filters.startDate}` : sql``}
         ${filters.endDate ? sql`AND r.scheduled_date <= ${filters.endDate}` : sql``}
@@ -454,13 +453,14 @@ export class ReportsService {
     // Principais motivos de devolução para capacitação da equipe
     const returnsRes = await this.db.execute(sql`
       SELECT 
-        r.evaluation_notes as reason,
+        rsh.justification as reason,
         count(*)::int as count
       FROM regulation_requests r
-      WHERE r.requesting_health_center_id = ${healthCenterId}
-        AND r.status = 'DEVOLVIDA'
-        AND r.evaluation_notes IS NOT NULL
-      GROUP BY r.evaluation_notes
+      JOIN regulation_status_history rsh ON rsh.request_id = r.id AND rsh.new_status = 'DEVOLVIDA'
+      WHERE ${whereClause}
+        AND rsh.justification IS NOT NULL
+        AND rsh.justification != ''
+      GROUP BY rsh.justification
       ORDER BY count DESC
       LIMIT 10
     `);
@@ -476,14 +476,10 @@ export class ReportsService {
   /**
    * 3. Relatório de Produção e Ocupação da Unidade Executante (Coordenador de Unidade & Admin)
    */
-  async getUnitOperationalReport(healthCenterId: string, filters: {
+  async getUnitOperationalReport(healthCenterId: string | undefined, filters: {
     startDate?: string;
     endDate?: string;
   }) {
-    if (!healthCenterId) {
-      throw new NotFoundException('Unidade Executante não identificada.');
-    }
-
     const start = filters.startDate || new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
     const end = filters.endDate || new Date().toISOString().split('T')[0];
 
@@ -500,8 +496,8 @@ export class ReportsService {
       JOIN doctors doc ON s.doctor_id = doc.id
       JOIN users u ON doc.user_id = u.id
       LEFT JOIN schedule_slots ss ON ss.schedule_id = s.id AND ss.date >= ${start} AND ss.date <= ${end}
-      LEFT JOIN medical_records mr ON mr.doctor_id = u.id AND mr.health_center_id = ${healthCenterId} AND mr.created_at >= ${start}::timestamp AND mr.created_at <= (${end} || ' 23:59:59')::timestamp
-      WHERE s.executing_health_center_id = ${healthCenterId}
+      LEFT JOIN medical_records mr ON mr.doctor_id = u.id ${healthCenterId ? sql`AND mr.health_center_id = ${healthCenterId}` : sql``} AND mr.created_at >= ${start}::timestamp AND mr.created_at <= (${end} || ' 23:59:59')::timestamp
+      WHERE ${healthCenterId ? sql`s.executing_health_center_id = ${healthCenterId}` : sql`1=1`}
       GROUP BY u.name, doc.crm, doc.crm_state
       ORDER BY booked_slots DESC
     `);
@@ -515,7 +511,7 @@ export class ReportsService {
         count(*) FILTER (WHERE ss.status = 'DISPONIVEL')::int as available_slots
       FROM schedule_slots ss
       JOIN schedules s ON ss.schedule_id = s.id
-      WHERE s.executing_health_center_id = ${healthCenterId}
+      WHERE ${healthCenterId ? sql`s.executing_health_center_id = ${healthCenterId}` : sql`1=1`}
         AND ss.date >= ${start}
         AND ss.date <= ${end}
     `);
@@ -525,7 +521,7 @@ export class ReportsService {
     // Taxa de absenteísmo / no-show da recepção
     const noShowRes = await this.db.execute(sql`
       SELECT 
-        count(*) FILTER (WHERE status = 'FINALIZADO')::int as attended,
+        count(*) FILTER (WHERE status IN ('FINALIZADO', 'ATENDIDO'))::int as attended,
         count(*) FILTER (WHERE status = 'NAO_COMPARECEU')::int as no_show
       FROM attendance_queue
       WHERE date >= ${start}
@@ -556,18 +552,20 @@ export class ReportsService {
   /**
    * 4. Relatório de Produção Clínica Individual (Médico & Admin)
    */
-  async getDoctorProductionReport(userId: string, filters: {
+  async getDoctorProductionReport(userId: string | undefined, filters: {
     startDate?: string;
     endDate?: string;
   }) {
     const start = filters.startDate || new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
     const end = filters.endDate || new Date().toISOString().split('T')[0];
 
+    const doctorCondition = userId ? sql`doctor_id = ${userId}` : sql`1=1`;
+
     // Total de consultas realizadas
     const totalRes = await this.db.execute(sql`
       SELECT count(*)::int as total
       FROM medical_records
-      WHERE doctor_id = ${userId}
+      WHERE ${doctorCondition}
         AND created_at >= ${start}::timestamp
         AND created_at <= (${end} || ' 23:59:59')::timestamp
     `);
@@ -580,7 +578,7 @@ export class ReportsService {
         TO_CHAR(created_at, 'YYYY-MM') as month,
         count(*)::int as count
       FROM medical_records
-      WHERE doctor_id = ${userId}
+      WHERE ${doctorCondition}
         AND created_at >= ${start}::timestamp
         AND created_at <= (${end} || ' 23:59:59')::timestamp
       GROUP BY month
@@ -594,7 +592,7 @@ export class ReportsService {
         cid10,
         count(*)::int as count
       FROM medical_records
-      WHERE doctor_id = ${userId}
+      WHERE ${doctorCondition}
         AND cid10 IS NOT NULL AND cid10 != ''
         AND created_at >= ${start}::timestamp
         AND created_at <= (${end} || ' 23:59:59')::timestamp
@@ -616,14 +614,14 @@ export class ReportsService {
    * 5. Relatório de Presença e Fluxo de Recepção (Recepcionista & Coordenador & Admin) - Integrado
    */
   async getReceptionAttendanceReport(healthCenterId?: string, date?: string) {
-    const queryDate = date || new Date().toISOString().split('T')[0];
+    const dateCondition = (date && date.trim() !== '') ? sql`aq.date = ${date}` : sql`1=1`;
 
     // Lista nominal de atendimento e presença no dia com identificação clara de procedência (e-SUS vs SINPeP)
     const attendanceRes = await this.db.execute(sql`
       SELECT 
         aq.id,
         aq.date,
-        aq.time,
+        TO_CHAR(aq.created_at, 'HH24:MI') as time,
         aq.specialty_name,
         aq.priority,
         aq.status,
@@ -639,23 +637,24 @@ export class ReportsService {
         aq.esus_solicitacao_id
       FROM attendance_queue aq
       LEFT JOIN patients p ON aq.patient_id = p.id
-      WHERE aq.date = ${queryDate}
-      ORDER BY aq.specialty_name ASC, aq.queue_order ASC
+      WHERE ${dateCondition}
+      ORDER BY aq.date DESC, aq.specialty_name ASC, aq.queue_order ASC
+      LIMIT 200
     `);
     const attendanceList = (attendanceRes as any)?.rows || [];
 
-    // Totais de status do dia com contagem segregada por procedência
+    // Totais de status com contagem segregada por procedência
     const totalsRes = await this.db.execute(sql`
       SELECT 
         count(*)::int as total,
         count(*) FILTER (WHERE status = 'AGUARDANDO')::int as waiting,
         count(*) FILTER (WHERE status IN ('CHAMADO', 'EM_ATENDIMENTO'))::int as in_attendance,
-        count(*) FILTER (WHERE status = 'FINALIZADO')::int as completed,
+        count(*) FILTER (WHERE status IN ('FINALIZADO', 'ATENDIDO'))::int as completed,
         count(*) FILTER (WHERE status = 'NAO_COMPARECEU')::int as no_show,
         count(*) FILTER (WHERE esus_solicitacao_id IS NOT NULL)::int as from_esus,
         count(*) FILTER (WHERE esus_solicitacao_id IS NULL)::int as from_sinpep
       FROM attendance_queue
-      WHERE date = ${queryDate}
+      WHERE ${dateCondition}
     `);
     const totalRows = (totalsRes as any)?.rows || [];
     const statusTotals = totalRows[0] || {
@@ -669,7 +668,7 @@ export class ReportsService {
     };
 
     return {
-      date: queryDate,
+      date: date || 'Todas as datas',
       statusTotals,
       attendanceList,
     };

@@ -57,7 +57,7 @@ export const ReceptionAttendanceDash: React.FC = () => {
       <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2 text-slate-500 font-semibold">
           <Filter className="w-4 h-4 text-rose-600" />
-          <span>Data da Lista de Presença: <strong>{formatDateBR(date)}</strong></span>
+          <span>Data da Lista de Presença: <strong>{date ? formatDateBR(date) : 'Todos os Registros (Geral)'}</strong></span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -68,6 +68,16 @@ export const ReceptionAttendanceDash: React.FC = () => {
             onChange={(e) => setDate(e.target.value)}
             className="px-2.5 py-1 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
           />
+          {date && (
+            <button
+              type="button"
+              onClick={() => setDate('')}
+              className="px-2.5 py-1 text-2xs rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 transition font-medium"
+              title="Exibir todos os registros de acolhimento"
+            >
+              Ver Todas
+            </button>
+          )}
         </div>
       </div>
 
