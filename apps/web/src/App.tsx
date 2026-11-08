@@ -45,6 +45,7 @@ import { ChangeProcedurePage } from './pages/Regulation/ChangeProcedurePage';
 import { RequestDetailsPage } from './pages/Regulation/RequestDetailsPage';
 import { SchedulesPage } from './pages/Schedules';
 import { CreateOrEditSchedule } from './pages/Schedules/CreateOrEditSchedule';
+import BpaPage from './pages/BPA';
 import './App.css';
 
 function App() {
@@ -65,6 +66,9 @@ function App() {
                   <Route path="/profile" element={<UserProfile />} />
                   <Route element={<ProtectedRoute requiredPermission="reports:read" />}>
                     <Route path="/reports" element={<Reports />} />
+                  </Route>
+                  <Route element={<ProtectedRoute requiredPermission="bpa:access" />}>
+                    <Route path="/bpa" element={<BpaPage />} />
                   </Route>
 
                   <Route path="/reception" element={<Reception />} />

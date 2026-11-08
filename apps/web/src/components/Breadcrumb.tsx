@@ -34,6 +34,7 @@ const routeNameMap: Record<string, string> = {
   'solicitor': 'UBS Solicitante',
   'inbox': 'Central de Regulação',
   'waiting-list': 'Fila de Espera',
+  'bpa': 'Produção BPA',
 };
 
 const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;

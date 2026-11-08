@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   Calendar,
   BarChart3,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
@@ -37,6 +38,7 @@ export const Layout = () => {
   const { t } = useTranslation();
   const location = useLocation();
   const isAdmin = permissions.includes('admin:access');
+  const isCoordinator = activeProfile?.name === 'Coordenador de Unidade';
   const { data: currentDoctor } = useCurrentDoctor();
   const isDoctor = !isAdmin && Boolean(currentDoctor?.id);
 
@@ -105,6 +107,9 @@ export const Layout = () => {
     ] : []),
     ...(permissions.includes('reports:read') || isAdmin ? [
       { name: 'Relatórios & BI', path: '/reports', icon: BarChart3 },
+    ] : []),
+    ...((permissions.includes('bpa:access') || isAdmin || isCoordinator) ? [
+      { name: 'Produção BPA', path: '/bpa', icon: FileSpreadsheet },
     ] : []),
   ];
 
