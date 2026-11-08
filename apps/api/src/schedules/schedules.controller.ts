@@ -87,6 +87,35 @@ export class SchedulesController {
   }
 
   /**
+   * Checagem prévia de conflitos de agenda (SINPeP e e-SUS Regulação)
+   */
+  @Get('check-conflicts')
+  @Permissions('schedules:read', 'schedules:write')
+  async checkConflicts(
+    @Query('doctorId') doctorId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('startTime') startTime?: string,
+    @Query('endTime') endTime?: string,
+    @Query('daysOfWeek') daysOfWeek?: string,
+    @Query('excludeScheduleId') excludeScheduleId?: string,
+  ) {
+    if (!doctorId || !startDate || !endDate || !startTime || !endTime) {
+      return { hasBlockingConflict: false, hasWarning: false, conflicts: [] };
+    }
+    const days = daysOfWeek ? daysOfWeek.split(',').map((d) => d.trim()).filter(Boolean) : [];
+    return this.schedulesService.checkConflicts({
+      doctorId,
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      daysOfWeek: days,
+      excludeScheduleId,
+    });
+  }
+
+  /**
    * Detalhes de uma agenda específica
    */
   @Get(':id')

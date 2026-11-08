@@ -9,6 +9,7 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, or, ilike, desc, asc, inArray, sql, not, gte } from 'drizzle-orm';
 import * as schema from '../database';
 import { randomUUID } from 'crypto';
+import axios from 'axios';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { BookSlotDto } from './dto/book-slot.dto';
@@ -440,7 +441,172 @@ export class SchedulesService {
   }
 
   /**
-   * 2. Validação Anti-Conflito de Horário do Profissional
+   * 2. Checagem Completa de Conflitos e Alertas de Agenda (SINPeP e e-SUS Regulação)
+   */
+  async checkConflicts(params: {
+    doctorId: string;
+    startDate: string;
+    endDate: string;
+    startTime: string;
+    endTime: string;
+    daysOfWeek: string[];
+    excludeScheduleId?: string;
+  }) {
+    const { doctorId, startDate, endDate, startTime, endTime, daysOfWeek, excludeScheduleId } = params;
+
+    const conflicts: Array<{
+      source: 'SINPEP' | 'ESUS';
+      severity: 'BLOCKING' | 'WARNING';
+      title: string;
+      message: string;
+      details?: any;
+    }> = [];
+
+    const newStartMins = this.timeToMinutes(startTime);
+    const newEndMins = this.timeToMinutes(endTime);
+
+    // 2.1 Busca médico e dados cadastrais
+    const doctor = await this.db.query.doctors.findFirst({
+      where: eq(schema.doctors.id, doctorId),
+      with: { user: true },
+    });
+
+    // 2.2 Conflito de Escala no SINPeP (Bloqueante)
+    const doctorSchedules = await this.db.query.schedules.findMany({
+      where: and(
+        eq(schema.schedules.doctorId, doctorId),
+        eq(schema.schedules.isActive, true),
+        excludeScheduleId ? not(eq(schema.schedules.id, excludeScheduleId)) : undefined,
+      ),
+      with: {
+        procedure: true,
+        procedureGroup: true,
+        executingHealthCenter: true,
+      },
+    });
+
+    for (const existing of doctorSchedules) {
+      const datesOverlap = startDate <= existing.endDate && endDate >= existing.startDate;
+      if (!datesOverlap) continue;
+
+      const commonDays = daysOfWeek.filter((d) => existing.daysOfWeek.includes(d));
+      if (commonDays.length === 0) continue;
+
+      const existStartMins = this.timeToMinutes(existing.startTime);
+      const existEndMins = this.timeToMinutes(existing.endTime);
+
+      const timesOverlap = newStartMins < existEndMins && newEndMins > existStartMins;
+      if (timesOverlap) {
+        conflicts.push({
+          source: 'SINPEP',
+          severity: 'BLOCKING',
+          title: 'Conflito de Escala no SINPeP',
+          message: `O profissional já possui a escala "${existing.procedure?.name || existing.procedureGroup?.name || 'Atendimento'}" na unidade "${existing.executingHealthCenter?.name || 'Unidade'}" das ${existing.startTime} às ${existing.endTime} nos dias [${commonDays.join(', ')}].`,
+          details: {
+            scheduleId: existing.id,
+            procedure: existing.procedure?.name || existing.procedureGroup?.name,
+            healthCenter: existing.executingHealthCenter?.name,
+            startTime: existing.startTime,
+            endTime: existing.endTime,
+            days: commonDays,
+          },
+        });
+      }
+    }
+
+    // 2.3 Checagem de Conflitos / Agendamentos no e-SUS Regulação (Alerta Informativo)
+    const esusMatches: any[] = [];
+
+    if (process.env.ESUS_API_SECRET && (doctor?.cns || doctor?.cpf || doctor?.user?.name)) {
+      try {
+        const queryTerms: any[] = [];
+        if (doctor.cns) queryTerms.push({ term: { "nuCnsProfissionalExecutante": doctor.cns } });
+        if (doctor.cpf) queryTerms.push({ term: { "nuCpfProfissionalExecutante": doctor.cpf } });
+        if (doctor.user?.name) {
+          queryTerms.push({ match_phrase: { "noProfissionalExecutante": doctor.user.name } });
+        }
+
+        const esusRes = await axios.post(
+          'https://regulacao-api.saude.gov.br/regulacao-producao/_search',
+          {
+            size: 200,
+            query: {
+              bool: {
+                must: [
+                  { bool: { should: queryTerms, minimum_should_match: 1 } },
+                  { range: { dtMarcacao: { gte: startDate, lte: endDate, format: "yyyy-MM-dd" } } },
+                ],
+              },
+            },
+          },
+          {
+            headers: {
+              'Authorization': `Basic ${process.env.ESUS_API_SECRET}`,
+              'Content-Type': 'application/json',
+              'User-Agent': 'SINPeP-Regulacao/1.0',
+            },
+            timeout: 3000,
+          },
+        );
+
+        const hits = esusRes.data?.hits?.hits || [];
+        for (const hit of hits) {
+          const src = hit._source;
+          const dtStr = src.dtMarcacao;
+          const hrStr = src.hrMarcacao || '07:00';
+          if (dtStr) {
+            const dt = new Date(`${dtStr}T00:00:00`);
+            const dayName = DAY_MAP[dt.getDay()];
+            if (daysOfWeek.length === 0 || daysOfWeek.includes(dayName)) {
+              const slotMins = this.timeToMinutes(hrStr);
+              if (slotMins >= newStartMins && slotMins < newEndMins) {
+                esusMatches.push({
+                  date: dtStr,
+                  time: hrStr,
+                  procedure: src.noProcedimentoInterno || 'CONSULTA',
+                  patient: src.pacienteNome,
+                  healthCenter: src.noEstabelecimentoExecutante,
+                });
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        // Falhas na consulta remota do e-SUS não bloqueiam o fluxo
+      }
+    }
+
+    if (esusMatches.length > 0) {
+      const distinctDates = Array.from(new Set(esusMatches.map((m) => m.date))).slice(0, 5);
+      const distinctProcs = Array.from(new Set(esusMatches.map((m) => m.procedure))).slice(0, 3);
+      const distinctUnits = Array.from(new Set(esusMatches.map((m) => m.healthCenter).filter(Boolean))).slice(0, 2);
+
+      conflicts.push({
+        source: 'ESUS',
+        severity: 'WARNING',
+        title: 'Agendamentos Detectados no e-SUS Regulação',
+        message: `Atenção: Foram identificados ${esusMatches.length} agendamento(s) para o médico no e-SUS Regulação no período selecionado nos mesmos dias/horários (${distinctProcs.join(', ')}). Verifique os limites de horário e capacidade do profissional para evitar sobrecarga assistencial.`,
+        details: {
+          totalAppointments: esusMatches.length,
+          sampleDates: distinctDates,
+          procedures: distinctProcs,
+          units: distinctUnits,
+        },
+      });
+    }
+
+    const hasBlockingConflict = conflicts.some((c) => c.severity === 'BLOCKING');
+    const hasWarning = conflicts.some((c) => c.severity === 'WARNING');
+
+    return {
+      hasBlockingConflict,
+      hasWarning,
+      conflicts,
+    };
+  }
+
+  /**
+   * 2.1 Validação Anti-Conflito de Horário do Profissional (Bloqueio ao Salvar)
    */
   private async validateAntiConflict(
     doctorId: string,
@@ -451,40 +617,58 @@ export class SchedulesService {
     daysOfWeek: string[],
     excludeScheduleId?: string,
   ) {
-    const doctorSchedules = await this.db.query.schedules.findMany({
-      where: and(
-        eq(schema.schedules.doctorId, doctorId),
-        eq(schema.schedules.isActive, true),
-        excludeScheduleId ? not(eq(schema.schedules.id, excludeScheduleId)) : undefined,
-      ),
-      with: {
-        procedure: true,
-        executingHealthCenter: true,
-      },
+    const check = await this.checkConflicts({
+      doctorId,
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      daysOfWeek,
+      excludeScheduleId,
     });
 
-    const newStartMins = this.timeToMinutes(startTime);
-    const newEndMins = this.timeToMinutes(endTime);
+    const blocking = check.conflicts.find((c) => c.severity === 'BLOCKING');
+    if (blocking) {
+      throw new BadRequestException(blocking.message);
+    }
+  }
 
-    for (const existing of doctorSchedules) {
-      // 1. Verifica sobreposição de período de vigência
-      const datesOverlap = startDate <= existing.endDate && endDate >= existing.startDate;
-      if (!datesOverlap) continue;
+  /**
+   * 2.2 Validação da Capacidade do Turno vs Soma do Tempo de Atendimento
+   */
+  private validateTurnCapacity(
+    startTime: string,
+    endTime: string,
+    firstTimeQty: number,
+    firstTimeMins: number,
+    returnQty: number,
+    returnMins: number,
+    regulatorQty: number,
+    regulatorMins: number,
+  ) {
+    const startMins = this.timeToMinutes(startTime);
+    const endMins = this.timeToMinutes(endTime);
+    const turnMinutes = endMins - startMins;
 
-      // 2. Verifica sobreposição de dias da semana
-      const commonDays = daysOfWeek.filter((d) => existing.daysOfWeek.includes(d));
-      if (commonDays.length === 0) continue;
+    if (turnMinutes <= 0) {
+      throw new BadRequestException('O horário final deve ser posterior ao horário inicial.');
+    }
 
-      // 3. Verifica sobreposição de horários
-      const existStartMins = this.timeToMinutes(existing.startTime);
-      const existEndMins = this.timeToMinutes(existing.endTime);
+    const totalConfiguredMinutes =
+      (firstTimeQty || 0) * (firstTimeMins || 0) +
+      (returnQty || 0) * (returnMins || 0) +
+      (regulatorQty || 0) * (regulatorMins || 0);
 
-      const timesOverlap = newStartMins < existEndMins && newEndMins > existStartMins;
-      if (timesOverlap) {
-        throw new BadRequestException(
-          `Conflito de agenda: O profissional já possui a escala "${existing.procedure?.name || 'Atendimento'}" na unidade "${existing.executingHealthCenter?.name || 'Unidade'}" das ${existing.startTime} às ${existing.endTime} nos dias [${commonDays.join(', ')}].`,
-        );
-      }
+    if (totalConfiguredMinutes > turnMinutes) {
+      const formatTime = (mins: number) => {
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return h > 0 ? `${h}h${m > 0 ? ` ${m}min` : ''}` : `${m}min`;
+      };
+
+      throw new BadRequestException(
+        `A soma do tempo de atendimento configurado para as vagas (${formatTime(totalConfiguredMinutes)} - ${totalConfiguredMinutes} min) excede o intervalo total do turno (${formatTime(turnMinutes)} - ${turnMinutes} min). É necessário aumentar o intervalo de tempo entre a hora inicial e hora final da escala ou diminuir o tempo de atendimento por vaga.`,
+      );
     }
   }
 
@@ -751,6 +935,18 @@ export class SchedulesService {
       dto.daysOfWeek,
     );
 
+    // Validação da capacidade do turno vs soma do tempo de atendimento configurado
+    this.validateTurnCapacity(
+      dto.startTime,
+      dto.endTime,
+      dto.firstTimeQuantity || 0,
+      dto.firstTimeMinutes || 0,
+      dto.returnQuantity || 0,
+      dto.returnMinutes || 0,
+      dto.regulatorReservedQuantity || 0,
+      dto.regulatorReservedMinutes || 0,
+    );
+
     // Se tiver procedureGroupId e enabledProcedureIds não informado, habilita todos os procedimentos do grupo
     let enabledProcedureIds = dto.enabledProcedureIds || [];
     if (dto.procedureGroupId && (!enabledProcedureIds || enabledProcedureIds.length === 0)) {
@@ -831,6 +1027,24 @@ export class SchedulesService {
     const startTime = dto.startTime || existing.startTime;
     const endTime = dto.endTime || existing.endTime;
     const daysOfWeek = dto.daysOfWeek || existing.daysOfWeek;
+    const firstTimeQuantity = dto.firstTimeQuantity !== undefined ? dto.firstTimeQuantity : existing.firstTimeQuantity;
+    const firstTimeMinutes = dto.firstTimeMinutes !== undefined ? dto.firstTimeMinutes : existing.firstTimeMinutes;
+    const returnQuantity = dto.returnQuantity !== undefined ? dto.returnQuantity : existing.returnQuantity;
+    const returnMinutes = dto.returnMinutes !== undefined ? dto.returnMinutes : existing.returnMinutes;
+    const regulatorReservedQuantity = dto.regulatorReservedQuantity !== undefined ? dto.regulatorReservedQuantity : existing.regulatorReservedQuantity;
+    const regulatorReservedMinutes = dto.regulatorReservedMinutes !== undefined ? dto.regulatorReservedMinutes : existing.regulatorReservedMinutes;
+
+    // Valida capacidade do turno vs soma do tempo de atendimento configurado
+    this.validateTurnCapacity(
+      startTime,
+      endTime,
+      firstTimeQuantity,
+      firstTimeMinutes,
+      returnQuantity,
+      returnMinutes,
+      regulatorReservedQuantity,
+      regulatorReservedMinutes,
+    );
 
     // Valida anti-conflito
     await this.validateAntiConflict(
@@ -859,12 +1073,12 @@ export class SchedulesService {
         startTime,
         endTime,
         daysOfWeek,
-        firstTimeQuantity: dto.firstTimeQuantity !== undefined ? dto.firstTimeQuantity : existing.firstTimeQuantity,
-        firstTimeMinutes: dto.firstTimeMinutes !== undefined ? dto.firstTimeMinutes : existing.firstTimeMinutes,
-        returnQuantity: dto.returnQuantity !== undefined ? dto.returnQuantity : existing.returnQuantity,
-        returnMinutes: dto.returnMinutes !== undefined ? dto.returnMinutes : existing.returnMinutes,
-        regulatorReservedQuantity: dto.regulatorReservedQuantity !== undefined ? dto.regulatorReservedQuantity : existing.regulatorReservedQuantity,
-        regulatorReservedMinutes: dto.regulatorReservedMinutes !== undefined ? dto.regulatorReservedMinutes : existing.regulatorReservedMinutes,
+        firstTimeQuantity,
+        firstTimeMinutes,
+        returnQuantity,
+        returnMinutes,
+        regulatorReservedQuantity,
+        regulatorReservedMinutes,
         autoSlotSplit: dto.autoSlotSplit !== undefined ? dto.autoSlotSplit : existing.autoSlotSplit,
         isLocalSchedule: dto.isLocalSchedule !== undefined ? dto.isLocalSchedule : existing.isLocalSchedule,
         isActive: dto.isActive !== undefined ? dto.isActive : existing.isActive,

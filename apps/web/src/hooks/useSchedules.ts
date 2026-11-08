@@ -289,3 +289,58 @@ export function useBookSlot() {
     },
   });
 }
+
+export interface ScheduleConflictItem {
+  source: 'SINPEP' | 'ESUS';
+  severity: 'BLOCKING' | 'WARNING';
+  title: string;
+  message: string;
+  details?: any;
+}
+
+export interface ScheduleConflictCheckResult {
+  hasBlockingConflict: boolean;
+  hasWarning: boolean;
+  conflicts: ScheduleConflictItem[];
+}
+
+export function useCheckScheduleConflicts(params: {
+  doctorId?: string;
+  startDate?: string;
+  endDate?: string;
+  startTime?: string;
+  endTime?: string;
+  daysOfWeek?: string[];
+  excludeScheduleId?: string;
+}) {
+  const token = useAuthStore((state) => state.token);
+  const isEnabled =
+    Boolean(token) &&
+    Boolean(params.doctorId) &&
+    Boolean(params.startDate) &&
+    Boolean(params.endDate) &&
+    Boolean(params.startTime) &&
+    Boolean(params.endTime) &&
+    Boolean(params.daysOfWeek && params.daysOfWeek.length > 0);
+
+  return useQuery<ScheduleConflictCheckResult>({
+    queryKey: ['schedule-conflicts', params],
+    queryFn: async () => {
+      const res = await axios.get(`${apiUrl}/schedules/check-conflicts`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          doctorId: params.doctorId,
+          startDate: params.startDate,
+          endDate: params.endDate,
+          startTime: params.startTime,
+          endTime: params.endTime,
+          daysOfWeek: params.daysOfWeek?.join(','),
+          excludeScheduleId: params.excludeScheduleId,
+        },
+      });
+      return res.data;
+    },
+    enabled: isEnabled,
+    staleTime: 5 * 1000,
+  });
+}

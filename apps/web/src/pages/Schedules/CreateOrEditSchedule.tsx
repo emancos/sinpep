@@ -13,6 +13,8 @@ import {
   Loader2,
   Info,
   X,
+  AlertTriangle,
+  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -20,7 +22,9 @@ import {
   useSchedule,
   useCreateSchedule,
   useUpdateSchedule,
+  useCheckScheduleConflicts,
 } from '../../hooks/useSchedules';
+import { formatDateBR } from '../../utils/brazilianFormatters';
 import { useAuthStore } from '../../store/useAuthStore';
 
 const DAYS_OF_WEEK = [
@@ -97,6 +101,17 @@ export const CreateOrEditSchedule: React.FC = () => {
 
   // Query da escala para edição
   const { data: existingSchedule, isLoading: isLoadingExisting } = useSchedule(id || '');
+
+  // Verificação em tempo real de conflitos no SINPeP e compromissos no e-SUS Regulação
+  const { data: conflictData, isLoading: isLoadingConflicts } = useCheckScheduleConflicts({
+    doctorId: doctorId || undefined,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
+    startTime: startTime || undefined,
+    endTime: endTime || undefined,
+    daysOfWeek: selectedDays,
+    excludeScheduleId: id || undefined,
+  });
 
   // Popula dados ao editar
   useEffect(() => {
@@ -276,6 +291,10 @@ export const CreateOrEditSchedule: React.FC = () => {
       Number(returnQty || 0) * Number(returnMins || 0) +
       Number(regulatorQty || 0) * Number(regulatorMins || 0);
 
+    const isOverCapacity = totalTurnMinutes > 0 && totalConfiguredMinutes > totalTurnMinutes;
+    const overflowMinutes = isOverCapacity ? totalConfiguredMinutes - totalTurnMinutes : 0;
+    const remainingMinutes = totalTurnMinutes > 0 && totalConfiguredMinutes <= totalTurnMinutes ? totalTurnMinutes - totalConfiguredMinutes : 0;
+
     // Contagem de dias entre startDate e endDate
     let estimatedDatesCount = 0;
     if (startDate && endDate && selectedDays.length > 0) {
@@ -298,6 +317,9 @@ export const CreateOrEditSchedule: React.FC = () => {
       totalConfiguredMinutes,
       estimatedDatesCount,
       totalEstimatedSlots: estimatedDatesCount * totalSlotsPerDay,
+      isOverCapacity,
+      overflowMinutes,
+      remainingMinutes,
     };
   }, [startTime, endTime, firstTimeQty, firstTimeMins, returnQty, returnMins, regulatorQty, regulatorMins, startDate, endDate, selectedDays]);
 
@@ -367,6 +389,20 @@ export const CreateOrEditSchedule: React.FC = () => {
     }
     if (selectedDays.length === 0) {
       toast.error('Selecione ao menos um dia da semana para o atendimento.');
+      return;
+    }
+
+    if (conflictData?.hasBlockingConflict) {
+      const blocking = conflictData.conflicts.find((c) => c.severity === 'BLOCKING');
+      toast.error(blocking?.message || 'Existe conflito de horário impeditivo com outra escala deste profissional.');
+      return;
+    }
+
+    if (calculationSummary?.isOverCapacity) {
+      toast.error(
+        `A soma do tempo de atendimento configurado (${calculationSummary.totalConfiguredMinutes} min) excede o intervalo do turno (${calculationSummary.totalTurnMinutes} min). Aumente o intervalo entre a hora inicial e hora final ou diminua o tempo de atendimento por vaga.`,
+        { duration: 7000 }
+      );
       return;
     }
 
@@ -738,6 +774,65 @@ export const CreateOrEditSchedule: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/* Alerta de Conflito de Horário e Verificação do e-SUS Regulação */}
+            {isLoadingConflicts && (
+              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 pt-2 animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
+                <span>Verificando disponibilidade e possíveis conflitos no SINPeP e e-SUS Regulação...</span>
+              </div>
+            )}
+
+            {conflictData && (conflictData.hasBlockingConflict || conflictData.hasWarning) && (
+              <div className="space-y-3 pt-2">
+                {conflictData.conflicts.map((conflict, idx) => {
+                  const isBlocking = conflict.severity === 'BLOCKING';
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-4 rounded-xl border flex items-start gap-3 animate-in fade-in ${
+                        isBlocking
+                          ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60 text-rose-900 dark:text-rose-200'
+                          : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-200'
+                      }`}
+                    >
+                      <div className="p-1 rounded-lg shrink-0 mt-0.5">
+                        {isBlocking ? (
+                          <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                        ) : (
+                          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                        )}
+                      </div>
+                      <div className="flex-1 text-xs">
+                        <div className="font-bold text-sm mb-1 flex items-center gap-2">
+                          <span>{conflict.title}</span>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              isBlocking
+                                ? 'bg-rose-200 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300'
+                                : 'bg-amber-200 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300'
+                            }`}
+                          >
+                            {conflict.source === 'ESUS' ? 'e-SUS Regulação' : 'SINPeP'}
+                          </span>
+                        </div>
+                        <p className="leading-relaxed opacity-90">{conflict.message}</p>
+                        {conflict.details?.sampleDates && conflict.details.sampleDates.length > 0 && (
+                          <div className="mt-2 text-[11px] opacity-80 flex flex-wrap items-center gap-2">
+                            <span className="font-semibold">Datas coincidentes:</span>
+                            {conflict.details.sampleDates.map((d: string) => (
+                              <span key={d} className="px-1.5 py-0.5 bg-black/5 dark:bg-white/10 rounded font-mono">
+                                {formatDateBR(d)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -955,20 +1050,83 @@ export const CreateOrEditSchedule: React.FC = () => {
                 </label>
               </div>
 
-              {/* Card Resumo do Turno / Preview do Cálculo */}
+              {/* Card Resumo do Turno / Preview do Cálculo e Alerta de Capacidade */}
               {calculationSummary && (
-                <div className="p-4 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-900/40 space-y-2 text-xs">
-                  <div className="flex items-center gap-2 font-bold text-blue-900 dark:text-blue-200">
-                    <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                    <span>Cálculo do Turno & Capacidade Estimada</span>
+                <div
+                  className={`p-4 rounded-xl border space-y-3 text-xs transition-colors ${
+                    calculationSummary.isOverCapacity
+                      ? 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-300 dark:border-rose-900/60'
+                      : 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-200/60 dark:border-blue-900/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div
+                      className={`flex items-center gap-2 font-bold ${
+                        calculationSummary.isOverCapacity
+                          ? 'text-rose-900 dark:text-rose-200'
+                          : 'text-blue-900 dark:text-blue-200'
+                      }`}
+                    >
+                      {calculationSummary.isOverCapacity ? (
+                        <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                      ) : (
+                        <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                      )}
+                      <span>Cálculo do Turno & Capacidade Assistencial</span>
+                    </div>
+
+                    {calculationSummary.isOverCapacity && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-200 text-rose-800 dark:bg-rose-900/70 dark:text-rose-300">
+                        Tempo Excedido
+                      </span>
+                    )}
                   </div>
+
+                  {/* Banner de Notificação de Alerta quando a soma do tempo ultrapassa o turno */}
+                  {calculationSummary.isOverCapacity && (
+                    <div className="p-3 rounded-lg bg-rose-100/90 dark:bg-rose-900/40 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-100 text-xs flex items-start gap-2.5">
+                      <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <span className="font-bold block">
+                          A soma do tempo de atendimento configurado por vaga ultrapassa a duração do turno!
+                        </span>
+                        <p className="leading-relaxed">
+                          Tempo total configurado: <strong>{calculationSummary.totalConfiguredMinutes} min</strong>{' '}
+                          ({Math.floor(calculationSummary.totalConfiguredMinutes / 60)}h{' '}
+                          {calculationSummary.totalConfiguredMinutes % 60}min) &gt; Duração do turno:{' '}
+                          <strong>{calculationSummary.totalTurnMinutes} min</strong>{' '}
+                          ({Math.floor(calculationSummary.totalTurnMinutes / 60)}h{' '}
+                          {calculationSummary.totalTurnMinutes % 60}min).
+                        </p>
+                        <p className="font-semibold text-rose-700 dark:text-rose-300 pt-0.5">
+                          Excedente de <strong>+{calculationSummary.overflowMinutes} minutos</strong>. É necessário{' '}
+                          <strong>aumentar o intervalo entre a hora inicial e final</strong> ou{' '}
+                          <strong>diminuir o tempo de atendimento por vaga</strong>.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
                     <div>
                       <span className="text-slate-500 dark:text-slate-400 block text-2xs">Tempo de Turno</span>
                       <strong className="text-slate-800 dark:text-slate-100 font-semibold">
                         {Math.floor(calculationSummary.totalTurnMinutes / 60)}h{' '}
-                        {calculationSummary.totalTurnMinutes % 60}min
+                        {calculationSummary.totalTurnMinutes % 60}min ({calculationSummary.totalTurnMinutes} min)
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400 block text-2xs">Tempo Configurado</span>
+                      <strong
+                        className={`font-semibold ${
+                          calculationSummary.isOverCapacity
+                            ? 'text-rose-600 dark:text-rose-400 font-bold'
+                            : 'text-slate-800 dark:text-slate-100'
+                        }`}
+                      >
+                        {Math.floor(calculationSummary.totalConfiguredMinutes / 60)}h{' '}
+                        {calculationSummary.totalConfiguredMinutes % 60}min ({calculationSummary.totalConfiguredMinutes} min)
                       </strong>
                     </div>
 
@@ -976,13 +1134,6 @@ export const CreateOrEditSchedule: React.FC = () => {
                       <span className="text-slate-500 dark:text-slate-400 block text-2xs">Vagas / Dia</span>
                       <strong className="text-blue-600 dark:text-blue-400 font-semibold">
                         {calculationSummary.totalSlotsPerDay} vagas
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span className="text-slate-500 dark:text-slate-400 block text-2xs">Dias de Atendimento</span>
-                      <strong className="text-slate-800 dark:text-slate-100 font-semibold">
-                        {calculationSummary.estimatedDatesCount} dia(s)
                       </strong>
                     </div>
 
@@ -1100,8 +1251,13 @@ export const CreateOrEditSchedule: React.FC = () => {
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
               type="submit"
-              disabled={createMutation.isPending || updateMutation.isPending}
-              className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-[#28a745] hover:bg-[#218838] text-white font-bold text-sm uppercase tracking-wide shadow-sm hover:shadow transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+              disabled={createMutation.isPending || updateMutation.isPending || Boolean(calculationSummary?.isOverCapacity)}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-[#28a745] hover:bg-[#218838] text-white font-bold text-sm uppercase tracking-wide shadow-sm hover:shadow transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                calculationSummary?.isOverCapacity
+                  ? 'Ajuste os tempos de atendimento ou o intervalo do turno para salvar a escala'
+                  : 'Salvar escala de atendimento'
+              }
             >
               {(createMutation.isPending || updateMutation.isPending) ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
