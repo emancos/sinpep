@@ -23,6 +23,7 @@ import { MedicationsModule } from './medications/medications.module';
 import { RegulationModule } from './regulation/regulation.module';
 import { BrandingsModule } from './brandings/brandings.module';
 import { SchedulesModule } from './schedules/schedules.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { SchedulesModule } from './schedules/schedules.module';
     RegulationModule,
     BrandingsModule,
     SchedulesModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

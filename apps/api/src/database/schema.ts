@@ -1526,6 +1526,46 @@ export const esusImportJobsRelations = relations(esusImportJobs, ({ one }) => ({
   }),
 }));
 
+export const dashboardNotices = pgTable("dashboard_notices", {
+  id: uuid().primaryKey().notNull(),
+  title: text().notNull(),
+  content: text().notNull(),
+  type: text().default('INFO').notNull(), // 'INFO' | 'WARNING' | 'URGENT'
+  scope: text().default('GLOBAL').notNull(), // 'GLOBAL' | 'HEALTH_CENTER'
+  healthCenterId: uuid("health_center_id"),
+  authorId: uuid("author_id").notNull(),
+  isPinned: boolean("is_pinned").default(false).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  expiresAt: timestamp("expires_at", { precision: 3, mode: 'string' }),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+  index("dashboard_notices_active_idx").using("btree", table.isActive, table.scope),
+  index("dashboard_notices_hc_idx").using("btree", table.healthCenterId),
+  foreignKey({
+    columns: [table.healthCenterId],
+    foreignColumns: [healthCenters.id],
+    name: "dashboard_notices_health_center_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.authorId],
+    foreignColumns: [users.id],
+    name: "dashboard_notices_author_id_fkey"
+  }).onUpdate("cascade").onDelete("cascade"),
+]);
+
+export const dashboardNoticesRelations = relations(dashboardNotices, ({ one }) => ({
+  author: one(users, {
+    fields: [dashboardNotices.authorId],
+    references: [users.id],
+  }),
+  healthCenter: one(healthCenters, {
+    fields: [dashboardNotices.healthCenterId],
+    references: [healthCenters.id],
+  }),
+}));
+
+
 
 
 
