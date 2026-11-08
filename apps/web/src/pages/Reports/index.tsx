@@ -103,7 +103,7 @@ export const Reports = () => {
   const [isExporting, setIsExporting] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
-  // Controle de scroll horizontal sem quebra de linha
+  // Controle de scroll horizontal sem quebra de linha com detecção via ResizeObserver
   const tabsTrackRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
@@ -111,14 +111,27 @@ export const Reports = () => {
   const checkScrollability = () => {
     const el = tabsTrackRef.current;
     if (!el) return;
-    setShowLeftArrow(el.scrollLeft > 4);
-    setShowRightArrow(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+    const canScrollLeft = el.scrollLeft > 2;
+    const canScrollRight = Math.ceil(el.scrollLeft + el.clientWidth) < el.scrollWidth - 2;
+    setShowLeftArrow(canScrollLeft);
+    setShowRightArrow(canScrollRight);
   };
 
   useEffect(() => {
+    const el = tabsTrackRef.current;
+    if (!el) return;
+
     checkScrollability();
-    window.addEventListener('resize', checkScrollability);
-    return () => window.removeEventListener('resize', checkScrollability);
+    const ro = new ResizeObserver(() => {
+      checkScrollability();
+    });
+    ro.observe(el);
+
+    const timer = setTimeout(checkScrollability, 150);
+    return () => {
+      ro.disconnect();
+      clearTimeout(timer);
+    };
   }, [availableTabs]);
 
   // Garante que o activeTab seja sempre válido para o perfil atual
@@ -128,10 +141,18 @@ export const Reports = () => {
     }
   }, [availableTabs, activeTab]);
 
+  const handleTabSelect = (tabId: string) => {
+    setActiveTab(tabId);
+    const tabEl = tabsTrackRef.current?.querySelector(`[data-tab-id="${tabId}"]`) as HTMLElement | null;
+    if (tabEl) {
+      tabEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    }
+  };
+
   const handleScroll = (direction: 'left' | 'right') => {
     const el = tabsTrackRef.current;
     if (!el) return;
-    const scrollAmount = direction === 'left' ? -220 : 220;
+    const scrollAmount = direction === 'left' ? -260 : 260;
     el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     setTimeout(checkScrollability, 300);
   };
@@ -182,25 +203,29 @@ export const Reports = () => {
         </button>
       </div>
 
-      {/* Modern Horizontal Scrollable Segmented Bar (Sem quebra de linha) */}
-      <div className="relative flex items-center w-full bg-slate-100/90 dark:bg-slate-800/50 p-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-inner">
-        {/* Seta de navegação esquerda */}
+      {/* Modern Underline Tab Bar with Horizontal Smooth Scroll & Fade Indicators */}
+      <div className="relative border-b border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 rounded-t-xl px-1 sm:px-2">
+        {/* Seta e fade esquerdo */}
         {showLeftArrow && (
-          <button
-            type="button"
-            onClick={() => handleScroll('left')}
-            className="p-1.5 rounded-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-200 shadow-sm border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shrink-0 mr-1 z-10 cursor-pointer"
-            title="Rolar abas para a esquerda"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
+          <>
+            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-14 bg-gradient-to-r from-white dark:from-slate-900 via-white/80 dark:via-slate-900/80 to-transparent z-10" />
+            <button
+              type="button"
+              onClick={() => handleScroll('left')}
+              className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-md border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition cursor-pointer"
+              title="Rolar abas para a esquerda"
+              aria-label="Rolar abas para a esquerda"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </>
         )}
 
-        {/* Trilha horizontal das abas com scroll suave */}
+        {/* Trilha horizontal das abas */}
         <div
           ref={tabsTrackRef}
           onScroll={checkScrollability}
-          className="flex items-center gap-1.5 overflow-x-auto scroll-smooth w-full py-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          className="flex items-center gap-1.5 sm:gap-3 overflow-x-auto scroll-smooth w-full pt-1 pb-0 pr-12 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         >
           {availableTabs.map((tab) => {
             const Icon = tab.icon;
@@ -210,30 +235,34 @@ export const Reports = () => {
                 key={tab.id}
                 type="button"
                 data-tab-id={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all duration-200 cursor-pointer whitespace-nowrap select-none ${
+                onClick={() => handleTabSelect(tab.id)}
+                className={`flex items-center gap-2 px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap cursor-pointer select-none rounded-t-lg -mb-[2px] ${
                   isActive
-                    ? 'bg-white dark:bg-slate-900 text-[#0051A2] dark:text-blue-400 shadow-sm border border-slate-200/80 dark:border-slate-700/80 ring-1 ring-black/5 dark:ring-white/5'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white/60 dark:hover:bg-slate-700/40'
+                    ? 'border-[#0051A2] text-[#0051A2] dark:text-blue-400 dark:border-blue-500 bg-blue-50/70 dark:bg-blue-950/40'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-slate-800/40'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
+                <Icon className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-[#0051A2] dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`} />
                 <span>{tab.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Seta de navegação direita */}
+        {/* Seta e fade direito */}
         {showRightArrow && (
-          <button
-            type="button"
-            onClick={() => handleScroll('right')}
-            className="p-1.5 rounded-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-200 shadow-sm border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shrink-0 ml-1 z-10 cursor-pointer"
-            title="Rolar abas para a direita"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          <>
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-14 bg-gradient-to-l from-white dark:from-slate-900 via-white/80 dark:via-slate-900/80 to-transparent z-10" />
+            <button
+              type="button"
+              onClick={() => handleScroll('right')}
+              className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-md border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition cursor-pointer"
+              title="Rolar abas para a direita"
+              aria-label="Rolar abas para a direita"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </>
         )}
       </div>
 
