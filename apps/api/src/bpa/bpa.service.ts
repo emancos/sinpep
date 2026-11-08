@@ -436,4 +436,35 @@ export class BpaService {
 
     return rule;
   }
+
+  /**
+   * Lista unidades de saúde elegíveis para o usuário no módulo BPA
+   */
+  async listUnits(user: any): Promise<{ id: string; name: string; cnes: string }[]> {
+    const { isCoordinator, effectiveUnitId } = this.resolveUserScope(user);
+
+    if (isCoordinator && effectiveUnitId) {
+      const units = await this.db
+        .select({
+          id: schema.healthCenters.id,
+          name: schema.healthCenters.name,
+          cnes: schema.healthCenters.cnes,
+        })
+        .from(schema.healthCenters)
+        .where(eq(schema.healthCenters.id, effectiveUnitId));
+      return units;
+    }
+
+    const units = await this.db
+      .select({
+        id: schema.healthCenters.id,
+        name: schema.healthCenters.name,
+        cnes: schema.healthCenters.cnes,
+      })
+      .from(schema.healthCenters)
+      .where(eq(schema.healthCenters.isActive, true))
+      .orderBy(schema.healthCenters.name);
+
+    return units;
+  }
 }

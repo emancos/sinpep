@@ -46,17 +46,23 @@ export default function BpaPage() {
   const [activeTab, setActiveTab] = useState<'current' | 'batches'>('current');
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
 
-  // 2. Busca de Unidades de Saúde
-  const { data: units = [] } = useQuery<{ id: string; name: string; cnes: string }[]>({
-    queryKey: ['health-centers-list'],
+  // 2. Busca de Unidades de Saúde autorizadas para o usuário no módulo BPA
+  const { data: unitsRaw } = useQuery<{ id: string; name: string; cnes: string }[]>({
+    queryKey: ['bpa-units-list'],
     queryFn: async () => {
-      const res = await axios.get(`${apiUrl}/health-centers`, {
+      const res = await axios.get(`${apiUrl}/bpa/units`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return res.data;
     },
     enabled: Boolean(token),
   });
+
+  const units = useMemo<{ id: string; name: string; cnes: string }[]>(() => {
+    if (Array.isArray(unitsRaw)) return unitsRaw;
+    if (Array.isArray((unitsRaw as any)?.data)) return (unitsRaw as any).data;
+    return [];
+  }, [unitsRaw]);
 
   // Lista dos últimos 24 meses
   const availableMonths = useMemo(() => {

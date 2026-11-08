@@ -44,6 +44,15 @@ export class BpaController {
   }
 
   /**
+   * Lista unidades de saúde permitidas para o usuário logado
+   */
+  @Get('units')
+  @Permissions('bpa:access')
+  async listUnits(@Req() req: any) {
+    return this.bpaService.listUnits(req.user);
+  }
+
+  /**
    * Gera o conteúdo do arquivo oficial magnético do BPA-I (.TXT)
    */
   @Post('export-txt')
