@@ -450,21 +450,84 @@ export class ReportsService {
     `);
     const scheduledPatients = (scheduledListRes as any)?.rows || [];
 
-    // Principais motivos de devolução para capacitação da equipe
+    // Principais motivos de devolução estruturados para capacitação da equipe
     const returnsRes = await this.db.execute(sql`
       SELECT 
-        rsh.justification as reason,
+        rsh.justification as raw_justification,
         count(*)::int as count
       FROM regulation_requests r
       JOIN regulation_status_history rsh ON rsh.request_id = r.id AND rsh.new_status = 'DEVOLVIDA'
       WHERE ${whereClause}
         AND rsh.justification IS NOT NULL
-        AND rsh.justification != ''
       GROUP BY rsh.justification
       ORDER BY count DESC
-      LIMIT 10
+      LIMIT 60
     `);
-    const returnReasons = (returnsRes as any)?.rows || [];
+    const rawReturns = (returnsRes as any)?.rows || [];
+
+    const toTitleCase = (str: string) =>
+      str.toLowerCase().replace(/(?:^|\s|-)\S/g, (c) => c.toUpperCase());
+
+    const reasonsMap = new Map<string, {
+      reason: string;
+      operators: Set<string>;
+      origin: string;
+      count: number;
+    }>();
+
+    for (const row of rawReturns) {
+      let raw = (row.raw_justification || '').trim();
+      let operator: string | null = null;
+      let origin = 'SINPeP';
+
+      const esusMatch = raw.match(/^\[e-SUS\s+([^\]]+)\]:\s*([\s\S]*)$/i);
+      if (esusMatch) {
+        origin = 'e-SUS Regulação';
+        operator = toTitleCase(esusMatch[1].trim());
+        raw = esusMatch[2].trim();
+      } else {
+        const sinpepMatch = raw.match(/^\[SINPeP\s*([^\]]*)\]:\s*([\s\S]*)$/i);
+        if (sinpepMatch) {
+          origin = 'SINPeP';
+          if (sinpepMatch[1].trim()) operator = toTitleCase(sinpepMatch[1].trim());
+          raw = sinpepMatch[2].trim();
+        }
+      }
+
+      // Normaliza quebras de linha e múltiplos espaços
+      raw = raw.replace(/[\r\n]+/g, ' - ').replace(/\s+/g, ' ').trim();
+
+      let reasonText = raw;
+      if (!reasonText) {
+        reasonText = 'Devolução administrativa (sem justificativa textual preenchida)';
+      } else {
+        reasonText = reasonText.charAt(0).toUpperCase() + reasonText.slice(1);
+      }
+
+      const groupKey = reasonText.toLowerCase();
+      if (!reasonsMap.has(groupKey)) {
+        reasonsMap.set(groupKey, {
+          reason: reasonText,
+          operators: new Set<string>(),
+          origin,
+          count: 0,
+        });
+      }
+
+      const item = reasonsMap.get(groupKey)!;
+      item.count += Number(row.count || 0);
+      if (operator) item.operators.add(operator);
+    }
+
+    const returnReasons = Array.from(reasonsMap.values())
+      .map((item) => ({
+        reason: item.reason,
+        operator: Array.from(item.operators).slice(0, 2).join(', ') || null,
+        origin: item.origin,
+        count: item.count,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
 
     return {
       summary,

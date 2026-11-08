@@ -164,13 +164,29 @@ export const SolicitorDash: React.FC = () => {
             Principais inconsistências e complementações clínicas solicitadas pelo médico regulador para a equipe da UBS:
           </p>
 
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {returnReasons.map((r: any, idx: number) => (
-              <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 text-xs">
-                <span className="text-rose-900 dark:text-rose-200 font-medium">
-                  "{r.reason}"
-                </span>
-                <span className="px-2 py-0.5 rounded text-2xs font-bold bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-300 shrink-0 ml-2">
+              <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 text-xs">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className={`px-2 py-0.5 rounded text-3xs font-semibold ${
+                      r.origin?.includes('e-SUS')
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                        : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                    }`}>
+                      {r.origin || 'Regulação'}
+                    </span>
+                    {r.operator && (
+                      <span className="text-2xs text-slate-500 dark:text-slate-400 font-medium">
+                        Regulador: <strong className="text-slate-700 dark:text-slate-300 font-semibold">{r.operator}</strong>
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-rose-950 dark:text-rose-200 font-medium leading-relaxed">
+                    "{r.reason}"
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-200 shrink-0 self-start sm:self-center">
                   {r.count} devoluç{r.count > 1 ? 'ões' : 'ão'}
                 </span>
               </div>
