@@ -95,7 +95,7 @@ export class BpaService {
         hc.no_bairro AS hc_bairro,
         hc.no_logradouro AS hc_logradouro,
         hc.nu_endereco AS hc_numero,
-        ds.cbo AS doctor_cbo,
+        spec.cbo AS doctor_cbo,
         sched.cbo AS schedule_cbo,
         sched_proc.code AS sched_procedure_code,
         sched_proc.name AS sched_procedure_name,
@@ -105,6 +105,7 @@ export class BpaService {
       INNER JOIN users u ON mr.doctor_id = u.id
       LEFT JOIN doctors d ON d.user_id = u.id
       LEFT JOIN doctor_specialties ds ON ds.doctor_id = d.id
+      LEFT JOIN specialties spec ON ds.specialty_id = spec.id
       LEFT JOIN schedule_slots slot ON slot.patient_id = p.id AND slot.date = TO_CHAR(mr.record_date, 'YYYY-MM-DD')
       LEFT JOIN schedules sched ON slot.schedule_id = sched.id
       LEFT JOIN procedures sched_proc ON sched.procedure_id = sched_proc.id
