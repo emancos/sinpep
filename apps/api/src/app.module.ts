@@ -24,6 +24,7 @@ import { RegulationModule } from './regulation/regulation.module';
 import { BrandingsModule } from './brandings/brandings.module';
 import { SchedulesModule } from './schedules/schedules.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { BpaModule } from './bpa/bpa.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     BrandingsModule,
     SchedulesModule,
     DashboardModule,
+    BpaModule,
   ],
   controllers: [AppController],
   providers: [AppService],
