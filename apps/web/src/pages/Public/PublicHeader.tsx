@@ -1,9 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, Sun, Moon, Monitor } from 'lucide-react';
-import { useTheme } from '../../contexts/ThemeContext';
+import { ArrowLeft } from 'lucide-react';
 
 export const PublicHeader = () => {
-  const { theme, setTheme } = useTheme();
   const location = useLocation();
 
   const navLinks = [
@@ -55,52 +53,11 @@ export const PublicHeader = () => {
           })}
         </nav>
 
-        {/* Controles de Direita: Seletor de Tema e Botão de Login */}
+        {/* Controles de Direita: Botão de Login */}
         <div className="flex items-center gap-2.5">
-          {/* Seletor de Tema */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
-            <button
-              type="button"
-              onClick={() => setTheme('light')}
-              className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                theme === 'light'
-                  ? 'bg-white text-blue-600 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-              title="Tema Claro"
-            >
-              <Sun className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme('dark')}
-              className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                theme === 'dark'
-                  ? 'bg-slate-700 text-blue-400 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-              title="Tema Escuro"
-            >
-              <Moon className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme('system')}
-              className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                theme === 'system'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-              title="Padrão do Sistema"
-            >
-              <Monitor className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Botão Voltar ao Login */}
           <Link
             to="/login"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 transition"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 transition cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Acessar Sistema</span>

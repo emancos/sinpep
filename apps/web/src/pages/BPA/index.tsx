@@ -285,7 +285,7 @@ export default function BpaPage() {
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Competência */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             Competência (Mês/Ano)
           </label>
@@ -304,7 +304,7 @@ export default function BpaPage() {
 
         {/* Estabelecimento de Saúde */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
             <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             Estabelecimento Executante
           </label>
@@ -333,7 +333,7 @@ export default function BpaPage() {
 
         {/* Prioridade do Identificador do Paciente */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
             <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             Identificador do Paciente
           </label>
@@ -365,7 +365,7 @@ export default function BpaPage() {
 
         {/* Busca Rápida na Tabela */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
             <Search className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             Filtrar na Lista
           </label>

@@ -247,215 +247,228 @@ export const Login: React.FC = () => {
             <LoginHeroBranding />
 
             {/* Right Column: Formulário de Login OU Seleção de Perfil */}
-            <div className="w-full lg:w-1/2 xl:w-7/12 flex items-center justify-center p-6 sm:p-10 lg:p-12 xl:p-16">
-                <div className="w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-8 sm:p-10 shadow-xl dark:shadow-2xl transition-all">
-                    {step === 'CREDENTIALS' ? (
-                        <>
-                            {/* Header */}
-                            <div className="flex flex-col items-center text-center mb-8">
-                                <img src="/logo.svg" alt="Logo SIPeP" className="w-20 h-20 mb-3 drop-shadow object-contain" />
-                                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                                    Acesso ao Sistema
-                                </h2>
-                                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-                                    Informe suas credenciais para acessar os módulos
-                                </p>
-                            </div>
+            <div className="w-full lg:w-1/2 xl:w-7/12 p-8 sm:p-10 lg:p-12 xl:p-14 flex flex-col justify-between min-h-screen lg:min-h-0 relative">
+                {/* Spacer superior para simetria vertical */}
+                <div className="hidden lg:block h-2" />
 
-                            {/* Error Alert */}
-                            {error && (
-                                <div className="flex items-center gap-3 p-3.5 mb-6 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-xs sm:text-sm rounded-md">
-                                    <AlertCircle className="w-4 h-4 shrink-0" />
-                                    <p>{error}</p>
+                {/* Centro: Card de Login OU Seleção de Perfil */}
+                <div className="flex-1 flex items-center justify-center py-6 sm:py-8">
+                    <div className="w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-8 sm:p-10 shadow-xl dark:shadow-2xl transition-all">
+                        {step === 'CREDENTIALS' ? (
+                            <>
+                                {/* Header */}
+                                <div className="flex flex-col items-center text-center mb-8">
+                                    <img src="/logo.svg" alt="Logo SIPeP" className="w-20 h-20 mb-3 drop-shadow object-contain" />
+                                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                                        Acesso ao Sistema
+                                    </h2>
+                                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                        Informe suas credenciais para acessar os módulos
+                                    </p>
                                 </div>
-                            )}
 
-                            {/* Form */}
-                            <form onSubmit={handleSubmit} className="space-y-5">
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                                        E-mail Institucional
-                                    </label>
-                                    <div className="relative">
-                                        <Mail className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" />
-                                        <input
-                                            id="email"
-                                            type="email"
-                                            required
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            placeholder="usuario@saude.gov.br"
-                                            className="w-full pl-9 pr-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm"
-                                        />
+                                {/* Error Alert */}
+                                {error && (
+                                    <div className="flex items-center gap-3 p-3.5 mb-6 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-xs sm:text-sm rounded-md">
+                                        <AlertCircle className="w-4 h-4 shrink-0" />
+                                        <p>{error}</p>
                                     </div>
-                                </div>
+                                )}
 
-                                <div className="space-y-1.5">
-                                    <div className="flex justify-between items-center">
+                                {/* Form */}
+                                <form onSubmit={handleSubmit} className="space-y-5">
+                                    <div className="space-y-1.5">
                                         <label className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                                            Senha
+                                            E-mail Institucional
                                         </label>
-                                        <Link
-                                            to="/forgot-password"
-                                            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-                                        >
-                                            Esqueceu a senha?
-                                        </Link>
+                                        <div className="relative">
+                                            <Mail className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" />
+                                            <input
+                                                id="email"
+                                                type="email"
+                                                required
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
+                                                placeholder="usuario@saude.gov.br"
+                                                className="w-full pl-9 pr-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm"
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="relative">
-                                        <Lock className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" />
-                                        <input
-                                            id="password"
-                                            type="password"
-                                            required
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            placeholder="••••••••"
-                                            className="w-full pl-9 pr-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm"
-                                        />
+
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                                                Senha
+                                            </label>
+                                            <Link
+                                                to="/forgot-password"
+                                                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                                            >
+                                                Esqueceu a senha?
+                                            </Link>
+                                        </div>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" />
+                                            <input
+                                                id="password"
+                                                type="password"
+                                                required
+                                                value={password}
+                                                onChange={(e) => setPassword(e.target.value)}
+                                                placeholder="••••••••"
+                                                className="w-full pl-9 pr-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm"
+                                            />
+                                        </div>
                                     </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-all duration-200 shadow-md active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 text-sm mt-6 cursor-pointer"
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <Loader className="w-4 h-4 animate-spin" />
+                                                Autenticando...
+                                            </>
+                                        ) : (
+                                            'Entrar no Sistema'
+                                        )}
+                                    </button>
+                                    <div className="relative z-10 pt-4 border-t border-slate-200 dark:border-slate-800 text-2xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row items-center justify-center gap-3">
+                                        {/* Créditos do Desenvolvedor */}
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            <img
+                                                src="/logo.png"
+                                                alt="Logo Integra Sistemas"
+                                                className="w-4 h-4 object-contain"
+                                                onError={(e) => {
+                                                    (e.target as HTMLElement).style.display = 'none';
+                                                }}
+                                            />
+                                            <span>Desenvolvido por <strong>Integra Sistemas</strong></span>
+                                        </div>
+                                    </div>
+                                </form>
+                            </>
+                        ) : (
+                            /* Step 2: Seleção de Perfil */
+                            <div className="space-y-6 animate-in fade-in zoom-in-95 duration-200">
+                                <div className="text-center">
+                                    <div className="inline-flex p-3 rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-3 shadow-inner">
+                                        <ShieldCheck className="w-8 h-8" />
+                                    </div>
+                                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                                        Selecione seu Perfil de Acesso
+                                    </h2>
+                                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+                                        Olá, <strong className="text-slate-800 dark:text-slate-200">{pendingAuth?.user.name}</strong>! Escolha como deseja atuar no sistema nesta sessão:
+                                    </p>
                                 </div>
 
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-all duration-200 shadow-md active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 text-sm mt-6 cursor-pointer"
-                                >
-                                    {loading ? (
-                                        <>
-                                            <Loader className="w-4 h-4 animate-spin" />
-                                            Autenticando...
-                                        </>
-                                    ) : (
-                                        'Entrar no Sistema'
-                                    )}
-                                </button>
-                            </form>
-                        </>
-                    ) : (
-                        /* Step 2: Seleção de Perfil */
-                        <div className="space-y-6 animate-in fade-in zoom-in-95 duration-200">
-                            <div className="text-center">
-                                <div className="inline-flex p-3 rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 mb-3 shadow-inner">
-                                    <ShieldCheck className="w-8 h-8" />
-                                </div>
-                                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                                    Selecione seu Perfil de Acesso
-                                </h2>
-                                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-                                    Olá, <strong className="text-slate-800 dark:text-slate-200">{pendingAuth?.user.name}</strong>! Escolha como deseja atuar no sistema nesta sessão:
-                                </p>
-                            </div>
+                                {/* Error Alert */}
+                                {error && (
+                                    <div className="flex items-center gap-3 p-3.5 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-xs sm:text-sm rounded-md">
+                                        <AlertCircle className="w-4 h-4 shrink-0" />
+                                        <p>{error}</p>
+                                    </div>
+                                )}
 
-                            {/* Error Alert */}
-                            {error && (
-                                <div className="flex items-center gap-3 p-3.5 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-xs sm:text-sm rounded-md">
-                                    <AlertCircle className="w-4 h-4 shrink-0" />
-                                    <p>{error}</p>
-                                </div>
-                            )}
+                                {/* Cards de Perfis Disponíveis */}
+                                <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                                    {pendingAuth?.availableProfiles.map((p) => {
+                                        const isPending = selectingProfileId === p.id;
+                                        const isInitialActive = pendingAuth.activeProfile?.id === p.id;
 
-                            {/* Cards de Perfis Disponíveis */}
-                            <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
-                                {pendingAuth?.availableProfiles.map((p) => {
-                                    const isPending = selectingProfileId === p.id;
-                                    const isInitialActive = pendingAuth.activeProfile?.id === p.id;
-
-                                    return (
-                                        <button
-                                            key={p.id}
-                                            type="button"
-                                            onClick={() => handleSelectProfile(p)}
-                                            disabled={!!selectingProfileId}
-                                            className="w-full text-left p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/60 hover:bg-blue-50/50 dark:hover:bg-slate-800/80 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 shadow-sm hover:shadow group flex items-center justify-between gap-3 cursor-pointer disabled:opacity-50"
-                                        >
-                                            <div className="flex items-center gap-3.5 min-w-0">
-                                                <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors shrink-0">
-                                                    {getProfileIcon(p.name)}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        <span className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                                            {p.name}
-                                                        </span>
-                                                        {isInitialActive && (
-                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                                                                Sugerido
-                                                            </span>
-                                                        )}
-                                                        {p.isDefault && (
-                                                            <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                                                                Padrão
-                                                            </span>
-                                                        )}
+                                        return (
+                                            <button
+                                                key={p.id}
+                                                type="button"
+                                                onClick={() => handleSelectProfile(p)}
+                                                disabled={!!selectingProfileId}
+                                                className="w-full text-left p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/60 hover:bg-blue-50/50 dark:hover:bg-slate-800/80 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 shadow-sm hover:shadow group flex items-center justify-between gap-3 cursor-pointer disabled:opacity-50"
+                                            >
+                                                <div className="flex items-center gap-3.5 min-w-0">
+                                                    <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors shrink-0">
+                                                        {getProfileIcon(p.name)}
                                                     </div>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                                                        {getProfileDescription(p)}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="shrink-0 flex items-center pl-2">
-                                                {isPending ? (
-                                                    <Loader className="w-5 h-5 text-blue-600 animate-spin" />
-                                                ) : (
-                                                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-600 group-hover:text-white text-slate-400 flex items-center justify-center transition-all">
-                                                        <ArrowRight className="w-4 h-4" />
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                                                {p.name}
+                                                            </span>
+                                                            {isInitialActive && (
+                                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                                                    Sugerido
+                                                                </span>
+                                                            )}
+                                                            {p.isDefault && (
+                                                                <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                                                    Padrão
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                                                            {getProfileDescription(p)}
+                                                        </p>
                                                     </div>
-                                                )}
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                                                </div>
 
-                            {/* Voltar para login com outra conta */}
-                            <div className="pt-2 text-center">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setStep('CREDENTIALS');
-                                        setPendingAuth(null);
-                                        setPassword('');
-                                        setError(null);
-                                    }}
-                                    className="inline-flex items-center gap-2 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors cursor-pointer py-1 px-3 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
-                                >
-                                    <ArrowLeft className="w-3.5 h-3.5" />
-                                    <span>Entrar com outra conta</span>
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                                                <div className="shrink-0 flex items-center pl-2">
+                                                    {isPending ? (
+                                                        <Loader className="w-5 h-5 text-blue-600 animate-spin" />
+                                                    ) : (
+                                                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-600 group-hover:text-white text-slate-400 flex items-center justify-center transition-all">
+                                                            <ArrowRight className="w-4 h-4" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
 
+                                {/* Voltar para login com outra conta */}
+                                <div className="pt-2 text-center">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setStep('CREDENTIALS');
+                                            setPendingAuth(null);
+                                            setPassword('');
+                                            setError(null);
+                                        }}
+                                        className="inline-flex items-center gap-2 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors cursor-pointer py-1 px-3 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
+                                    >
+                                        <ArrowLeft className="w-3.5 h-3.5" />
+                                        <span>Entrar com outra conta</span>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Footer da Lateral Direita: FORA do card, perfeitamente alinhado com o footer da lateral esquerda */}
+                <div className="relative z-10 pt-4 border-t border-slate-200 dark:border-slate-800 text-2xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row items-center justify-center gap-3">
                     {/* Links Institucionais Públicos */}
-                    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400 mt-6 pt-4 border-t border-slate-200/80 dark:border-slate-800/80">
-                        <Link to="/about" className="hover:text-[#0051A2] dark:hover:text-blue-400 font-medium transition-colors">
+                    <div className="flex items-center gap-3 font-normal">
+                        <Link to="/about" className="hover:text-[#0051A2] dark:hover:text-blue-400 transition-colors">
                             Sobre o Sistema
                         </Link>
                         <span className="text-slate-300 dark:text-slate-700 select-none">•</span>
-                        <Link to="/terms" className="hover:text-[#0051A2] dark:hover:text-blue-400 font-medium transition-colors">
+                        <Link to="/terms" className="hover:text-[#0051A2] dark:hover:text-blue-400 transition-colors">
                             Termos de Uso
                         </Link>
                         <span className="text-slate-300 dark:text-slate-700 select-none">•</span>
-                        <Link to="/privacy" className="hover:text-[#0051A2] dark:hover:text-blue-400 font-medium transition-colors">
+                        <Link to="/privacy" className="hover:text-[#0051A2] dark:hover:text-blue-400 transition-colors">
                             Políticas de Privacidade
                         </Link>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="text-center mt-4 text-2xs text-slate-500 dark:text-slate-400 pt-1">
-                        <div className="flex items-center justify-center gap-2">
-                            <img
-                                src="/logo.png"
-                                alt="Logo Integra Sistemas"
-                                className="w-7 h-7 object-contain"
-                            />
-                            <span>Desenvolvido por Integra Sistemas</span>
-                        </div>
                     </div>
                 </div>
             </div>
         </div>
     );
 };
+
+
