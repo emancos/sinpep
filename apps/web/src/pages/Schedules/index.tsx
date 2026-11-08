@@ -28,6 +28,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { ScheduleDetailsModal } from './ScheduleDetailsModal';
 import { BlockDatesModal } from './BlockDatesModal';
+import { formatDateBR } from '../../utils/brazilianFormatters';
 
 const DAY_LABELS: Record<string, string> = {
   DOMINGO: 'Dom',
@@ -405,7 +406,7 @@ export const SchedulesPage: React.FC = () => {
                         {/* Vigência & Horários */}
                         <td className="px-4 py-3.5">
                           <div className="font-mono text-slate-800 dark:text-slate-200 font-semibold">
-                            {sch.startDate} até {sch.endDate}
+                            {formatDateBR(sch.startDate)} até {formatDateBR(sch.endDate)}
                           </div>
                           <div className="flex items-center gap-1 text-slate-500 text-[11px] mt-0.5">
                             <Clock className="w-3.5 h-3.5 text-slate-400" />

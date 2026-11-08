@@ -3,8 +3,12 @@ import {
   X,
   Calendar,
   User,
+  Loader2,
+  Clock,
+  Building2,
 } from 'lucide-react';
-import type { Schedule, ScheduleSlot } from '../../hooks/useSchedules';
+import { useSchedule, type Schedule, type ScheduleSlot } from '../../hooks/useSchedules';
+import { formatDateBR } from '../../utils/brazilianFormatters';
 
 interface ScheduleDetailsModalProps {
   schedule: Schedule;
@@ -19,9 +23,13 @@ export const ScheduleDetailsModal: React.FC<ScheduleDetailsModalProps> = ({
 }) => {
   const [selectedDate, setSelectedDate] = useState<string>('ALL');
 
+  // Busca a agenda completa contendo os slots reais com pacientes e protocolos
+  const { data: fullSchedule, isLoading } = useSchedule(schedule.id);
+
   if (!isOpen) return null;
 
-  const slots = schedule.slots || [];
+  const currentSchedule = fullSchedule || schedule;
+  const slots = fullSchedule?.slots || [];
 
   // Datas únicas disponíveis nos slots
   const uniqueDates = Array.from(new Set(slots.map((s) => s.date))).sort();
@@ -72,7 +80,7 @@ export const ScheduleDetailsModal: React.FC<ScheduleDetailsModalProps> = ({
                 Vagas & Detalhes da Escala
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {schedule.procedure?.name} • {schedule.doctor?.user?.name} ({schedule.executingHealthCenter?.name})
+                {currentSchedule.procedure?.name || currentSchedule.procedureGroup?.name} • {currentSchedule.doctor?.user?.name} ({currentSchedule.executingHealthCenter?.name})
               </p>
             </div>
           </div>
@@ -80,54 +88,93 @@ export const ScheduleDetailsModal: React.FC<ScheduleDetailsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Filter by Date */}
-        <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2 overflow-x-auto">
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">
-            Filtrar por data:
-          </span>
-          <button
-            type="button"
-            onClick={() => setSelectedDate('ALL')}
-            className={`px-2.5 py-1 rounded-md text-xs font-semibold shrink-0 transition-colors cursor-pointer ${
-              selectedDate === 'ALL'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-            }`}
-          >
-            Todas ({slots.length})
-          </button>
-          {uniqueDates.map((dateStr) => {
-            const count = slots.filter((s) => s.date === dateStr).length;
-            const isSelected = selectedDate === dateStr;
-            return (
-              <button
-                key={dateStr}
-                type="button"
-                onClick={() => setSelectedDate(dateStr)}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium shrink-0 transition-colors cursor-pointer ${
-                  isSelected
-                    ? 'bg-blue-600 text-white font-semibold'
-                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-                }`}
-              >
-                {dateStr} ({count})
-              </button>
-            );
-          })}
+        {/* Informações rápidas da escala */}
+        <div className="px-5 py-2.5 bg-slate-50/80 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between text-xs text-slate-600 dark:text-slate-300 gap-2">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1 font-medium">
+              <Building2 className="w-3.5 h-3.5 text-blue-500" />
+              {currentSchedule.executingHealthCenter?.name}
+            </span>
+            <span className="flex items-center gap-1 font-medium">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+              {currentSchedule.startTime} às {currentSchedule.endTime}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 font-semibold">
+            <span className="text-emerald-600 dark:text-emerald-400">
+              Disponíveis: {slots.filter((s) => s.status === 'DISPONIVEL').length}
+            </span>
+            <span className="text-blue-600 dark:text-blue-400">
+              Agendadas: {slots.filter((s) => s.status === 'AGENDADO').length}
+            </span>
+            <span className="text-slate-500">
+              Total: {slots.length}
+            </span>
+          </div>
         </div>
 
-        {/* Slots Table */}
+        {/* Filter by Date */}
+        {!isLoading && uniqueDates.length > 0 && (
+          <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2 overflow-x-auto">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">
+              Filtrar por data:
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedDate('ALL')}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold shrink-0 transition-colors cursor-pointer ${
+                selectedDate === 'ALL'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              Todas ({slots.length})
+            </button>
+            {uniqueDates.map((dateStr) => {
+              const count = slots.filter((s) => s.date === dateStr).length;
+              const isSelected = selectedDate === dateStr;
+              return (
+                <button
+                  key={dateStr}
+                  type="button"
+                  onClick={() => setSelectedDate(dateStr)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium shrink-0 transition-colors cursor-pointer ${
+                    isSelected
+                      ? 'bg-blue-600 text-white font-semibold'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  {formatDateBR(dateStr)} ({count})
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Slots Table / Content */}
         <div className="p-5 overflow-y-auto flex-1">
-          {filteredSlots.length === 0 ? (
-            <p className="text-xs text-center text-slate-400 py-8">
-              Nenhuma vaga encontrada para o filtro selecionado.
-            </p>
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-14 text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-2" />
+              <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                Carregando vagas e ocupação da escala...
+              </p>
+              <p className="text-2xs text-slate-400 mt-1">
+                Sincronizando agendamentos em tempo real
+              </p>
+            </div>
+          ) : filteredSlots.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-xs font-medium text-slate-400">
+                Nenhuma vaga encontrada para o filtro selecionado.
+              </p>
+            </div>
           ) : (
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredSlots.map((slot) => (
@@ -139,8 +186,8 @@ export const ScheduleDetailsModal: React.FC<ScheduleDetailsModalProps> = ({
                     <span className="font-mono font-bold text-slate-800 dark:text-slate-200 min-w-[50px]">
                       {slot.time}
                     </span>
-                    <span className="text-slate-500 dark:text-slate-400">
-                      {slot.date}
+                    <span className="text-slate-600 dark:text-slate-300 font-medium min-w-[80px]">
+                      {formatDateBR(slot.date)}
                     </span>
                     {getTypeBadge(slot.slotType)}
                     {getStatusBadge(slot.status)}
@@ -151,7 +198,7 @@ export const ScheduleDetailsModal: React.FC<ScheduleDetailsModalProps> = ({
                       <User className="w-3.5 h-3.5" />
                       <span>{slot.patient.name}</span>
                       {slot.regulationRequest && (
-                        <span className="text-2xs text-slate-400">
+                        <span className="text-2xs text-slate-400 font-mono">
                           (Protocolo: {slot.regulationRequest.protocolNumber})
                         </span>
                       )}
@@ -170,7 +217,7 @@ export const ScheduleDetailsModal: React.FC<ScheduleDetailsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
+            className="px-4 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors cursor-pointer"
           >
             Fechar
           </button>
