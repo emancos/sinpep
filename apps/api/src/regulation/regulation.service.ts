@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, BadRequestException, ForbiddenException, OnModuleInit } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database';
 import { eq, desc, asc, and, or, ilike, inArray, sql } from 'drizzle-orm';
@@ -19,13 +19,35 @@ function generateConfirmationToken(): string {
 }
 
 @Injectable()
-export class RegulationService {
+export class RegulationService implements OnModuleInit {
   constructor(
     @Inject('DATABASE_CONNECTION')
     private readonly db: NodePgDatabase<typeof schema>,
     private readonly storageService: StorageService,
     private readonly eventsGateway: EventsGateway,
   ) {}
+
+  async onModuleInit() {
+    try {
+      // Reconciliação automática de slots presos com solicitações canceladas ou não-agendadas
+      await this.db.execute(sql`
+        UPDATE schedule_slots
+        SET status = 'DISPONIVEL',
+            regulation_request_id = NULL,
+            patient_id = NULL,
+            booked_by_user_id = NULL,
+            booked_at = NULL,
+            updated_at = NOW()
+        WHERE status = 'AGENDADO'
+          AND regulation_request_id IS NOT NULL
+          AND regulation_request_id NOT IN (
+            SELECT id FROM regulation_requests WHERE status = 'AGENDADA'
+          );
+      `);
+    } catch (err) {
+      console.warn('[RegulationService] Aviso na reconciliação automática de slots:', err);
+    }
+  }
 
   // =========================================================================
   // MÓDULO SOLICITANTE (UBS)
@@ -891,6 +913,19 @@ export class RegulationService {
         );
     }
 
+    // Libera a vaga correspondente na tabela de slots da escala, caso exista
+    await this.db
+      .update(schema.scheduleSlots)
+      .set({
+        status: 'DISPONIVEL',
+        regulationRequestId: null,
+        patientId: null,
+        bookedByUserId: null,
+        bookedAt: null,
+        updatedAt: now.toISOString(),
+      })
+      .where(eq(schema.scheduleSlots.regulationRequestId, id));
+
     await this.db.update(schema.regulationRequests)
       .set({
         status: newStatus,
@@ -915,6 +950,11 @@ export class RegulationService {
       type: 'SCHEDULE_CANCELLED',
       requestId: id,
       newStatus,
+    });
+
+    this.eventsGateway.server?.emit('schedule_updated', {
+      type: 'SLOT_FREED',
+      requestId: id,
     });
 
     return this.findOne(id);

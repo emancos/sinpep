@@ -178,6 +178,10 @@ export const useScheduleRegulationRequest = () => {
     }) => regulationService.scheduleRequest(id, payload),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['regulation'] });
+      queryClient.invalidateQueries({ queryKey: ['schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['reception-schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['available-slots'] });
       toast.success(`Agendado com sucesso! Chave de Confirmação: ${data.confirmationToken}`);
     },
     onError: (error: any) => {
@@ -202,6 +206,10 @@ export const useCancelRegulationSchedule = () => {
     }) => regulationService.cancelSchedule(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['regulation'] });
+      queryClient.invalidateQueries({ queryKey: ['schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['reception-schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['available-slots'] });
       toast.success('Agendamento cancelado com sucesso.');
     },
     onError: (error: any) => {
