@@ -438,7 +438,7 @@ export class BpaService {
   }
 
   /**
-   * Lista unidades de saúde elegíveis para o usuário no módulo BPA
+   * Lista unidades de saúde elegíveis para o usuário no módulo BPA (apenas Executantes)
    */
   async listUnits(user: any): Promise<{ id: string; name: string; cnes: string }[]> {
     const { isCoordinator, effectiveUnitId } = this.resolveUserScope(user);
@@ -462,7 +462,12 @@ export class BpaService {
         cnes: schema.healthCenters.cnes,
       })
       .from(schema.healthCenters)
-      .where(eq(schema.healthCenters.isActive, true))
+      .where(
+        and(
+          eq(schema.healthCenters.isActive, true),
+          eq(schema.healthCenters.stExecutante, true)
+        )
+      )
       .orderBy(schema.healthCenters.name);
 
     return units;

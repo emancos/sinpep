@@ -321,7 +321,7 @@ export default function BpaPage() {
               onChange={(e) => setSelectedUnitId(e.target.value)}
               className="w-full text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             >
-              <option value="">Todas as Unidades (Consolidado Municipal)</option>
+              <option value="">Todas as Unidades Executantes</option>
               {units.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name} (CNES: {u.cnes})
