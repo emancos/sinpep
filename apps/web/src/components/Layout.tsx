@@ -20,7 +20,8 @@ import {
   Send,
   Layers,
   ShieldCheck,
-  Calendar
+  Calendar,
+  BarChart3,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
@@ -102,6 +103,9 @@ export const Layout = () => {
     ...(permissions.includes('procedures:read') && isDoctor ? [
       { name: 'Procedimentos', path: '/procedures', icon: Stethoscope },
     ] : []),
+    ...(permissions.includes('reports:read') || isAdmin ? [
+      { name: 'Relatórios & BI', path: '/reports', icon: BarChart3 },
+    ] : []),
   ];
 
   const adminSubItems = [
@@ -128,9 +132,6 @@ export const Layout = () => {
     ] : []),
     ...(isAdmin ? [
       { name: 'Municípios & Identidade', path: '/municipalities' },
-    ] : []),
-    ...(permissions.includes('reports:read') || isAdmin ? [
-      { name: 'Relatórios & BI', path: '/reports' }
     ] : []),
   ];
 

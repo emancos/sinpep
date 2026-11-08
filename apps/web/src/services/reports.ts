@@ -24,5 +24,40 @@ export const reportsService = {
   getPharmacy: async () => {
     const { data } = await axios.get(`${apiUrl}/reports/pharmacy`, { headers: getHeaders() });
     return data;
-  }
+  },
+  getRegulation: async (params?: any) => {
+    const { data } = await axios.get(`${apiUrl}/reports/regulation`, {
+      headers: getHeaders(),
+      params,
+    });
+    return data;
+  },
+  getSolicitor: async (params?: any) => {
+    const { data } = await axios.get(`${apiUrl}/reports/solicitor`, {
+      headers: getHeaders(),
+      params,
+    });
+    return data;
+  },
+  getUnitOperational: async (params?: any) => {
+    const { data } = await axios.get(`${apiUrl}/reports/unit-operational`, {
+      headers: getHeaders(),
+      params,
+    });
+    return data;
+  },
+  getDoctorProduction: async (params?: any) => {
+    const { data } = await axios.get(`${apiUrl}/reports/doctor-production`, {
+      headers: getHeaders(),
+      params,
+    });
+    return data;
+  },
+  getReceptionAttendance: async (params?: any) => {
+    const { data } = await axios.get(`${apiUrl}/reports/reception-attendance`, {
+      headers: getHeaders(),
+      params,
+    });
+    return data;
+  },
 };
