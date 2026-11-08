@@ -259,21 +259,25 @@ export class ReportsService {
     status?: string;
     origin?: string;
   }) {
-    const conditions: string[] = ['1=1'];
-    if (filters.startDate) conditions.push(`r.created_at >= '${filters.startDate} 00:00:00'`);
-    if (filters.endDate) conditions.push(`r.created_at <= '${filters.endDate} 23:59:59'`);
-    if (filters.specialtyId) conditions.push(`(r.specialty_id = '${filters.specialtyId}' OR proc.id = '${filters.specialtyId}' OR pg.id = '${filters.specialtyId}')`);
-    if (filters.risk) conditions.push(`r.priority::text = '${filters.risk}'`);
-    if (filters.status) conditions.push(`r.status = '${filters.status}'`);
+    const baseConditions: string[] = ['1=1'];
+    if (filters.startDate) baseConditions.push(`r.created_at >= '${filters.startDate} 00:00:00'`);
+    if (filters.endDate) baseConditions.push(`r.created_at <= '${filters.endDate} 23:59:59'`);
+    if (filters.specialtyId) baseConditions.push(`(r.specialty_id = '${filters.specialtyId}' OR proc.id = '${filters.specialtyId}' OR pg.id = '${filters.specialtyId}')`);
     if (filters.origin === 'SINPEP') {
-      conditions.push(`r.protocol_number LIKE 'REG-%'`);
+      baseConditions.push(`r.protocol_number LIKE 'REG-%'`);
     } else if (filters.origin === 'ESUS') {
-      conditions.push(`r.protocol_number NOT LIKE 'REG-%'`);
+      baseConditions.push(`r.protocol_number NOT LIKE 'REG-%'`);
     }
 
-    const whereClause = sql.raw(conditions.join(' AND '));
+    const baseWhereClause = sql.raw(baseConditions.join(' AND '));
 
-    // Status counts consolidados com segregação de origem (SINPeP vs e-SUS)
+    // Condições filtradas para os gráficos segmentados
+    const filteredConditions = [...baseConditions];
+    if (filters.risk) filteredConditions.push(`r.priority::text = '${filters.risk}'`);
+    if (filters.status) filteredConditions.push(`r.status = '${filters.status}'`);
+    const filteredWhereClause = sql.raw(filteredConditions.join(' AND '));
+
+    // Status counts consolidados com segregação de origem (calculado sobre o panorama sem zerar os cards)
     const statusRes = await this.db.execute(sql`
       SELECT 
         count(*)::int as total,
@@ -287,7 +291,7 @@ export class ReportsService {
       FROM regulation_requests r
       LEFT JOIN procedures proc ON r.procedure_id = proc.id
       LEFT JOIN procedure_groups pg ON (r.procedure_group_id = pg.id OR proc.procedure_group_id = pg.id)
-      WHERE ${whereClause}
+      WHERE ${baseWhereClause}
     `);
     const statusRows = (statusRes as any)?.rows || [];
     const statusCounts = statusRows[0] || {
@@ -309,7 +313,7 @@ export class ReportsService {
       FROM regulation_requests r
       LEFT JOIN procedures proc ON r.procedure_id = proc.id
       LEFT JOIN procedure_groups pg ON (r.procedure_group_id = pg.id OR proc.procedure_group_id = pg.id)
-      WHERE ${whereClause}
+      WHERE ${baseWhereClause}
       GROUP BY r.priority
       ORDER BY count DESC
     `);
@@ -328,7 +332,7 @@ export class ReportsService {
       LEFT JOIN specialties s ON r.specialty_id = s.id
       LEFT JOIN procedures proc ON r.procedure_id = proc.id
       LEFT JOIN procedure_groups pg ON (r.procedure_group_id = pg.id OR proc.procedure_group_id = pg.id)
-      WHERE ${whereClause}
+      WHERE ${filteredWhereClause}
       GROUP BY specialty_name
       ORDER BY total_requests DESC
       LIMIT 10
@@ -348,7 +352,7 @@ export class ReportsService {
       LEFT JOIN health_centers hc ON r.requesting_health_center_id = hc.id
       LEFT JOIN procedures proc ON r.procedure_id = proc.id
       LEFT JOIN procedure_groups pg ON (r.procedure_group_id = pg.id OR proc.procedure_group_id = pg.id)
-      WHERE ${whereClause}
+      WHERE ${filteredWhereClause}
       GROUP BY ubs_name
       ORDER BY total_requests DESC
       LIMIT 10
@@ -377,22 +381,28 @@ export class ReportsService {
     status?: string;
     origin?: string;
   }) {
-    const conditions: string[] = ['1=1'];
+    const baseConditions: string[] = ['1=1'];
     if (healthCenterId) {
-      conditions.push(`r.requesting_health_center_id = '${healthCenterId}'`);
+      baseConditions.push(`r.requesting_health_center_id = '${healthCenterId}'`);
     }
-    if (filters.startDate) conditions.push(`r.created_at >= '${filters.startDate} 00:00:00'`);
-    if (filters.endDate) conditions.push(`r.created_at <= '${filters.endDate} 23:59:59'`);
-    if (filters.status) conditions.push(`r.status = '${filters.status}'`);
+    if (filters.startDate) baseConditions.push(`r.created_at >= '${filters.startDate} 00:00:00'`);
+    if (filters.endDate) baseConditions.push(`r.created_at <= '${filters.endDate} 23:59:59'`);
     if (filters.origin === 'SINPEP') {
-      conditions.push(`r.protocol_number LIKE 'REG-%'`);
+      baseConditions.push(`r.protocol_number LIKE 'REG-%'`);
     } else if (filters.origin === 'ESUS') {
-      conditions.push(`r.protocol_number NOT LIKE 'REG-%'`);
+      baseConditions.push(`r.protocol_number NOT LIKE 'REG-%'`);
     }
 
-    const whereClause = sql.raw(conditions.join(' AND '));
+    const baseWhereClause = sql.raw(baseConditions.join(' AND '));
 
-    // Resumo da UBS com contagens e procedência
+    // Condição para a listagem nominal de solicitações (filtra pelo status se fornecido)
+    const listConditions = [...baseConditions];
+    if (filters.status) {
+      listConditions.push(`r.status = '${filters.status}'`);
+    }
+    const listWhereClause = sql.raw(listConditions.join(' AND '));
+
+    // Resumo da UBS com contagens e procedência (calculado sobre o panorama da unidade sem zerar os cards de status)
     const summaryRes = await this.db.execute(sql`
       SELECT 
         count(*)::int as total,
@@ -404,7 +414,7 @@ export class ReportsService {
         count(*) FILTER (WHERE r.protocol_number NOT LIKE 'REG-%')::int as esus_count,
         count(*) FILTER (WHERE r.protocol_number LIKE 'REG-%')::int as sinpep_count
       FROM regulation_requests r
-      WHERE ${whereClause}
+      WHERE ${baseWhereClause}
     `);
     const summaryRows = (summaryRes as any)?.rows || [];
     const summary = summaryRows[0] || {
@@ -418,14 +428,17 @@ export class ReportsService {
       sinpep_count: 0,
     };
 
-    // Pacientes agendados da UBS para busca ativa e entrega de guias (SINPeP + e-SUS Regulação)
+    // Relação de Solicitações/Encaminhamentos da UBS (dinâmica conforme o filtro de situação)
     const scheduledListRes = await this.db.execute(sql`
       SELECT 
         r.id,
         r.protocol_number as protocol,
+        r.status,
+        r.priority::text as priority,
         r.confirmation_token as token,
         r.scheduled_date,
         r.scheduled_time,
+        r.created_at,
         p.name as patient_name,
         p.cpf as patient_cpf,
         p.cns as patient_cns,
@@ -441,11 +454,11 @@ export class ReportsService {
       LEFT JOIN procedures proc ON r.procedure_id = proc.id
       LEFT JOIN procedure_groups pg ON (r.procedure_group_id = pg.id OR proc.procedure_group_id = pg.id)
       LEFT JOIN health_centers hc ON r.executing_health_center_id = hc.id
-      WHERE ${whereClause}
-        AND r.status = 'AGENDADA'
-        ${filters.startDate ? sql`AND r.scheduled_date >= ${filters.startDate}` : sql``}
-        ${filters.endDate ? sql`AND r.scheduled_date <= ${filters.endDate}` : sql``}
-      ORDER BY r.scheduled_date ASC, r.scheduled_time ASC
+      WHERE ${listWhereClause}
+      ORDER BY 
+        CASE WHEN r.status = 'AGENDADA' THEN 0 ELSE 1 END,
+        r.scheduled_date ASC NULLS LAST,
+        r.created_at DESC
       LIMIT 100
     `);
     const scheduledPatients = (scheduledListRes as any)?.rows || [];
@@ -457,7 +470,7 @@ export class ReportsService {
         count(*)::int as count
       FROM regulation_requests r
       JOIN regulation_status_history rsh ON rsh.request_id = r.id AND rsh.new_status = 'DEVOLVIDA'
-      WHERE ${whereClause}
+      WHERE ${baseWhereClause}
         AND rsh.justification IS NOT NULL
       GROUP BY rsh.justification
       ORDER BY count DESC

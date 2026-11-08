@@ -3,6 +3,29 @@ import { reportsService } from '../../services/reports';
 import { Loader2, RotateCcw, CalendarCheck, Filter, Ticket } from 'lucide-react';
 import { formatDateBR, formatCPF, formatCNS } from '../../utils/brazilianFormatters';
 
+const STATUS_BADGES: Record<string, { label: string; className: string }> = {
+  AGENDADA: {
+    label: 'Agendada',
+    className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+  },
+  PENDENTE_AGENDAMENTO: {
+    label: 'Fila de Espera',
+    className: 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+  },
+  PENDENTE_REGULACAO: {
+    label: 'Pendente Triagem',
+    className: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+  },
+  DEVOLVIDA: {
+    label: 'Devolvida',
+    className: 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800',
+  },
+  NEGADA: {
+    label: 'Negada',
+    className: 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-700',
+  },
+};
+
 export const SolicitorDash: React.FC = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -195,17 +218,25 @@ export const SolicitorDash: React.FC = () => {
         </div>
       )}
 
-      {/* Relação Nominal de Pacientes Agendados */}
+      {/* Relação Nominal de Solicitações / Agendamentos */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2">
             <CalendarCheck className="w-4 h-4 text-emerald-600" />
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-              Agenda dos Pacientes da UBS (Busca Ativa & Entrega de Guias)
+              {status === 'AGENDADA'
+                ? 'Agenda dos Pacientes da UBS (Busca Ativa & Entrega de Guias)'
+                : status === 'PENDENTE_AGENDAMENTO'
+                ? 'Pacientes da UBS na Fila de Espera da Regulação'
+                : status === 'PENDENTE_REGULACAO'
+                ? 'Encaminhamentos Aguardando Triagem pela Central'
+                : status === 'DEVOLVIDA'
+                ? 'Encaminhamentos Devolvidos para Correção pela UBS'
+                : 'Relação Geral de Encaminhamentos da UBS'}
             </h3>
           </div>
           <span className="text-2xs text-slate-400">
-            {scheduledPatients.length} paciente(s) localizado(s)
+            {scheduledPatients.length} solicitação(ões) localizada(s)
           </span>
         </div>
 
@@ -215,10 +246,11 @@ export const SolicitorDash: React.FC = () => {
               <tr>
                 <th className="py-2.5 px-3">Protocolo</th>
                 <th className="py-2.5 px-3">Origem</th>
+                <th className="py-2.5 px-3">Situação</th>
                 <th className="py-2.5 px-3">Paciente</th>
                 <th className="py-2.5 px-3">CPF / CNS</th>
-                <th className="py-2.5 px-3">Especialidade</th>
-                <th className="py-2.5 px-3">Data & Hora</th>
+                <th className="py-2.5 px-3">Especialidade / Exame</th>
+                <th className="py-2.5 px-3">Data / Agendamento</th>
                 <th className="py-2.5 px-3">Unidade Executante</th>
                 <th className="py-2.5 px-3 text-center">Chave Confirmação</th>
               </tr>
@@ -226,53 +258,73 @@ export const SolicitorDash: React.FC = () => {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {scheduledPatients.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400">
-                    Nenhum agendamento encontrado para o filtro selecionado.
+                  <td colSpan={9} className="py-8 text-center text-slate-400">
+                    Nenhum encaminhamento encontrado para os filtros selecionados.
                   </td>
                 </tr>
               ) : (
-                scheduledPatients.map((p: any) => (
-                  <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                    <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-300">
-                      {p.protocol}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className={`px-2 py-0.5 rounded text-3xs font-semibold ${
-                        p.origin?.includes('e-SUS')
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                          : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                      }`}>
-                        {p.origin || 'SINPeP'}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
-                      {p.patient_name}
-                    </td>
-                    <td className="py-2.5 px-3 font-mono text-2xs text-slate-500">
-                      <div>{formatCPF(p.patient_cpf)}</div>
-                      {p.patient_cns && <div className="text-slate-400">{formatCNS(p.patient_cns)}</div>}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 font-medium">
-                      {p.specialty_name}
-                    </td>
-                    <td className="py-2.5 px-3 text-emerald-700 dark:text-emerald-300 font-bold">
-                      {formatDateBR(p.scheduled_date)} às {p.scheduled_time || '—'}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">
-                      {p.executing_unit || 'Unidade Executante'}
-                    </td>
-                    <td className="py-2.5 px-3 text-center">
-                      {p.token ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono font-bold text-3xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                          <Ticket className="w-3 h-3" />
-                          {p.token}
+                scheduledPatients.map((p: any) => {
+                  const statusInfo = STATUS_BADGES[p.status] || {
+                    label: p.status || 'Pendente',
+                    className: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+                  };
+
+                  return (
+                    <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-300">
+                        {p.protocol}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className={`px-2 py-0.5 rounded text-3xs font-semibold ${
+                          p.origin?.includes('e-SUS')
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                            : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                        }`}>
+                          {p.origin || 'SINPeP'}
                         </span>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className={`px-2 py-0.5 rounded text-3xs font-bold border ${statusInfo.className}`}>
+                          {statusInfo.label}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
+                        {p.patient_name}
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-2xs text-slate-500">
+                        <div>{formatCPF(p.patient_cpf)}</div>
+                        {p.patient_cns && <div className="text-slate-400">{formatCNS(p.patient_cns)}</div>}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 font-medium">
+                        {p.specialty_name}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        {p.status === 'AGENDADA' && p.scheduled_date ? (
+                          <span className="text-emerald-700 dark:text-emerald-300 font-bold">
+                            {formatDateBR(p.scheduled_date)} às {p.scheduled_time || '—'}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 dark:text-slate-400 text-2xs">
+                            {p.created_at ? formatDateBR(p.created_at) : '—'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">
+                        {p.executing_unit || 'Unidade Executante'}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        {p.token ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono font-bold text-3xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                            <Ticket className="w-3 h-3" />
+                            {p.token}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-3xs">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
