@@ -16,6 +16,7 @@
     "lint": "turbo lint",
     "db:push": "npm --prefix apps/api run db:push",
     "db:seed": "npm --prefix apps/api run db:seed",
+    "seed:health-agents": "npm --prefix apps/api run seed:health-agents",
     "format": "prettier --write \"apps/**/*.{ts,tsx,js,jsx,json,md,css,prisma}\""
   },
   "devDependencies": {

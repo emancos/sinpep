@@ -1,4 +1,3 @@
-node_modules
 .turbo
 # Keep environment variables out of version control
 .env
@@ -16,6 +15,7 @@ scripts/*
 !scripts/seed-consultation-procedures-and-doctors.ts
 !scripts/seed-receptionist-profile.ts
 !scripts/alter-regulation-requests-cid10.ts
+!scripts/seed-health-agents.ts
 node_modules/
 dist/
 .agents/

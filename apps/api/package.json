@@ -17,6 +17,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
     "seed:admin": "tsx scripts/seed.ts",
+    "seed:health-agents": "tsx scripts/seed-health-agents.ts",
     "seed:medications": "tsx scripts/seed-anvisa-medications.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
