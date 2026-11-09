@@ -1,0 +1,73 @@
+name: sinpep-databases
+
+services:
+  # ============================================================================
+  # Banco de Dados Relacional: PostgreSQL (Imagem Mínima Alpine ~95MB)
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: sinpep_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sinpep_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sinpep_password}
+      POSTGRES_DB: ${POSTGRES_DB:-sinpep_sb}
+      POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES:-sinpep_sb,sipep_sb,sinpep_db,regulasb_db,sigtap}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # Persistência de dados segura através de volume nomeado
+      - sinpep_postgres_data:/var/lib/postgresql/data
+      # Script de inicialização automática de bancos múltiplos
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sinpep_user} -d ${POSTGRES_DB:-sinpep_sb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - sinpep_network
+
+  # ============================================================================
+  # Cache & Filas em Memória: Redis (Imagem Mínima Alpine ~35MB)
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: sinpep_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      # Persistência do snapshot e appendonly em disco
+      - sinpep_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - sinpep_network
+
+# ==============================================================================
+# Rede Própria Interna: Isolamento e Comunicação entre Containers
+# Pode ser acessada por outros docker-compose adicionando "external: true"
+# ==============================================================================
+networks:
+  sinpep_network:
+    name: sinpep_network
+    driver: bridge
+
+# ==============================================================================
+# Volumes com Persistência Garantida
+# ==============================================================================
+volumes:
+  sinpep_postgres_data:
+    name: sinpep_postgres_data
+    driver: local
+  sinpep_redis_data:
+    name: sinpep_redis_data
+    driver: local
