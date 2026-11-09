@@ -21,8 +21,11 @@ import {
   X,
   Check,
   ArrowLeftRight,
-  Power
+  Power,
+  Search
 } from 'lucide-react';
+import { TablePagination } from '../../components/TablePagination';
+import { formatCPF, formatCNS, formatGender } from '../../utils/brazilianFormatters';
 
 const acsSchema = zod.object({
   name: zod.string().min(3, 'O nome deve ter no mínimo 3 caracteres'),
@@ -48,6 +51,9 @@ export const HealthCenterDetails: React.FC = () => {
   const [transferringAcs, setTransferringAcs] = useState<any | null>(null);
   const [selectedTargetCenterId, setSelectedTargetCenterId] = useState('');
   const [showInactiveAgents, setShowInactiveAgents] = useState(false);
+  const [patientSearch, setPatientSearch] = useState('');
+  const [patientPage, setPatientPage] = useState(1);
+  const [patientLimit, setPatientLimit] = useState(15);
 
   const userPermissions = useAuthStore(state => state.permissions);
 
@@ -270,20 +276,22 @@ export const HealthCenterDetails: React.FC = () => {
     );
   }
 
-  const formatCPF = (cpf: string) => {
-    const clean = cpf.replace(/\D/g, '');
-    if (clean.length !== 11) return cpf;
-    return `${clean.slice(0, 3)}.${clean.slice(3, 6)}.${clean.slice(6, 9)}-${clean.slice(9, 11)}`;
-  };
-
-  const formatCNS = (cns?: string | null) => {
-    if (!cns) return '-';
-    const clean = cns.replace(/\D/g, '');
-    if (clean.length !== 15) return cns;
-    return `${clean.slice(0, 3)} ${clean.slice(3, 7)} ${clean.slice(7, 11)} ${clean.slice(11, 15)}`;
-  };
-
   const isAcsPending = createAcsMutation.isPending || updateAcsMutation.isPending;
+
+  const filteredPatients = (healthCenter.patients || []).filter((patient: any) => {
+    if (!patientSearch) return true;
+    const term = patientSearch.toLowerCase().trim();
+    const nameMatch = patient.name?.toLowerCase().includes(term);
+    const cleanTerm = term.replace(/\D/g, '');
+    const cpfMatch = cleanTerm && patient.cpf?.replace(/\D/g, '').includes(cleanTerm);
+    const cnsMatch = cleanTerm && patient.cns?.replace(/\D/g, '').includes(cleanTerm);
+    return Boolean(nameMatch || cpfMatch || cnsMatch);
+  });
+
+  const paginatedPatients = filteredPatients.slice(
+    (patientPage - 1) * patientLimit,
+    patientPage * patientLimit
+  );
 
   return (
     <div className="space-y-6 font-sans">
@@ -547,9 +555,41 @@ export const HealthCenterDetails: React.FC = () => {
         {/* TAB 3: Patients List */}
         {activeTab === 'patients' && (
           <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-4">
-            <div className="pb-3 border-b border-slate-300 dark:border-slate-800/60">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Pacientes Cadastrados</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Lista de cidadãos atendidos por esta UBS.</p>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-300 dark:border-slate-800/60">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Pacientes Cadastrados</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  {healthCenter.patients?.length || 0} cidadão{(healthCenter.patients?.length || 0) === 1 ? '' : 's'} atendido{(healthCenter.patients?.length || 0) === 1 ? '' : 's'} por esta UBS.
+                </p>
+              </div>
+
+              {healthCenter.patients && healthCenter.patients.length > 0 && (
+                <div className="relative w-full sm:w-72">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por nome, CPF ou CNS..."
+                    value={patientSearch}
+                    onChange={(e) => {
+                      setPatientSearch(e.target.value);
+                      setPatientPage(1);
+                    }}
+                    className="w-full pl-9 pr-8 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                  {patientSearch && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPatientSearch('');
+                        setPatientPage(1);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="overflow-hidden border border-slate-200 dark:border-slate-850 rounded-md">
@@ -563,14 +603,16 @@ export const HealthCenterDetails: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800/40 text-xs text-slate-600 dark:text-slate-300">
-                  {healthCenter.patients && healthCenter.patients.length > 0 ? (
-                    healthCenter.patients.map((patient: any) => (
+                  {paginatedPatients.length > 0 ? (
+                    paginatedPatients.map((patient: any) => (
                       <tr key={patient.id} className="hover:bg-slate-200 dark:bg-slate-800/10 transition-colors group">
                         <td className="px-4 py-3">
-                          <div className="font-semibold text-slate-700 dark:text-slate-200 group-hover:text-blue-400 transition-colors">
-                            {patient.name}
+                          <div className="font-semibold text-slate-700 dark:text-slate-200 group-hover:text-blue-500 transition-colors">
+                            {patient.name || 'Nome não informado'}
                           </div>
-                          <span className="text-[10px] text-slate-500 capitalize">Gênero: {patient.gender.toLowerCase()}</span>
+                          <span className="text-[10px] text-slate-500">
+                            Gênero: {formatGender(patient.gender)}
+                          </span>
                         </td>
                         <td className="px-4 py-3 font-mono">{formatCPF(patient.cpf)}</td>
                         <td className="px-4 py-3 font-mono">{formatCNS(patient.cns)}</td>
@@ -587,13 +629,28 @@ export const HealthCenterDetails: React.FC = () => {
                   ) : (
                     <tr>
                       <td colSpan={4} className="px-4 py-8 text-center text-slate-500 italic">
-                        Nenhum paciente cadastrado nesta UBS.
+                        {patientSearch
+                          ? 'Nenhum paciente encontrado para os termos da busca.'
+                          : 'Nenhum paciente cadastrado nesta UBS.'}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+
+            {filteredPatients.length > 0 && (
+              <TablePagination
+                page={patientPage}
+                limit={patientLimit}
+                total={filteredPatients.length}
+                onPageChange={setPatientPage}
+                onLimitChange={(newLimit) => {
+                  setPatientLimit(newLimit);
+                  setPatientPage(1);
+                }}
+              />
+            )}
           </div>
         )}
       </div>
