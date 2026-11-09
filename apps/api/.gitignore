@@ -5,6 +5,8 @@ node_modules
 
 /generated/prisma
 scripts/*
+!scripts/ensure-db.ts
+!scripts/seed.ts
 !scripts/seed-anvisa-medications.ts
 !scripts/migrate-medications.ts
 !scripts/migrate-municipality-brandings.ts
