@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { reportsService } from '../../services/reports';
-import { Loader2, Database, Activity, Layers, CalendarCheck } from 'lucide-react';
+import { Loader2, Database, Activity, Layers, CalendarCheck, TrendingUp, UserCheck } from 'lucide-react';
+import { DescriptiveChartCard } from './components/DescriptiveChartCard';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#6366f1', '#ec4899'];
 
@@ -25,6 +26,28 @@ export const OperationalDash = () => {
   }
 
   const byOrigin = data?.byOrigin || { sinpep: 0, esus: 0, percentageEsus: 0, percentageSinpep: 0 };
+
+  // Tabela de apoio dos Médicos
+  const doctorsTable = (
+    <div className="overflow-x-auto max-h-72">
+      <table className="w-full text-xs text-left">
+        <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-800 sticky top-0">
+          <tr>
+            <th className="py-2 px-3">Profissional Médico</th>
+            <th className="py-2 px-3 text-right">Consultas / Atendimentos Concluídos</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          {(data.recordsByDoctor || []).map((d: any, idx: number) => (
+            <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+              <td className="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200">{d.doctor_name}</td>
+              <td className="py-2 px-3 text-right font-bold text-blue-600 dark:text-blue-400">{d.count}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -138,15 +161,15 @@ export const OperationalDash = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="space-y-6">
         {/* Atendimentos por mês */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm lg:col-span-2">
-          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1 text-center">
-            Evolução de Atendimentos & Demandas por Mês (Últimos 6 meses)
-          </h3>
-          <p className="text-2xs text-slate-400 text-center mb-4">
-            Série histórica integrando atendimentos clínicos e solicitações municipais
-          </p>
+        <DescriptiveChartCard
+          title="Série Histórica: Evolução de Atendimentos & Demandas por Mês"
+          description="Acompanhamento longitudinal dos últimos 6 meses consolidando atendimentos clínicos ambulatoriais e demandas de regulação."
+          badge="Últimos 6 meses"
+          icon={TrendingUp}
+          note="Gráfico de tendência temporal para planejamento de metas assistenciais e auditoria de cobertura municipal."
+        >
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data.recordsByMonth} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -158,16 +181,17 @@ export const OperationalDash = () => {
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </DescriptiveChartCard>
 
         {/* Médicos */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm lg:col-span-2">
-          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1 text-center">
-            Top 10 Médicos por Volume de Atendimento Clínico
-          </h3>
-          <p className="text-2xs text-slate-400 text-center mb-4">
-            Profissionais com maior número de consultas e prontuários finalizados
-          </p>
+        <DescriptiveChartCard
+          title="Top 10 Médicos por Volume de Atendimento Clínico"
+          description="Profissionais com maior número de consultas e prontuários finalizados no sistema."
+          badge="Produção Médica"
+          icon={UserCheck}
+          tableData={doctorsTable}
+          note="Alterne para a visão Tabela para analisar os totais absolutos de consultas finalizadas por cada médico."
+        >
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.recordsByDoctor} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -183,7 +207,7 @@ export const OperationalDash = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </DescriptiveChartCard>
       </div>
     </div>
   );

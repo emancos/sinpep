@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { reportsService } from '../../services/reports';
 import { Loader2, Layers, AlertTriangle, Building2, Filter } from 'lucide-react';
+import { DescriptiveChartCard } from './components/DescriptiveChartCard';
+import { EnrichedLegend } from './components/EnrichedLegend';
 
 const RISK_COLORS: Record<string, string> = {
   PRIORITARIO: '#ef4444',
@@ -59,6 +61,44 @@ export const RegulationDash: React.FC = () => {
   const riskBreakdown = data?.riskBreakdown || [];
   const bySpecialty = data?.bySpecialty || [];
   const bySolicitingUnit = data?.bySolicitingUnit || [];
+
+  const totalRisks = riskBreakdown.reduce((acc: number, r: any) => acc + (Number(r.count) || 0), 0);
+  const riskLegendItems = riskBreakdown.map((r: any) => ({
+    color: RISK_COLORS[r.risk] || '#64748b',
+    label: r.risk || 'NÃO INFORMADO',
+    count: Number(r.count) || 0,
+    percentage: totalRisks > 0 ? (Number(r.count) / totalRisks) * 100 : 0,
+  }));
+
+  // Tabela de apoio das Especialidades
+  const specialtyTable = (
+    <div className="overflow-x-auto max-h-72">
+      <table className="w-full text-xs text-left">
+        <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-800 sticky top-0">
+          <tr>
+            <th className="py-2 px-3">Especialidade / Procedimento</th>
+            <th className="py-2 px-3 text-center">Em Fila</th>
+            <th className="py-2 px-3 text-center">Agendadas</th>
+            <th className="py-2 px-3 text-center">e-SUS</th>
+            <th className="py-2 px-3 text-center">SINPeP</th>
+            <th className="py-2 px-3 text-right">Total Demandado</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          {bySpecialty.map((s: any, idx: number) => (
+            <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+              <td className="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200">{s.specialty_name}</td>
+              <td className="py-2 px-3 text-center text-blue-600 dark:text-blue-400 font-medium">{s.waiting || 0}</td>
+              <td className="py-2 px-3 text-center text-emerald-600 dark:text-emerald-400 font-medium">{s.scheduled || 0}</td>
+              <td className="py-2 px-3 text-center text-slate-500">{s.esus_count || 0}</td>
+              <td className="py-2 px-3 text-center text-slate-500">{s.sinpep_count || 0}</td>
+              <td className="py-2 px-3 text-right font-bold text-slate-900 dark:text-white">{s.total_requests}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -193,16 +233,16 @@ export const RegulationDash: React.FC = () => {
         </div>
       </div>
 
-      {/* Gráficos */}
+      {/* Gráficos Reestruturados */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Gráfico de Riscos */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <AlertTriangle className="w-4 h-4 text-rose-500" />
-            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-              Solicitações por Prioridade / Classificação
-            </h3>
-          </div>
+        <DescriptiveChartCard
+          title="Demandas por Classificação de Risco e Prioridade"
+          description="Estratificação de urgência segundo protocolo de Manchester e regulação do SUS para priorização de vagas."
+          badge="Protocolo SUS"
+          icon={AlertTriangle}
+          note="As solicitações prioritárias e de emergência têm preferência cronológica de agendamento na rede municipal."
+        >
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={riskBreakdown} margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
@@ -218,28 +258,30 @@ export const RegulationDash: React.FC = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+          <EnrichedLegend items={riskLegendItems} total={totalRisks} columns={2} />
+        </DescriptiveChartCard>
 
         {/* Gráfico de Especialidades */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <Layers className="w-4 h-4 text-blue-600" />
-            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-              Top Especialidades com Maior Volume de Demandas
-            </h3>
-          </div>
+        <DescriptiveChartCard
+          title="Top Especialidades com Maior Volume de Demandas"
+          description="Especialidades médicas e exames que concentram as maiores filas e tempo de espera na central reguladora."
+          badge="Demanda Reprimida"
+          icon={Layers}
+          tableData={specialtyTable}
+          note="Alterne para a visualização em Tabela para verificar a proporção de vagas já agendadas versus aguardando vaga."
+        >
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={bySpecialty} margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
+              <BarChart data={bySpecialty} margin={{ top: 10, right: 20, left: 0, bottom: 35 }}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                <XAxis dataKey="specialty_name" tick={{ fontSize: 10 }} angle={-15} textAnchor="end" />
+                <XAxis dataKey="specialty_name" tick={{ fontSize: 10 }} angle={-20} textAnchor="end" />
                 <YAxis />
                 <Tooltip />
                 <Bar dataKey="total_requests" fill="#0051A2" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </DescriptiveChartCard>
       </div>
 
       {/* Demanda por UBS Solicitante */}

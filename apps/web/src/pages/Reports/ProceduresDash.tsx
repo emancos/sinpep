@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { reportsService } from '../../services/reports';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Stethoscope } from 'lucide-react';
+import { DescriptiveChartCard } from './components/DescriptiveChartCard';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#f97316'];
 
@@ -10,15 +11,45 @@ export const ProceduresDash = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    reportsService.getProcedures().then(res => {
+    reportsService.getProcedures().then((res) => {
       setData(res);
       setLoading(false);
     });
   }, []);
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>;
+  if (loading || !data) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    );
   }
+
+  // Tabela de apoio dos Exames
+  const proceduresTable = (
+    <div className="overflow-x-auto max-h-96">
+      <table className="w-full text-xs text-left">
+        <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-800 sticky top-0">
+          <tr>
+            <th className="py-2 px-3">Procedimento / Exame</th>
+            <th className="py-2 px-3 text-center">Origem e-SUS</th>
+            <th className="py-2 px-3 text-center">Origem SINPeP</th>
+            <th className="py-2 px-3 text-right">Total Demandado</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          {(data.topExams || []).map((e: any, idx: number) => (
+            <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+              <td className="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200">{e.exam}</td>
+              <td className="py-2 px-3 text-center text-slate-500">{e.from_esus || 0}</td>
+              <td className="py-2 px-3 text-center text-slate-500">{e.from_sinpep || 0}</td>
+              <td className="py-2 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400">{e.count}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -31,16 +62,14 @@ export const ProceduresDash = () => {
         </p>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-            Top 15 Procedimentos & Exames Mais Demandados
-          </h3>
-          <span className="text-3xs font-semibold px-2.5 py-1 rounded bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 self-start sm:self-auto">
-            Consolidando e-SUS Regulação + SINPeP
-          </span>
-        </div>
-
+      <DescriptiveChartCard
+        title="Top 15 Procedimentos & Exames Mais Demandados na Rede"
+        description="Mapeamento consolidando solicitações via e-SUS Regulação, pedidos de exames em prontuários eletrônicos do SINPeP e regulação local."
+        badge="Consolidando e-SUS + SINPeP"
+        icon={Stethoscope}
+        tableData={proceduresTable}
+        note="Alterne para a visão Tabela para analisar os quantitativos desmembrados por sistema de origem."
+      >
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data.topExams} layout="vertical" margin={{ top: 5, right: 30, left: 140, bottom: 5 }}>
@@ -79,7 +108,7 @@ export const ProceduresDash = () => {
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </DescriptiveChartCard>
     </div>
   );
 };

@@ -1,13 +1,10 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 import {
   Activity,
   Users,
   Stethoscope,
   Pill,
   Download,
-  Loader2,
   Layers,
   Send,
   Building2,
@@ -25,6 +22,7 @@ import { SolicitorDash } from './SolicitorDash';
 import { UnitOperationalDash } from './UnitOperationalDash';
 import { DoctorProductionDash } from './DoctorProductionDash';
 import { ReceptionAttendanceDash } from './ReceptionAttendanceDash';
+import { ReportExportModal } from './components/ReportExportModal';
 import { formatDateBR } from '../../utils/brazilianFormatters';
 
 interface ReportTab {
@@ -100,7 +98,7 @@ export const Reports = () => {
   }, [isAdmin, isRegulator, isSolicitor, isCoordinator, isDoctor, isReceptionist]);
 
   const [activeTab, setActiveTab] = useState<string>(() => availableTabs[0]?.id || 'epidemiological');
-  const [isExporting, setIsExporting] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
   // Controle de scroll horizontal sem quebra de linha com detecção via ResizeObserver
@@ -196,24 +194,7 @@ export const Reports = () => {
     }
   };
 
-  const handleExportPDF = async () => {
-    if (!reportRef.current) return;
-    setIsExporting(true);
-    try {
-      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, logging: false });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4'); // Portrait A4
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`relatorio-${activeTab}-${new Date().toISOString().split('T')[0]}.pdf`);
-    } catch (error) {
-      console.error('Failed to export PDF:', error);
-    } finally {
-      setIsExporting(false);
-    }
-  };
+  const currentTabObj = availableTabs.find((t) => t.id === activeTab);
 
   return (
     <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto">
@@ -229,16 +210,16 @@ export const Reports = () => {
             Relatórios & BI
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            Analise os dados analíticos pertinentes ao seu perfil e exporte os painéis para PDF.
+            Analise os dados analíticos pertinentes ao seu perfil e exporte relatórios oficiais multipáginas em PDF ou planilhas Excel.
           </p>
         </div>
+
         <button
-          onClick={handleExportPDF}
-          disabled={isExporting}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0051A2] hover:bg-[#003B77] text-white rounded-xl font-semibold shadow-sm transition-all active:scale-95 disabled:opacity-70 cursor-pointer text-xs self-start lg:self-auto"
+          onClick={() => setIsExportModalOpen(true)}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0051A2] hover:bg-[#003B77] text-white rounded-xl font-semibold shadow-sm transition-all active:scale-95 cursor-pointer text-xs self-start lg:self-auto"
         >
-          {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          <span>{isExporting ? 'Processando PDF...' : 'Exportar Visão Atual'}</span>
+          <Download className="w-4 h-4" />
+          <span>Exportar Relatório Oficial</span>
         </button>
       </div>
 
@@ -259,7 +240,7 @@ export const Reports = () => {
           </div>
         )}
 
-        {/* Trilha horizontal contida das abas */}
+        {/* Trilha de abas rolável */}
         <div
           ref={tabsTrackRef}
           onScroll={checkScrollability}
@@ -268,7 +249,7 @@ export const Reports = () => {
           onMouseUp={handleMouseUpOrLeave}
           onMouseLeave={handleMouseUpOrLeave}
           onWheel={handleWheel}
-          className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto scroll-smooth w-full py-0.5 px-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden select-none"
+          className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 px-0.5 cursor-grab active:cursor-grabbing select-none"
         >
           {availableTabs.map((tab) => {
             const Icon = tab.icon;
@@ -276,20 +257,16 @@ export const Reports = () => {
             return (
               <button
                 key={tab.id}
-                type="button"
                 data-tab-id={tab.id}
+                type="button"
                 onClick={() => handleTabSelect(tab.id)}
-                className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 shrink-0 cursor-pointer ${
                   isActive
-                    ? 'bg-white dark:bg-slate-900 text-[#003B77] dark:text-blue-400 shadow-sm border border-slate-300/80 dark:border-slate-700 ring-1 ring-black/[0.04]'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50'
+                    ? 'bg-white dark:bg-slate-900 text-[#0051A2] dark:text-blue-400 shadow-sm ring-1 ring-slate-900/5 dark:ring-white/10'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-slate-800/40'
                 }`}
               >
-                <Icon
-                  className={`w-4 h-4 shrink-0 transition-colors ${
-                    isActive ? 'text-[#0051A2] dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'
-                  }`}
-                />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#0051A2] dark:text-blue-400' : 'text-slate-500'}`} />
                 <span>{tab.label}</span>
               </button>
             );
@@ -318,11 +295,11 @@ export const Reports = () => {
           ref={reportRef}
           className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 lg:p-8 shadow-xl min-h-[600px]"
         >
-          {/* Cabeçalho apenas para o PDF */}
-          <div className="hidden pdf-only:block mb-8 pb-4 border-b border-slate-200">
-            <h2 className="text-2xl font-bold text-slate-800">SINPeP - Relatório de Inteligência em Saúde</h2>
+          {/* Cabeçalho apenas para o PDF / Print */}
+          <div className="hidden print:block mb-8 pb-4 border-b border-slate-200">
+            <h2 className="text-2xl font-bold text-slate-800">SINPeP - Sistema Integrado de Regulação e Prontuário Eletrônico do Paciente</h2>
             <p className="text-slate-500">
-              Perfil: {profileName} • Gerado em {formatDateBR(new Date())}
+              Painel: {currentTabObj?.label} • Perfil: {profileName} • Gerado em {formatDateBR(new Date())}
             </p>
           </div>
 
@@ -337,6 +314,14 @@ export const Reports = () => {
           {activeTab === 'pharmacy' && <PharmacyDash />}
         </div>
       </div>
+
+      {/* Modal de Exportação Oficial */}
+      <ReportExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        activeTab={activeTab}
+        activeTabLabel={currentTabObj?.label || 'Relatório'}
+      />
     </div>
   );
 };
