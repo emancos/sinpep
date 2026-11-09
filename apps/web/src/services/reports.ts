@@ -8,6 +8,19 @@ const getHeaders = () => {
   return { Authorization: `Bearer ${token}` };
 };
 
+const downloadBlob = (blob: Blob, defaultFilename: string) => {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = defaultFilename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }, 100);
+};
+
 export const reportsService = {
   getEpidemiological: async () => {
     const { data } = await axios.get(`${apiUrl}/reports/epidemiological`, { headers: getHeaders() });
@@ -59,5 +72,25 @@ export const reportsService = {
       params,
     });
     return data;
+  },
+
+  /**
+   * Exporta o relatório oficial em PDF ou CSV com download direto
+   */
+  exportReport: async (reportType: string, params: Record<string, any> = {}, defaultFilename: string) => {
+    const res = await axios.get(`${apiUrl}/reports/${reportType}/export`, {
+      headers: getHeaders(),
+      params,
+      responseType: 'blob',
+    });
+
+    let filename = defaultFilename;
+    const disposition = res.headers['content-disposition'];
+    if (disposition && disposition.includes('filename=')) {
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      if (match && match[1]) filename = match[1];
+    }
+
+    downloadBlob(new Blob([res.data]), filename);
   },
 };
