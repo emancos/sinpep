@@ -150,9 +150,9 @@ export const Layout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex font-sans relative overflow-hidden">
+    <div className="h-screen max-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex font-sans relative overflow-hidden">
       {/* Sidebar - Desktop */}
-      <aside className={`hidden md:flex flex-col ${isCollapsed ? 'w-20' : 'w-64'} bg-[#003B77]/95 dark:bg-[#002244]/95 backdrop-blur-xl border-r border-white/10 dark:border-[#001122] z-40 shrink-0 transition-all duration-300 relative`}>
+      <aside className={`hidden md:flex flex-col h-screen max-h-screen ${isCollapsed ? 'w-20' : 'w-64'} bg-[#003B77]/95 dark:bg-[#002244]/95 backdrop-blur-xl border-r border-white/10 dark:border-[#001122] z-40 shrink-0 transition-all duration-300 relative`}>
         {/* Toggle Button */}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -161,13 +161,13 @@ export const Layout = () => {
           {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
 
-        <div className={`h-12 lg:h-14 flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-4 lg:px-6'} border-b border-white/10 dark:border-[#001122]/50 transition-all duration-300`}>
+        <div className={`h-12 lg:h-14 flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-4 lg:px-6'} border-b border-white/10 dark:border-[#001122]/50 transition-all duration-300 shrink-0`}>
           <img src="/logo.svg" alt="Logo" className="w-10 h-10 shrink-0 drop-shadow-md" />
           {!isCollapsed && <span className="font-bold text-lg text-white tracking-wide truncate">{import.meta.env.VITE_APP_NAME}</span>}
         </div>
 
         {/* Navigation Links */}
-        <nav className="flex-1 px-2 py-3 lg:px-3 lg:py-5 space-y-0.5 lg:space-y-1">
+        <nav className="flex-1 min-h-0 px-2 py-3 lg:px-3 lg:py-5 space-y-0.5 lg:space-y-1 custom-sidebar-scroll">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path || (item.subItems && item.subItems.some((sub: any) => location.pathname === sub.path));
             const isExpanded = expandedMenus[item.path] || isActive;
@@ -179,26 +179,26 @@ export const Layout = () => {
                   <button
                     onClick={() => !isCollapsed && toggleMenu(item.path)}
                     title={isCollapsed ? item.name : undefined}
-                    className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3 lg:px-4'} py-2 lg:py-2.5 rounded-md text-sm font-medium transition-all duration-300 group ${isActive
+                    className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-2.5 lg:px-3'} py-2 lg:py-2.5 rounded-md text-sm font-medium transition-all duration-300 group ${isActive
                       ? 'bg-white/15 border-l-2 border-white text-white shadow-md'
                       : 'text-blue-200 hover:text-white hover:bg-white/10 border-l-2 border-transparent'
                       }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <Icon className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${isActive ? 'text-white' : 'text-blue-300 group-hover:text-white'} shrink-0`} />
-                      {!isCollapsed && <span>{item.name}</span>}
+                      {!isCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
                     </div>
-                    {!isCollapsed && (isExpanded ? <ChevronUp className="w-4 h-4 shrink-0" /> : <ChevronDown className="w-4 h-4 shrink-0" />)}
+                    {!isCollapsed && (isExpanded ? <ChevronUp className="w-4 h-4 shrink-0 ml-1" /> : <ChevronDown className="w-4 h-4 shrink-0 ml-1" />)}
                   </button>
                   {isExpanded && !isCollapsed && (
-                    <div className="mt-1 flex flex-col space-y-1 pl-11 pr-2">
+                    <div className="mt-1 flex flex-col space-y-1 pl-9 pr-1">
                       {item.subItems.map((sub: any) => {
                         const isSubActive = location.pathname === sub.path;
                         return (
                           <Link
                             key={sub.path}
                             to={sub.path}
-                            className={`px-3 py-2 rounded-md text-sm transition-colors ${isSubActive
+                            className={`px-2.5 py-1.5 rounded-md text-xs lg:text-sm transition-colors whitespace-nowrap truncate ${isSubActive
                               ? 'text-white bg-blue-500/10 font-medium'
                               : 'text-blue-200 hover:text-white hover:bg-white/10'
                               }`}
@@ -218,20 +218,20 @@ export const Layout = () => {
                 key={item.path}
                 to={item.path}
                 title={isCollapsed ? item.name : undefined}
-                className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-3 lg:px-4'} py-2 lg:py-2.5 rounded-md text-sm font-medium transition-all duration-300 group ${isActive
+                className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2.5 lg:px-3'} py-2 lg:py-2.5 rounded-md text-sm font-medium transition-all duration-300 group ${isActive
                   ? 'bg-white/15 border-l-2 border-white text-white shadow-md'
                   : 'text-blue-200 hover:text-white hover:bg-white/10 border-l-2 border-transparent'
                   }`}
               >
                 <Icon className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${isActive ? 'text-white' : 'text-blue-300 group-hover:text-white'} shrink-0`} />
-                {!isCollapsed && <span>{item.name}</span>}
+                {!isCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
               </Link>
             );
           })}
         </nav>
 
         {/* Footer info in sidebar */}
-        <div className={`p-4 border-t border-white/10 dark:border-[#002244]/50 text-xs flex flex-col gap-1 text-blue-200/70 text-center transition-all duration-300 ${isCollapsed ? 'hidden' : 'flex'}`}>
+        <div className={`p-4 border-t border-white/10 dark:border-[#002244]/50 text-xs flex flex-col gap-1 text-blue-200/70 text-center transition-all duration-300 shrink-0 ${isCollapsed ? 'hidden' : 'flex'}`}>
           <span>v{APP_VERSION} &copy; {new Date().getFullYear()}</span>
         </div>
       </aside>
@@ -245,8 +245,8 @@ export const Layout = () => {
       )}
 
       {/* Sidebar - Mobile Drawer */}
-      <aside className={`fixed inset-y-0 left-0 w-64 bg-[#003B77] border-r border-white/10 dark:border-[#002244] z-40 transform transition-transform duration-300 md:hidden ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-12 lg:h-14 flex items-center justify-between px-4 lg:px-6 border-b border-white/10 dark:border-[#002244]/50">
+      <aside className={`fixed inset-y-0 left-0 w-64 bg-[#003B77] border-r border-white/10 dark:border-[#002244] z-40 transform transition-transform duration-300 md:hidden flex flex-col h-full max-h-screen ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="h-12 lg:h-14 flex items-center justify-between px-4 lg:px-6 border-b border-white/10 dark:border-[#002244]/50 shrink-0">
           <div className="flex items-center gap-3">
             <img src="/logo.svg" alt="Logo" className="w-8 h-8 shrink-0 drop-shadow-md" />
             <span className="font-bold text-lg text-white truncate">{import.meta.env.VITE_APP_NAME}</span>
@@ -258,7 +258,7 @@ export const Layout = () => {
 
         {/* Mobile Active Profile Bar */}
         {activeProfile && (
-          <div className="px-4 py-2.5 bg-black/20 border-b border-white/10 flex items-center justify-between">
+          <div className="px-4 py-2.5 bg-black/20 border-b border-white/10 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2 min-w-0">
               <ShieldCheck className="w-4 h-4 text-blue-300 shrink-0" />
               <div className="text-left min-w-0">
@@ -281,7 +281,7 @@ export const Layout = () => {
           </div>
         )}
 
-        <nav className="px-2 py-3 lg:px-4 lg:py-6 space-y-0.5 lg:space-y-1">
+        <nav className="flex-1 min-h-0 px-2 py-3 lg:px-4 lg:py-6 space-y-0.5 lg:space-y-1 custom-sidebar-scroll">
           {menuItems.filter(item => !['/', '/patients'].includes(item.path)).map((item) => {
             const isActive = location.pathname === item.path || (item.subItems && item.subItems.some((sub: any) => location.pathname === sub.path));
             const Icon = item.icon;
@@ -290,8 +290,8 @@ export const Layout = () => {
               return (
                 <div key={item.path} className="flex flex-col space-y-1 pt-1">
                   <div className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-blue-300/80">
-                    <Icon className="w-4 h-4 text-blue-300" />
-                    <span>{item.name}</span>
+                    <Icon className="w-4 h-4 text-blue-300 shrink-0" />
+                    <span className="whitespace-nowrap">{item.name}</span>
                   </div>
                   <div className="pl-4 flex flex-col space-y-1">
                     {item.subItems.map((sub: any) => {
@@ -325,8 +325,8 @@ export const Layout = () => {
                   : 'text-blue-200 hover:text-white hover:bg-white/10'
                   }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-blue-200'}`} />
-                <span>{item.name}</span>
+                <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-blue-200'} shrink-0`} />
+                <span className="whitespace-nowrap">{item.name}</span>
               </Link>
             );
           })}
@@ -456,7 +456,7 @@ export const Layout = () => {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-3 lg:p-6 pb-20 md:pb-6 relative">
+        <main className="flex-1 overflow-y-auto min-h-0 p-3 lg:p-6 pb-20 md:pb-6 relative">
           <Outlet />
         </main>
 
