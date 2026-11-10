@@ -104,6 +104,7 @@ export const CreateOrEditUser: React.FC = () => {
   const [selectedHealthCenterIds, setSelectedHealthCenterIds] = useState<string[]>([]);
   const [defaultHealthCenterId, setDefaultHealthCenterId] = useState<string>('');
   const [isMunicipalRegulator, setIsMunicipalRegulator] = useState<boolean>(false);
+  const [unitFilter, setUnitFilter] = useState<'solicitante' | 'executante' | 'all'>('solicitante');
 
   const {
     control,
@@ -253,17 +254,7 @@ export const CreateOrEditUser: React.FC = () => {
     }
   };
 
-  if (isEditMode && loadingUser) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 space-y-4">
-        <Loader2 className="w-10 h-10 text-blue-700 dark:text-blue-500 animate-spin" />
-        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Carregando dados do utilizador...</p>
-      </div>
-    );
-  }
-
   const isMutating = createMutation.isPending || updateMutation.isPending;
-  const [unitFilter, setUnitFilter] = useState<'solicitante' | 'executante' | 'all'>('solicitante');
 
   // Ajusta automaticamente o filtro recomendado quando perfis específicos forem selecionados
   useEffect(() => {
@@ -286,6 +277,15 @@ export const CreateOrEditUser: React.FC = () => {
     if (unitFilter === 'executante') return hc.stExecutante;
     return true;
   });
+
+  if (isEditMode && loadingUser) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+        <Loader2 className="w-10 h-10 text-blue-700 dark:text-blue-500 animate-spin" />
+        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Carregando dados do utilizador...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
