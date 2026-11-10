@@ -48,17 +48,35 @@ export const useUpdateProfile = () => {
 };
 
 export interface UserList {
- id: string;
- email: string;
- name: string;
- phone?: string;
- avatar?: string;
- isActive: boolean;
- createdAt: string;
- profile: {
- id: string;
- name: string;
- };
+  id: string;
+  email: string;
+  name: string;
+  phone?: string;
+  avatar?: string;
+  isActive: boolean;
+  isMunicipalRegulator?: boolean;
+  createdAt: string;
+  profile?: {
+    id: string;
+    name: string;
+  };
+  healthCenter?: {
+    id: string;
+    name: string;
+    cnes?: string;
+  };
+  userProfiles?: Array<{
+    id: string;
+    profileId: string;
+    isDefault: boolean;
+    profile: { id: string; name: string };
+  }>;
+  userHealthCenters?: Array<{
+    id: string;
+    healthCenterId: string;
+    isDefault: boolean;
+    healthCenter: { id: string; name: string; cnes?: string };
+  }>;
 }
 
 export const useUsers = () => {

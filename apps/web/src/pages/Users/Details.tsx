@@ -90,20 +90,49 @@ export const UserDetails = () => {
               </h2>
             </div>
             <div className="p-6 space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Perfil de Acesso Base</p>
-                  <p className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded-md text-sm font-bold border border-purple-100 dark:border-purple-800/30">
-                    <ShieldAlert className="w-4 h-4" />
-                    {user.profile?.name || 'Sem perfil definido'}
-                  </p>
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-2">Perfis de Acesso Vinculados</p>
+                <div className="flex flex-wrap gap-2">
+                  {user.userProfiles && user.userProfiles.length > 0 ? (
+                    user.userProfiles.map((up: any) => (
+                      <span
+                        key={up.id || up.profileId}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border ${
+                          up.isDefault
+                            ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-700 shadow-2xs'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        <ShieldAlert className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                        <span>{up.profile?.name}</span>
+                        {up.isDefault && (
+                          <span className="text-3xs px-1.5 py-0.5 rounded-full bg-purple-600 text-white font-semibold">
+                            Padrão
+                          </span>
+                        )}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded-md text-sm font-bold border border-purple-100 dark:border-purple-800/30">
+                      <ShieldAlert className="w-4 h-4" />
+                      {user.profile?.name || 'Sem perfil definido'}
+                    </span>
+                  )}
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Status de Login</p>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                    {user.forcePasswordChange ? 'Aguardando troca de senha no 1º acesso' : 'Senha já definida'}
-                  </p>
-                </div>
+
+                {user.isMunicipalRegulator && (
+                  <div className="mt-3 p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex items-center gap-2 text-xs text-indigo-900 dark:text-indigo-200 font-semibold">
+                    <ShieldAlert className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                    <span>Regulador Central Geral: Escopo Municipal Irrestrito (Todo o Município)</span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-1">Status de Login</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {user.forcePasswordChange ? 'Aguardando troca de senha no 1º acesso' : 'Senha já definida'}
+                </p>
               </div>
 
               {user.customPermissions && user.customPermissions.length > 0 && (
@@ -132,7 +161,36 @@ export const UserDetails = () => {
               </h2>
             </div>
             <div className="p-6">
-              {user.healthCenter ? (
+              {user.userHealthCenters && user.userHealthCenters.length > 0 ? (
+                <div className="space-y-3">
+                  {user.userHealthCenters.map((uhc: any) => (
+                    <div
+                      key={uhc.id || uhc.healthCenterId}
+                      className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-start gap-3"
+                    >
+                      <div className="p-2 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg shrink-0 mt-0.5">
+                        <CheckCircle2 className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                            {uhc.healthCenter?.name}
+                          </p>
+                          {uhc.isDefault && (
+                            <span className="text-3xs px-1.5 py-0.5 rounded-full bg-emerald-600 text-white font-bold shrink-0">
+                              Principal
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                          <Hash className="w-3 h-3" />
+                          CNES: {uhc.healthCenter?.cnes || 'Não informado'}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : user.healthCenter ? (
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
                     <div className="p-2 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-md">

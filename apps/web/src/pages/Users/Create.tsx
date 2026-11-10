@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useForm, Controller, useWatch } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as zod from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -10,15 +10,17 @@ import {
   Check,
   Loader2,
   ShieldAlert,
-  Key
+  Key,
+  Building2,
+  Star,
 } from 'lucide-react';
 import { useCreateUser, useUpdateUser, useUser, useProfiles, usePermissions } from '../../hooks/useUsers';
+import { useHealthCenters } from '../../hooks/useHealthCenters';
 
 const userSchema = zod.object({
   name: zod.string().min(3, 'O nome deve ter no mínimo 3 caracteres'),
   email: zod.string().email('E-mail inválido'),
   phone: zod.string().optional(),
-  profileId: zod.string().min(1, 'Selecione um perfil'),
   password: zod.string().optional().refine(val => {
     if (val && val.length > 0 && val.length < 6) return false;
     return true;
@@ -90,11 +92,18 @@ export const CreateOrEditUser: React.FC = () => {
   const { data: user, isLoading: loadingUser } = useUser(id);
   const { data: profiles, isLoading: loadingProfiles } = useProfiles();
   const { data: allPermissions, isLoading: loadingPerms } = usePermissions();
+  const { data: healthCentersData, isLoading: loadingHealthCenters } = useHealthCenters({ page: 1, limit: 100 });
+  const healthCenters = healthCentersData?.data || [];
 
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
 
   const [customPerms, setCustomPerms] = useState<Record<string, boolean>>({});
+  const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
+  const [defaultProfileId, setDefaultProfileId] = useState<string>('');
+  const [selectedHealthCenterIds, setSelectedHealthCenterIds] = useState<string[]>([]);
+  const [defaultHealthCenterId, setDefaultHealthCenterId] = useState<string>('');
+  const [isMunicipalRegulator, setIsMunicipalRegulator] = useState<boolean>(false);
 
   const {
     control,
@@ -108,14 +117,21 @@ export const CreateOrEditUser: React.FC = () => {
       name: '',
       email: '',
       phone: '',
-      profileId: '',
       password: '',
     },
   });
 
-  const selectedProfileId = useWatch({ control, name: 'profileId' });
-  const selectedProfile = profiles?.find(p => p.id === selectedProfileId);
-  const defaultPerms = selectedProfile?.profilePermissions?.map(pp => pp.permissionId) || [];
+  const isAnyRegulatorSelected = profiles
+    ?.filter((p) => selectedProfileIds.includes(p.id))
+    .some((p) => p.name.toLowerCase().includes('regula'));
+
+  const defaultPerms = Array.from(
+    new Set(
+      profiles
+        ?.filter((p) => selectedProfileIds.includes(p.id))
+        .flatMap((p) => p.profilePermissions?.map((pp) => pp.permissionId) || []) || [],
+    ),
+  );
 
   useEffect(() => {
     if (isEditMode && user) {
@@ -123,9 +139,23 @@ export const CreateOrEditUser: React.FC = () => {
         name: user.name,
         email: user.email,
         phone: user.phone || '',
-        profileId: user.profileId || user.profile?.id || '',
         password: '',
       });
+
+      // Profiles
+      const userProfIds = user.userProfiles?.map((up: any) => up.profileId) || (user.profileId ? [user.profileId] : []);
+      const defProf = user.userProfiles?.find((up: any) => up.isDefault)?.profileId || user.profileId || userProfIds[0] || '';
+      setSelectedProfileIds(userProfIds);
+      setDefaultProfileId(defProf);
+
+      // Health Centers
+      const userHcIds = user.userHealthCenters?.map((uhc: any) => uhc.healthCenterId) || (user.healthCenterId ? [user.healthCenterId] : []);
+      const defHc = user.userHealthCenters?.find((uhc: any) => uhc.isDefault)?.healthCenterId || user.healthCenterId || userHcIds[0] || '';
+      setSelectedHealthCenterIds(userHcIds);
+      setDefaultHealthCenterId(defHc);
+
+      setIsMunicipalRegulator(Boolean(user.isMunicipalRegulator));
+
       if (user.customPermissions) {
         const initialCustoms: Record<string, boolean> = {};
         user.customPermissions.forEach((cp: any) => {
@@ -136,14 +166,60 @@ export const CreateOrEditUser: React.FC = () => {
     }
   }, [isEditMode, user, reset]);
 
-  // When profile changes (not on initial load edit mode), we could clear customPerms, but let's keep it simple: 
-  // If the admin changes the profile, the visual representation of customPerms might change (added vs removed), 
-  // but it's an edge case. For a perfect UX, we might clear `customPerms` if they change `profileId` manually.
-  // We will leave them intact for now.
+  const toggleProfile = (profId: string) => {
+    setSelectedProfileIds((prev) => {
+      let next: string[];
+      if (prev.includes(profId)) {
+        next = prev.filter((id) => id !== profId);
+        if (defaultProfileId === profId) {
+          setDefaultProfileId(next[0] || '');
+        }
+      } else {
+        next = [...prev, profId];
+        if (!defaultProfileId) {
+          setDefaultProfileId(profId);
+        }
+      }
+      return next;
+    });
+  };
+
+  const toggleHealthCenter = (hcId: string) => {
+    setSelectedHealthCenterIds((prev) => {
+      let next: string[];
+      if (prev.includes(hcId)) {
+        next = prev.filter((id) => id !== hcId);
+        if (defaultHealthCenterId === hcId) {
+          setDefaultHealthCenterId(next[0] || '');
+        }
+      } else {
+        next = [...prev, hcId];
+        if (!defaultHealthCenterId) {
+          setDefaultHealthCenterId(hcId);
+        }
+      }
+      return next;
+    });
+  };
 
   const onSubmit = (data: FormData) => {
+    if (selectedProfileIds.length === 0) {
+      toast.error('Selecione pelo menos um perfil de acesso.');
+      return;
+    }
+
     const customPermissionsArray = Object.entries(customPerms).map(([permissionId, isAllowed]) => ({ permissionId, isAllowed }));
-    const payload = { ...data, customPermissions: customPermissionsArray } as any;
+    const payload = {
+      ...data,
+      profileIds: selectedProfileIds,
+      defaultProfileId: defaultProfileId || selectedProfileIds[0],
+      profileId: defaultProfileId || selectedProfileIds[0],
+      healthCenterIds: selectedHealthCenterIds,
+      defaultHealthCenterId: defaultHealthCenterId || selectedHealthCenterIds[0] || null,
+      healthCenterId: defaultHealthCenterId || selectedHealthCenterIds[0] || null,
+      isMunicipalRegulator,
+      customPermissions: customPermissionsArray,
+    } as any;
 
     if (isEditMode && !payload.password) {
       delete payload.password;
@@ -292,58 +368,217 @@ export const CreateOrEditUser: React.FC = () => {
           </div>
         </div>
 
+        {/* Seção: Perfis de Acesso Múltiplos */}
         <div className="pt-4 border-t border-slate-300 dark:border-slate-800 space-y-4">
-          <div className="flex items-center gap-2 mb-4 text-slate-900 dark:text-white">
-            <ShieldAlert className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-            <h2 className="text-lg font-semibold">Segurança e Acessos</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+              <ShieldAlert className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <h2 className="text-lg font-semibold">Perfis de Acesso</h2>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              O utilizador pode acumular mais de um perfil e alternar entre eles no sistema.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Perfil de Acesso
-              </label>
-              <Controller
-                name="profileId"
-                control={control}
-                render={({ field }) => (
-                  <select
-                    {...field}
-                    className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 appearance-none"
-                  >
-                    <option value="" disabled className="bg-slate-50 dark:bg-slate-900 text-slate-500">Selecione um perfil...</option>
-                    {loadingProfiles ? (
-                      <option disabled className="bg-slate-50 dark:bg-slate-900 text-slate-500">Carregando perfis...</option>
-                    ) : (
-                      profiles?.map(p => (
-                        <option key={p.id} value={p.id} className="bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-200">{p.name}</option>
-                      ))
-                    )}
-                  </select>
-                )}
-              />
-              {errors.profileId && <p className="text-rose-700 dark:text-rose-500 text-xs">{errors.profileId.message}</p>}
+          {loadingProfiles ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
             </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {profiles?.map((p) => {
+                const isSelected = selectedProfileIds.includes(p.id);
+                const isDefault = defaultProfileId === p.id;
 
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Senha {isEditMode && '(Opcional)'}
-              </label>
-              <Controller
-                name="password"
-                control={control}
-                render={({ field }) => (
-                  <input
-                    {...field}
-                    type="password"
-                    placeholder={isEditMode ? "Preencha para alterar" : "Mínimo 6 caracteres"}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
-                  />
-                )}
-              />
-              {errors.password && <p className="text-rose-700 dark:text-rose-500 text-xs">{errors.password.message}</p>}
-              {!isEditMode && <p className="text-[10px] text-slate-500">Se não informada, a senha será "123456" por defeito.</p>}
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => toggleProfile(p.id)}
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-900/30 ring-1 ring-blue-500 shadow-xs'
+                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-slate-300 dark:hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
+                            isSelected
+                              ? 'bg-blue-600 border-blue-600 text-white'
+                              : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900'
+                          }`}
+                        >
+                          {isSelected && <Check className="w-3 h-3" />}
+                        </div>
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                          {p.name}
+                        </span>
+                      </div>
+
+                      {isSelected && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDefaultProfileId(p.id);
+                          }}
+                          className={`flex items-center gap-1 text-3xs px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
+                            isDefault
+                              ? 'bg-amber-500 text-white shadow-xs'
+                              : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-amber-100 hover:text-amber-800'
+                          }`}
+                          title={isDefault ? 'Perfil Padrão' : 'Definir como Perfil Padrão'}
+                        >
+                          <Star className={`w-3 h-3 ${isDefault ? 'fill-white' : ''}`} />
+                          <span>{isDefault ? 'Padrão' : 'Tornar Padrão'}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {p.description && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 pl-6">
+                        {p.description}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+          )}
+
+          {selectedProfileIds.length === 0 && (
+            <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+              * Selecione pelo menos um perfil de acesso para o utilizador.
+            </p>
+          )}
+
+          {/* Opção Regulador Central Geral */}
+          {isAnyRegulatorSelected && (
+            <div className="p-4 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex items-start gap-3 mt-3 animate-in fade-in duration-200">
+              <input
+                type="checkbox"
+                id="isMunicipalRegulator"
+                checked={isMunicipalRegulator}
+                onChange={(e) => setIsMunicipalRegulator(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+              <label htmlFor="isMunicipalRegulator" className="cursor-pointer text-xs space-y-1">
+                <span className="font-bold text-indigo-900 dark:text-indigo-200 block text-sm">
+                  Regulador Central Geral (Escopo Municipal Irrestrito)
+                </span>
+                <span className="text-indigo-700 dark:text-indigo-300 block leading-relaxed">
+                  Permite a este regulador visualizar, avaliar, autorizar e agendar procedimentos de <strong>toda a rede municipal de saúde</strong>.
+                  Se esta opção estiver <em>desmarcada</em>, o usuário será um <strong>Regulador de Unidade</strong>, com permissão restrita estritamente aos procedimentos e grupos de exames ofertados pela sua unidade executante vinculada ativa.
+                </span>
+              </label>
+            </div>
+          )}
+        </div>
+
+        {/* Seção: Unidades de Saúde Vinculadas */}
+        <div className="pt-4 border-t border-slate-300 dark:border-slate-800 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+              <Building2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <h2 className="text-lg font-semibold">Unidades de Saúde Vinculadas</h2>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Vincule uma ou mais unidades (UBS, Policlínicas, Hospitais) e defina a unidade principal.
+            </p>
+          </div>
+
+          {loadingHealthCenters ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto p-1">
+              {healthCenters.map((hc) => {
+                const isSelected = selectedHealthCenterIds.includes(hc.id);
+                const isDefault = defaultHealthCenterId === hc.id;
+
+                return (
+                  <div
+                    key={hc.id}
+                    onClick={() => toggleHealthCenter(hc.id)}
+                    className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                      isSelected
+                        ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-1 ring-emerald-500 shadow-xs'
+                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-slate-300 dark:hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
+                            isSelected
+                              ? 'bg-emerald-600 border-emerald-600 text-white'
+                              : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900'
+                          }`}
+                        >
+                          {isSelected && <Check className="w-3 h-3" />}
+                        </div>
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                          {hc.name}
+                        </span>
+                      </div>
+
+                      {isSelected && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDefaultHealthCenterId(hc.id);
+                          }}
+                          className={`flex items-center gap-1 text-3xs px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer shrink-0 ${
+                            isDefault
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-emerald-100 hover:text-emerald-800'
+                          }`}
+                          title={isDefault ? 'Unidade Principal' : 'Definir como Principal'}
+                        >
+                          <Star className={`w-2.5 h-2.5 ${isDefault ? 'fill-white' : ''}`} />
+                          <span>{isDefault ? 'Principal' : 'Tornar Principal'}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <p className="text-3xs text-slate-500 dark:text-slate-400 pl-6">
+                      {hc.cnes ? `CNES: ${hc.cnes}` : 'CNES não informado'}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Seção: Senha de Acesso */}
+        <div className="pt-4 border-t border-slate-300 dark:border-slate-800 space-y-4">
+          <div className="flex items-center gap-2 mb-2 text-slate-900 dark:text-white">
+            <Key className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            <h2 className="text-lg font-semibold">Credenciais de Acesso</h2>
+          </div>
+
+          <div className="space-y-1 max-w-md">
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Senha {isEditMode && '(Opcional)'}
+            </label>
+            <Controller
+              name="password"
+              control={control}
+              render={({ field }) => (
+                <input
+                  {...field}
+                  type="password"
+                  placeholder={isEditMode ? "Preencha apenas para alterar" : "Mínimo 6 caracteres"}
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                />
+              )}
+            />
+            {errors.password && <p className="text-rose-700 dark:text-rose-500 text-xs">{errors.password.message}</p>}
+            {!isEditMode && <p className="text-[10px] text-slate-500">Se não informada, a senha será "123456" por padrão.</p>}
           </div>
         </div>
 
@@ -391,7 +626,7 @@ export const CreateOrEditUser: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => {
-                                if (!selectedProfileId) return;
+                                if (selectedProfileIds.length === 0) return;
                                 setCustomPerms(prev => {
                                   const next = { ...prev };
                                   const nextValue = !isCurrentlyGranted;
@@ -403,7 +638,7 @@ export const CreateOrEditUser: React.FC = () => {
                                   return next;
                                 });
                               }}
-                              disabled={!selectedProfileId}
+                              disabled={selectedProfileIds.length === 0}
                               className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer shadow-md items-center justify-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${isCurrentlyGranted ? 'bg-indigo-500' : 'bg-slate-700'}`}
                             >
                               <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition duration-200 ease-in-out ${isCurrentlyGranted ? 'translate-x-2' : '-translate-x-2'}`} />
@@ -426,9 +661,9 @@ export const CreateOrEditUser: React.FC = () => {
               })()}
             </div>
           )}
-          {!selectedProfileId && (
+          {selectedProfileIds.length === 0 && (
             <div className="text-xs text-amber-700 dark:text-amber-500 bg-amber-100 dark:bg-amber-500/10 p-3 rounded-md border border-amber-200 dark:border-amber-500/20">
-              Selecione um perfil de acesso primeiro para habilitar a configuração de permissões específicas.
+              Selecione pelo menos um perfil de acesso acima para habilitar a configuração de permissões específicas.
             </div>
           )}
         </div>

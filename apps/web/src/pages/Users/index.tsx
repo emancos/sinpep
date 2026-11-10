@@ -14,7 +14,8 @@ import {
     Trash2,
     Edit,
     Power,
-    Eye
+    Eye,
+    Building2,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -162,7 +163,8 @@ export const UsersList = () => {
                                 <tr className="border-b border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
                                     <th className="px-6 py-4">Nome</th>
                                     <th className="px-6 py-4">E-mail</th>
-                                    <th className="px-6 py-4">Perfil</th>
+                                    <th className="px-6 py-4">Perfil(is)</th>
+                                    <th className="px-6 py-4">Unidade(s)</th>
                                     <th className="px-6 py-4 text-right">Ações</th>
                                 </tr>
                             </thead>
@@ -195,11 +197,57 @@ export const UsersList = () => {
                                             </td>
 
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <ShieldAlert className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                                                    <span className="px-2.5 py-1 text-xs font-medium bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20 rounded-md">
-                                                        {user.profile?.name || 'Sem perfil'}
-                                                    </span>
+                                                <div className="flex flex-wrap items-center gap-1.5 max-w-xs">
+                                                    {user.userProfiles && user.userProfiles.length > 0 ? (
+                                                        user.userProfiles.map((up) => (
+                                                            <span
+                                                                key={up.id || up.profileId}
+                                                                className={`px-2 py-0.5 text-2xs font-semibold rounded-md border ${
+                                                                    up.isDefault
+                                                                        ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                                                                }`}
+                                                            >
+                                                                {up.profile?.name}
+                                                                {up.isDefault && ' ★'}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="px-2 py-0.5 text-2xs font-medium bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20 rounded-md">
+                                                            {user.profile?.name || 'Sem perfil'}
+                                                        </span>
+                                                    )}
+
+                                                    {user.isMunicipalRegulator && (
+                                                        <span className="px-1.5 py-0.5 text-3xs font-bold rounded-md bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                                            Regulador Geral
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 max-w-xs truncate">
+                                                    {user.userHealthCenters && user.userHealthCenters.length > 0 ? (
+                                                        <div className="flex items-center gap-1 truncate">
+                                                            <Building2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                                            <span className="truncate">
+                                                                {user.userHealthCenters.find((c) => c.isDefault)?.healthCenter?.name || user.userHealthCenters[0]?.healthCenter?.name}
+                                                            </span>
+                                                            {user.userHealthCenters.length > 1 && (
+                                                                <span className="text-3xs font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 shrink-0">
+                                                                    +{user.userHealthCenters.length - 1}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    ) : user.healthCenter ? (
+                                                        <div className="flex items-center gap-1 truncate">
+                                                            <Building2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                                            <span className="truncate">{user.healthCenter.name}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-slate-400 italic text-2xs">Geral (SMS)</span>
+                                                    )}
                                                 </div>
                                             </td>
 
@@ -250,7 +298,7 @@ export const UsersList = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={4} className="px-6 py-10 text-center text-slate-500 italic">
+                                        <td colSpan={5} className="px-6 py-10 text-center text-slate-500 italic">
                                             Nenhum utilizador encontrado.
                                         </td>
                                     </tr>
