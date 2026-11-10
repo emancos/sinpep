@@ -208,10 +208,25 @@ export class HealthCentersService {
 
   async remove(id: string) {
     await this.findOne(id);
-    const [deleted] = await this.db.delete(schema.healthCenters)
-      .where(eq(schema.healthCenters.id, id))
-      .returning();
-    return deleted;
+    try {
+      const [deleted] = await this.db.delete(schema.healthCenters)
+        .where(eq(schema.healthCenters.id, id))
+        .returning();
+      return deleted;
+    } catch (err: any) {
+      if (err?.code === '23503') {
+        // Se houver registros vinculados (agentes de saúde, médicos, solicitações), desativa a unidade
+        const [deactivated] = await this.db.update(schema.healthCenters)
+          .set({ isActive: false, updatedAt: new Date().toISOString() })
+          .where(eq(schema.healthCenters.id, id))
+          .returning();
+        return {
+          ...deactivated,
+          message: 'A unidade de saúde possui vínculos históricos e foi desativada.',
+        };
+      }
+      throw err;
+    }
   }
 
   async searchCnes(query: any) {
