@@ -8,6 +8,7 @@ interface JwtPayload {
   sub: string;
   email: string;
   activeProfileId?: string;
+  activeHealthCenterId?: string;
   permissions?: string[];
 }
 
@@ -35,6 +36,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       payload.activeProfileId,
     );
 
+    const effectiveHealthCenterId = payload.activeHealthCenterId || user.healthCenterId;
+
     return {
       id: user.id,
       email: user.email,
@@ -42,7 +45,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       profileId: activeProfile?.id || user.profileId,
       activeProfileId: activeProfile?.id || user.profileId,
       activeProfileName: activeProfile?.name || user.profile?.name,
-      healthCenterId: user.healthCenterId,
+      healthCenterId: effectiveHealthCenterId,
+      activeHealthCenterId: effectiveHealthCenterId,
+      isMunicipalRegulator: Boolean(user.isMunicipalRegulator),
+      userHealthCenters: user.userHealthCenters,
       permissions,
     };
   }

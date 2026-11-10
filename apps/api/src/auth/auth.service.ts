@@ -94,6 +94,60 @@ export class AuthService {
   }
 
   /**
+   * Retorna todas as unidades de saúde às quais o usuário tem acesso/vínculo.
+   * Administradores e Reguladores Gerais Municipais possuem acesso a todas as unidades ativas.
+   */
+  async getAvailableHealthCenters(user: any): Promise<Array<{ id: string; name: string; cnes: string | null; isDefault: boolean }>> {
+    const isAdmin =
+      user.profile?.name === 'Administrador' ||
+      user.profile?.profilePermissions?.some((pp: any) => pp.permission?.name === 'admin:access') ||
+      user.userProfiles?.some(
+        (up: any) =>
+          up.profile?.name === 'Administrador' ||
+          up.profile?.profilePermissions?.some((pp: any) => pp.permission?.name === 'admin:access'),
+      );
+
+    if (isAdmin || user.isMunicipalRegulator) {
+      const allCenters = await this.db.query.healthCenters.findMany({
+        where: eq(schema.healthCenters.isActive, true),
+        orderBy: [asc(schema.healthCenters.name)],
+      });
+      return allCenters.map((hc) => ({
+        id: hc.id,
+        name: hc.name,
+        cnes: hc.cnes,
+        isDefault: hc.id === user.healthCenterId,
+      }));
+    }
+
+    const centerMap = new Map<string, { id: string; name: string; cnes: string | null; isDefault: boolean }>();
+
+    if (user.healthCenter) {
+      centerMap.set(user.healthCenter.id, {
+        id: user.healthCenter.id,
+        name: user.healthCenter.name,
+        cnes: user.healthCenter.cnes,
+        isDefault: true,
+      });
+    }
+
+    if (user.userHealthCenters && Array.isArray(user.userHealthCenters)) {
+      for (const uhc of user.userHealthCenters) {
+        if (uhc.healthCenter) {
+          centerMap.set(uhc.healthCenter.id, {
+            id: uhc.healthCenter.id,
+            name: uhc.healthCenter.name,
+            cnes: uhc.healthCenter.cnes,
+            isDefault: uhc.isDefault || uhc.healthCenter.id === user.healthCenterId,
+          });
+        }
+      }
+    }
+
+    return Array.from(centerMap.values());
+  }
+
+  /**
    * Consolida as permissões estritamente para o perfil ativo selecionado.
    */
   async consolidatePermissionsForProfile(
@@ -233,10 +287,14 @@ export class AuthService {
       defaultProfile?.id,
     );
 
+    const availableHealthCenters = await this.getAvailableHealthCenters(user);
+    const activeHealthCenter = availableHealthCenters.find((hc) => hc.isDefault) || availableHealthCenters[0] || null;
+
     const payload = {
       sub: user.id,
       email: user.email,
       activeProfileId: activeProfile?.id,
+      activeHealthCenterId: activeHealthCenter?.id,
       permissions,
     };
 
@@ -248,16 +306,19 @@ export class AuthService {
         email: user.email,
         phone: user.phone || undefined,
         avatar: user.avatar || undefined,
-        healthCenterId: user.healthCenterId,
+        healthCenterId: activeHealthCenter?.id || user.healthCenterId,
+        isMunicipalRegulator: Boolean(user.isMunicipalRegulator),
         permissions,
       },
       activeProfile,
       availableProfiles,
+      activeHealthCenter,
+      availableHealthCenters,
       permissions,
     };
   }
 
-  async selectProfile(userId: string, profileId: string) {
+  async selectProfile(userId: string, profileId: string, currentHealthCenterId?: string) {
     const user: any = await this.usersService.findById(userId);
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Usuário não encontrado ou inativo');
@@ -271,10 +332,17 @@ export class AuthService {
 
     const { permissions, activeProfile } = await this.consolidatePermissionsForProfile(user, profileId);
 
+    const availableHealthCenters = await this.getAvailableHealthCenters(user);
+    let activeHealthCenter = availableHealthCenters.find((c) => c.id === currentHealthCenterId);
+    if (!activeHealthCenter) {
+      activeHealthCenter = availableHealthCenters.find((hc) => hc.isDefault) || availableHealthCenters[0] || null;
+    }
+
     const payload = {
       sub: user.id,
       email: user.email,
       activeProfileId: profileId,
+      activeHealthCenterId: activeHealthCenter?.id,
       permissions,
     };
 
@@ -288,16 +356,67 @@ export class AuthService {
         email: user.email,
         phone: user.phone || undefined,
         avatar: user.avatar || undefined,
-        healthCenterId: user.healthCenterId,
+        healthCenterId: activeHealthCenter?.id || user.healthCenterId,
+        isMunicipalRegulator: Boolean(user.isMunicipalRegulator),
         permissions,
       },
       activeProfile,
       availableProfiles,
+      activeHealthCenter,
+      availableHealthCenters,
       permissions,
     };
   }
 
-  async getProfile(userId: string, activeProfileId?: string) {
+  async selectHealthCenter(userId: string, healthCenterId: string, currentProfileId?: string) {
+    const user: any = await this.usersService.findById(userId);
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Usuário não encontrado ou inativo');
+    }
+
+    const availableHealthCenters = await this.getAvailableHealthCenters(user);
+    const chosenCenter = availableHealthCenters.find((c) => c.id === healthCenterId);
+    if (!chosenCenter) {
+      throw new ForbiddenException('Usuário não possui vínculo com esta unidade de saúde');
+    }
+
+    const availableProfiles = await this.getAvailableProfiles(user);
+    const { permissions, activeProfile } = await this.consolidatePermissionsForProfile(
+      user,
+      currentProfileId || user.profileId,
+    );
+
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      activeProfileId: activeProfile?.id,
+      activeHealthCenterId: chosenCenter.id,
+      permissions,
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+
+    return {
+      accessToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || undefined,
+        avatar: user.avatar || undefined,
+        healthCenterId: chosenCenter.id,
+        isMunicipalRegulator: Boolean(user.isMunicipalRegulator),
+        permissions,
+      },
+      activeProfile,
+      availableProfiles,
+      activeHealthCenter: chosenCenter,
+      availableHealthCenters,
+      permissions,
+    };
+  }
+
+  async getProfile(userId: string, activeProfileId?: string, activeHealthCenterId?: string) {
     const user: any = await this.usersService.findById(userId);
     if (!user) {
       throw new UnauthorizedException('Usuário não encontrado');
@@ -313,6 +432,12 @@ export class AuthService {
       activeProfileId || user.profileId,
     );
 
+    const availableHealthCenters = await this.getAvailableHealthCenters(user);
+    let activeHealthCenter = availableHealthCenters.find((c) => c.id === activeHealthCenterId);
+    if (!activeHealthCenter) {
+      activeHealthCenter = availableHealthCenters.find((hc) => hc.isDefault) || availableHealthCenters[0] || null;
+    }
+
     return {
       id: user.id,
       name: user.name,
@@ -321,9 +446,12 @@ export class AuthService {
       avatar: user.avatar || undefined,
       profileId: activeProfile?.id || user.profileId,
       profileName: activeProfile?.name || user.profile?.name,
-      healthCenterId: user.healthCenterId,
+      healthCenterId: activeHealthCenter?.id || user.healthCenterId,
+      isMunicipalRegulator: Boolean(user.isMunicipalRegulator),
       activeProfile,
       availableProfiles,
+      activeHealthCenter,
+      availableHealthCenters,
       permissions,
     };
   }

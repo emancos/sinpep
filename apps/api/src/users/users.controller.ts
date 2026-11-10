@@ -69,7 +69,32 @@ export class CreateUserDto {
   phone?: string;
 
   @IsString()
-  profileId: string;
+  @IsOptional()
+  profileId?: string;
+
+  @IsArray()
+  @IsOptional()
+  profileIds?: string[];
+
+  @IsString()
+  @IsOptional()
+  defaultProfileId?: string;
+
+  @IsString()
+  @IsOptional()
+  healthCenterId?: string;
+
+  @IsArray()
+  @IsOptional()
+  healthCenterIds?: string[];
+
+  @IsString()
+  @IsOptional()
+  defaultHealthCenterId?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isMunicipalRegulator?: boolean;
 
   @IsString()
   @IsOptional()
@@ -95,6 +120,30 @@ export class UpdateUserAdminDto {
   @IsString()
   @IsOptional()
   profileId?: string;
+
+  @IsArray()
+  @IsOptional()
+  profileIds?: string[];
+
+  @IsString()
+  @IsOptional()
+  defaultProfileId?: string;
+
+  @IsString()
+  @IsOptional()
+  healthCenterId?: string;
+
+  @IsArray()
+  @IsOptional()
+  healthCenterIds?: string[];
+
+  @IsString()
+  @IsOptional()
+  defaultHealthCenterId?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isMunicipalRegulator?: boolean;
 
   @IsString()
   @IsOptional()
@@ -172,6 +221,12 @@ export class UsersController {
       phone: body.phone,
       password: body.password,
       profileId: body.profileId,
+      profileIds: body.profileIds,
+      defaultProfileId: body.defaultProfileId,
+      healthCenterId: body.healthCenterId,
+      healthCenterIds: body.healthCenterIds,
+      defaultHealthCenterId: body.defaultHealthCenterId,
+      isMunicipalRegulator: body.isMunicipalRegulator,
       customPermissions: body.customPermissions,
     });
     const result = { ...updatedUser } as any;

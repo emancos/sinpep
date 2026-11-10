@@ -23,7 +23,14 @@ export class AuthController {
   @Post('select-profile')
   @HttpCode(HttpStatus.OK)
   async selectProfile(@Request() req: any, @Body('profileId') profileId: string) {
-    return this.authService.selectProfile(req.user.id, profileId);
+    return this.authService.selectProfile(req.user.id, profileId, req.user.activeHealthCenterId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('select-health-center')
+  @HttpCode(HttpStatus.OK)
+  async selectHealthCenter(@Request() req: any, @Body('healthCenterId') healthCenterId: string) {
+    return this.authService.selectHealthCenter(req.user.id, healthCenterId, req.user.activeProfileId);
   }
 
   @Post('forgot-password')
