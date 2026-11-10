@@ -17,14 +17,52 @@ export class HealthCentersService {
   ) {}
 
   async create(createHealthCenterDto: CreateHealthCenterDto) {
+    let est: any = null;
+    const cleanCnes = createHealthCenterDto.cnes ? createHealthCenterDto.cnes.replace(/\D/g, '') : '';
+    if (cleanCnes.length === 7) {
+      try {
+        const res = await this.searchCnes({ cnes: cleanCnes });
+        est = res?.data?.[0];
+      } catch (err: any) {
+        console.warn(`[HealthCentersService] Falha ao consultar Integra-SUS para CNES ${cleanCnes}:`, err?.message || err);
+      }
+    }
+
+    const name = createHealthCenterDto.name || est?.noFantasia || est?.noRazaoSocial;
+    const formattedAddress = est?.noLogradouro
+      ? `${est.noLogradouro}${est.nuEndereco ? ', ' + est.nuEndereco : ''}${est.noBairro ? ' - ' + est.noBairro : ''}${est.noMunicipio ? ' - ' + est.noMunicipio : ''}/${est.sgUf || ''} CEP: ${est.coCep || ''}`
+      : null;
+    const address = createHealthCenterDto.address || formattedAddress;
+
     const [healthCenter] = await this.db.insert(schema.healthCenters).values({
       id: crypto.randomUUID(),
-      name: createHealthCenterDto.name,
-      cnes: createHealthCenterDto.cnes || '0000000',
-      address: createHealthCenterDto.address ?? null,
+      name,
+      cnes: cleanCnes || '0000000',
+      address,
       nurseName: createHealthCenterDto.nurseName ?? null,
-      stSolicitante: createHealthCenterDto.stSolicitante ?? true,
-      stExecutante: createHealthCenterDto.stExecutante ?? false,
+      stSolicitante: createHealthCenterDto.stSolicitante ?? est?.stSolicitante ?? true,
+      stExecutante: createHealthCenterDto.stExecutante ?? est?.stExecutante ?? false,
+
+      coUf: createHealthCenterDto.coUf ?? est?.coUf ?? null,
+      sgUf: createHealthCenterDto.sgUf ?? est?.sgUf ?? null,
+      coCep: createHealthCenterDto.coCep ?? est?.coCep ?? null,
+      nuCnpj: createHealthCenterDto.nuCnpj ?? est?.nuCnpj ?? null,
+      dsEmail: createHealthCenterDto.dsEmail ?? est?.dsEmail ?? null,
+      noBairro: createHealthCenterDto.noBairro ?? est?.noBairro ?? null,
+      tpGestao: createHealthCenterDto.tpGestao ?? est?.tpGestao ?? null,
+      noFantasia: createHealthCenterDto.noFantasia ?? est?.noFantasia ?? null,
+      nuEndereco: createHealthCenterDto.nuEndereco ?? est?.nuEndereco ?? null,
+      nuTelefone: createHealthCenterDto.nuTelefone ?? est?.nuTelefone ?? null,
+      noMunicipio: createHealthCenterDto.noMunicipio ?? est?.noMunicipio ?? null,
+      noLogradouro: createHealthCenterDto.noLogradouro ?? est?.noLogradouro ?? null,
+      stCotaTabela: createHealthCenterDto.stCotaTabela ?? est?.stCotaTabela ?? false,
+      noComplemento: createHealthCenterDto.noComplemento ?? est?.noComplemento ?? null,
+      noRazaoSocial: createHealthCenterDto.noRazaoSocial ?? est?.noRazaoSocial ?? null,
+      stSolicitaFora: createHealthCenterDto.stSolicitaFora ?? est?.stSolicitaFora ?? false,
+      coMunicipioIbge: createHealthCenterDto.coMunicipioIbge ?? est?.coMunicipioIbge ?? null,
+      coNaturezaJuridica: createHealthCenterDto.coNaturezaJuridica ?? est?.coNaturezaJuridica ?? null,
+      coNaturezaOrganizacao: createHealthCenterDto.coNaturezaOrganizacao ?? est?.coNaturezaOrganizacao ?? null,
+
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -94,12 +132,57 @@ export class HealthCentersService {
   }
 
   async update(id: string, updateHealthCenterDto: UpdateHealthCenterDto) {
-    await this.findOne(id);
+    const existing: any = await this.findOne(id);
     
+    const targetCnes = (updateHealthCenterDto.cnes || existing.cnes || '').replace(/\D/g, '');
+    let est: any = null;
+    if (targetCnes.length === 7) {
+      try {
+        const res = await this.searchCnes({ cnes: targetCnes });
+        est = res?.data?.[0];
+      } catch (err: any) {
+        console.warn(`[HealthCentersService] Não foi possível consultar o CNES ${targetCnes} no Integra-SUS:`, err?.message || err);
+      }
+    }
+
     const dataToUpdate: any = { ...updateHealthCenterDto, updatedAt: new Date().toISOString() };
     if (dataToUpdate.active !== undefined) {
       dataToUpdate.isActive = dataToUpdate.active;
       delete dataToUpdate.active;
+    }
+
+    if (est) {
+      // Preenche os campos que estejam vazios no registro existente e não foram fornecidos na atualização
+      if (!dataToUpdate.name && !existing.name && (est.noFantasia || est.noRazaoSocial)) {
+        dataToUpdate.name = est.noFantasia || est.noRazaoSocial;
+      }
+      if (!dataToUpdate.address && !existing.address && est.noLogradouro) {
+        dataToUpdate.address = `${est.noLogradouro}${est.nuEndereco ? ', ' + est.nuEndereco : ''}${est.noBairro ? ' - ' + est.noBairro : ''}${est.noMunicipio ? ' - ' + est.noMunicipio : ''}/${est.sgUf || ''} CEP: ${est.coCep || ''}`;
+      }
+      if (dataToUpdate.stSolicitante === undefined && existing.stSolicitante === null && est.stSolicitante !== undefined) {
+        dataToUpdate.stSolicitante = est.stSolicitante;
+      }
+      if (dataToUpdate.stExecutante === undefined && existing.stExecutante === null && est.stExecutante !== undefined) {
+        dataToUpdate.stExecutante = est.stExecutante;
+      }
+
+      const stringFields = [
+        'coUf', 'sgUf', 'coCep', 'nuCnpj', 'dsEmail', 'noBairro', 'tpGestao',
+        'noFantasia', 'nuEndereco', 'nuTelefone', 'noMunicipio', 'noLogradouro',
+        'noComplemento', 'noRazaoSocial', 'coMunicipioIbge', 'coNaturezaJuridica', 'coNaturezaOrganizacao'
+      ];
+      for (const field of stringFields) {
+        if (!dataToUpdate[field] && !existing[field] && est[field]) {
+          dataToUpdate[field] = est[field];
+        }
+      }
+
+      if (dataToUpdate.stCotaTabela === undefined && existing.stCotaTabela === null && est.stCotaTabela !== undefined) {
+        dataToUpdate.stCotaTabela = est.stCotaTabela;
+      }
+      if (dataToUpdate.stSolicitaFora === undefined && existing.stSolicitaFora === null && est.stSolicitaFora !== undefined) {
+        dataToUpdate.stSolicitaFora = est.stSolicitaFora;
+      }
     }
 
     const [updated] = await this.db.update(schema.healthCenters)

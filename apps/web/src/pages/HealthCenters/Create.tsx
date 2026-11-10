@@ -5,6 +5,7 @@ import * as zod from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useHealthCenter, useCreateHealthCenter, useUpdateHealthCenter } from '../../hooks/useHealthCenters';
 import { fetchAddressByCep } from '../../services/viacep';
+import { getEstabelecimentos, type Estabelecimento } from '../../services/cnes';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
@@ -13,7 +14,8 @@ import {
   Check,
   Loader2,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  Sparkles
 } from 'lucide-react';
 
 const healthCenterSchema = zod.object({
@@ -170,6 +172,8 @@ export const CreateOrEditHealthCenter: React.FC = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [isLoadingCep, setIsLoadingCep] = useState(false);
+  const [isLoadingCnes, setIsLoadingCnes] = useState(false);
+  const [cnesMetadata, setCnesMetadata] = useState<Partial<Estabelecimento>>({});
 
   const isEditMode = !!id;
   const { data: healthCenter, isLoading: loadingHC } = useHealthCenter(id || '');
@@ -204,6 +208,101 @@ export const CreateOrEditHealthCenter: React.FC = () => {
     },
   });
 
+  const fetchAndEnrichFromIntegraSus = async (cnesValue: string, silent = false) => {
+    const cleanCnes = (cnesValue || '').replace(/\D/g, '');
+    if (cleanCnes.length !== 7) {
+      if (!silent) toast.warning('Informe um CNES com exatamente 7 dígitos para consultar.');
+      return;
+    }
+
+    setIsLoadingCnes(true);
+    try {
+      const response = await getEstabelecimentos({ cnes: cleanCnes });
+      const est = response?.data?.[0];
+      if (!est) {
+        if (!silent) toast.error('Nenhum estabelecimento encontrado no Integra-SUS para este CNES.');
+        return;
+      }
+
+      setCnesMetadata(est);
+
+      // Campos preenchidos automaticamente apenas se estiverem vazios no formulário
+      const currentValues = control._formValues;
+      const filledFields: string[] = [];
+
+      if (!currentValues.name || currentValues.name.trim() === '') {
+        const bestName = est.noFantasia || est.noRazaoSocial;
+        if (bestName) {
+          setValue('name', bestName, { shouldValidate: true });
+          filledFields.push('Nome da Unidade');
+        }
+      }
+
+      if (est.coCep && (!currentValues.zipCode || currentValues.zipCode.trim() === '')) {
+        setValue('zipCode', formatCEP(est.coCep), { shouldValidate: true });
+        filledFields.push('CEP');
+      }
+
+      if (est.noLogradouro && (!currentValues.street || currentValues.street.trim() === '')) {
+        setValue('street', est.noLogradouro, { shouldValidate: true });
+        filledFields.push('Logradouro');
+      }
+
+      if (est.nuEndereco && (!currentValues.number || currentValues.number.trim() === '')) {
+        setValue('number', est.nuEndereco, { shouldValidate: true });
+        filledFields.push('Número');
+      }
+
+      if (est.noComplemento && (!currentValues.complement || currentValues.complement.trim() === '')) {
+        setValue('complement', est.noComplemento);
+      }
+
+      if (est.noBairro && (!currentValues.neighborhood || currentValues.neighborhood.trim() === '')) {
+        setValue('neighborhood', est.noBairro, { shouldValidate: true });
+        filledFields.push('Bairro');
+      }
+
+      if (est.noMunicipio && (!currentValues.city || currentValues.city.trim() === '')) {
+        setValue('city', est.noMunicipio, { shouldValidate: true });
+        filledFields.push('Município');
+      }
+
+      if (est.sgUf && (!currentValues.state || currentValues.state.trim() === '')) {
+        setValue('state', est.sgUf, { shouldValidate: true });
+      }
+
+      if (est.coMunicipioIbge && (!currentValues.ibgeCode || currentValues.ibgeCode.trim() === '')) {
+        setValue('ibgeCode', est.coMunicipioIbge);
+      }
+
+      if (!isEditMode) {
+        if (est.stExecutante !== undefined && est.stExecutante !== null) {
+          setValue('stExecutante', Boolean(est.stExecutante));
+        }
+        if (est.stSolicitante !== undefined && est.stSolicitante !== null) {
+          setValue('stSolicitante', Boolean(est.stSolicitante));
+        }
+      }
+
+      clearErrors(['name', 'cnes', 'street', 'neighborhood', 'city', 'state', 'zipCode', 'number']);
+
+      if (!silent) {
+        if (filledFields.length > 0) {
+          toast.success(`Integra-SUS: Dados preenchidos para ${filledFields.join(', ')}.`);
+        } else {
+          toast.info('Dados da unidade já estavam preenchidos. Nada foi sobrescrito.');
+        }
+      }
+    } catch (err: any) {
+      console.error('Erro ao consultar Integra-SUS:', err);
+      if (!silent) {
+        toast.error('Não foi possível obter dados do CNES via Integra-SUS no momento.');
+      }
+    } finally {
+      setIsLoadingCnes(false);
+    }
+  };
+
   // Load existing data if in Edit Mode
   useEffect(() => {
     if (isEditMode && healthCenter) {
@@ -216,6 +315,12 @@ export const CreateOrEditHealthCenter: React.FC = () => {
         stExecutante: healthCenter.stExecutante ?? false,
         ...parsedAddress,
       });
+
+      // Se houver campos vazios na edição (endereço, etc.), busca automaticamente no Integra-SUS
+      const cleanCnes = (healthCenter.cnes || '').replace(/\D/g, '');
+      if (cleanCnes.length === 7 && (!parsedAddress.street || !parsedAddress.zipCode || !parsedAddress.neighborhood)) {
+        fetchAndEnrichFromIntegraSus(cleanCnes, true);
+      }
     }
   }, [isEditMode, healthCenter, reset]);
 
@@ -312,6 +417,25 @@ export const CreateOrEditHealthCenter: React.FC = () => {
       address: addressString || undefined,
       stSolicitante: data.stSolicitante,
       stExecutante: data.stExecutante,
+      coUf: cnesMetadata.coUf,
+      sgUf: cnesMetadata.sgUf || data.state,
+      coCep: cnesMetadata.coCep || data.zipCode?.replace(/\D/g, ''),
+      nuCnpj: cnesMetadata.nuCnpj,
+      dsEmail: cnesMetadata.dsEmail,
+      noBairro: cnesMetadata.noBairro || data.neighborhood,
+      tpGestao: cnesMetadata.tpGestao,
+      noFantasia: cnesMetadata.noFantasia || data.name,
+      nuEndereco: cnesMetadata.nuEndereco || data.number,
+      nuTelefone: cnesMetadata.nuTelefone,
+      noMunicipio: cnesMetadata.noMunicipio || data.city,
+      noLogradouro: cnesMetadata.noLogradouro || data.street,
+      stCotaTabela: cnesMetadata.stCotaTabela,
+      noComplemento: cnesMetadata.noComplemento || data.complement,
+      noRazaoSocial: cnesMetadata.noRazaoSocial,
+      stSolicitaFora: cnesMetadata.stSolicitaFora,
+      coMunicipioIbge: cnesMetadata.coMunicipioIbge || data.ibgeCode,
+      coNaturezaJuridica: cnesMetadata.coNaturezaJuridica,
+      coNaturezaOrganizacao: cnesMetadata.coNaturezaOrganizacao,
     };
 
     if (isEditMode && id) {
@@ -454,32 +578,61 @@ export const CreateOrEditHealthCenter: React.FC = () => {
                   )}
                 />
                 {errors.name && <p className="text-rose-700 dark:text-rose-500 text-xs">{errors.name.message}</p>}
-                {errors.name && <p className="text-rose-700 dark:text-rose-500 text-xs">{errors.name.message}</p>}
               </div>
 
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Código CNES (7 dígitos)
                 </label>
-                <Controller
-                  name="cnes"
-                  control={control}
-                  render={({ field }) => (
-                    <input
-                      {...field}
-                      type="text"
-                      placeholder="Ex: 1234567"
-                      onChange={(e) => field.onChange(formatCNES(e.target.value))}
-                      className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none font-mono transition-all ${errors.cnes
-                          ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
-                          : field.value
-                            ? 'border-teal-500/80 shadow-[0_0_10px_rgba(20,184,166,0.15)] focus:border-teal-400'
-                            : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
-                        }`}
-                    />
-                  )}
-                />
-                {errors.cnes && <p className="text-rose-700 dark:text-rose-500 text-xs">{errors.cnes.message}</p>}
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                  <Controller
+                    name="cnes"
+                    control={control}
+                    render={({ field }) => (
+                      <input
+                        {...field}
+                        type="text"
+                        placeholder="Ex: 1234567"
+                        onChange={(e) => {
+                          const formatted = formatCNES(e.target.value);
+                          field.onChange(formatted);
+                          if (formatted.length === 7) {
+                            fetchAndEnrichFromIntegraSus(formatted, false);
+                          }
+                        }}
+                        onBlur={() => {
+                          field.onBlur();
+                          if (field.value?.length === 7) {
+                            fetchAndEnrichFromIntegraSus(field.value, true);
+                          }
+                        }}
+                        className={`w-full px-3 py-2 bg-white dark:bg-slate-950 border rounded-md text-sm text-slate-900 dark:text-white focus:outline-none font-mono transition-all ${errors.cnes
+                            ? 'border-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.15)] focus:border-rose-400'
+                            : field.value
+                              ? 'border-teal-500/80 shadow-[0_0_10px_rgba(20,184,166,0.15)] focus:border-teal-400'
+                              : 'border-slate-300 dark:border-slate-800 focus:border-blue-500'
+                          }`}
+                      />
+                    )}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cnesVal = control._formValues.cnes || '';
+                      fetchAndEnrichFromIntegraSus(cnesVal, false);
+                    }}
+                    disabled={isLoadingCnes}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors whitespace-nowrap cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 shadow-xs"
+                    title="Consultar dados da unidade no Integra-SUS para preencher campos vazios"
+                  >
+                    {isLoadingCnes ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    )}
+                    <span>Consultar Integra-SUS</span>
+                  </button>
+                </div>
                 {errors.cnes && <p className="text-rose-700 dark:text-rose-500 text-xs">{errors.cnes.message}</p>}
               </div>
 
