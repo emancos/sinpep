@@ -55,11 +55,11 @@ export const EnrichedLegend: React.FC<EnrichedLegendProps> = ({
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5 shrink-0">
-              <strong className="font-bold text-slate-900 dark:text-white">
+            <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+              <strong className="font-bold text-slate-900 dark:text-white whitespace-nowrap">
                 {count}
               </strong>
-              <span className="text-2xs font-semibold px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
+              <span className="text-2xs font-semibold px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-slate-600 whitespace-nowrap shrink-0">
                 {pct}%
               </span>
             </div>
@@ -69,3 +69,4 @@ export const EnrichedLegend: React.FC<EnrichedLegendProps> = ({
     </div>
   );
 };
+

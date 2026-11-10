@@ -144,12 +144,12 @@ export const DoctorProductionDash: React.FC = () => {
         </h3>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+          <table className="w-full text-xs text-left min-w-[420px]">
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th className="py-2.5 px-3">Código CID-10</th>
-                <th className="py-2.5 px-3 text-right">Ocorrências</th>
-                <th className="py-2.5 px-3 text-right">Percentual</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Código CID-10</th>
+                <th className="py-2.5 px-3 text-right whitespace-nowrap">Ocorrências</th>
+                <th className="py-2.5 px-3 text-right whitespace-nowrap">Percentual</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -164,13 +164,13 @@ export const DoctorProductionDash: React.FC = () => {
                   const pct = totalConsultations > 0 ? Math.round((c.count / totalConsultations) * 100) : 0;
                   return (
                     <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className="py-2.5 px-3 font-mono font-bold text-indigo-700 dark:text-indigo-300">
+                      <td className="py-2.5 px-3 font-mono font-bold text-indigo-700 dark:text-indigo-300 whitespace-nowrap">
                         {c.cid10}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-bold text-slate-800 dark:text-slate-100">
+                      <td className="py-2.5 px-3 text-right font-bold text-slate-800 dark:text-slate-100 whitespace-nowrap">
                         {c.count} paciente(s)
                       </td>
-                      <td className="py-2.5 px-3 text-right">
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
                         <span className="px-2 py-0.5 rounded text-3xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                           {pct}%
                         </span>

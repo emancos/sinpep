@@ -46,24 +46,24 @@ export const EpidemiologicalDash = () => {
   // Tabela de apoio para os CIDs
   const cidTable = (
     <div className="overflow-x-auto max-h-72">
-      <table className="w-full text-xs text-left">
+      <table className="w-full text-xs text-left min-w-[500px]">
         <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-800 sticky top-0">
           <tr>
-            <th className="py-2 px-3">CID-10</th>
+            <th className="py-2 px-3 whitespace-nowrap">CID-10</th>
             <th className="py-2 px-3">Descrição da Doença / Agravo</th>
-            <th className="py-2 px-3 text-center">e-SUS</th>
-            <th className="py-2 px-3 text-center">SINPeP</th>
-            <th className="py-2 px-3 text-right">Total Ocorrências</th>
+            <th className="py-2 px-3 text-center whitespace-nowrap">e-SUS</th>
+            <th className="py-2 px-3 text-center whitespace-nowrap">SINPeP</th>
+            <th className="py-2 px-3 text-right whitespace-nowrap">Total Ocorrências</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {(data.topCid || []).map((c: any, idx: number) => (
             <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-              <td className="py-2 px-3 font-bold text-blue-700 dark:text-blue-400">{c.code}</td>
-              <td className="py-2 px-3 text-slate-700 dark:text-slate-300">{c.description}</td>
-              <td className="py-2 px-3 text-center text-slate-500">{c.from_esus || 0}</td>
-              <td className="py-2 px-3 text-center text-slate-500">{c.from_sinpep || 0}</td>
-              <td className="py-2 px-3 text-right font-bold text-slate-900 dark:text-white">{c.count}</td>
+              <td className="py-2 px-3 font-bold font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{c.code}</td>
+              <td className="py-2 px-3 text-slate-700 dark:text-slate-300 font-medium">{c.description}</td>
+              <td className="py-2 px-3 text-center text-slate-500 whitespace-nowrap">{c.from_esus || 0}</td>
+              <td className="py-2 px-3 text-center text-slate-500 whitespace-nowrap">{c.from_sinpep || 0}</td>
+              <td className="py-2 px-3 text-right font-bold text-slate-900 dark:text-white whitespace-nowrap">{c.count}</td>
             </tr>
           ))}
         </tbody>

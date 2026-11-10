@@ -30,18 +30,18 @@ export const OperationalDash = () => {
   // Tabela de apoio dos Médicos
   const doctorsTable = (
     <div className="overflow-x-auto max-h-72">
-      <table className="w-full text-xs text-left">
+      <table className="w-full text-xs text-left min-w-[340px]">
         <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-800 sticky top-0">
           <tr>
-            <th className="py-2 px-3">Profissional Médico</th>
-            <th className="py-2 px-3 text-right">Consultas / Atendimentos Concluídos</th>
+            <th className="py-2 px-3 whitespace-nowrap">Profissional Médico</th>
+            <th className="py-2 px-3 text-right whitespace-nowrap">Consultas / Atendimentos Concluídos</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {(data.recordsByDoctor || []).map((d: any, idx: number) => (
             <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
               <td className="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200">{d.doctor_name}</td>
-              <td className="py-2 px-3 text-right font-bold text-blue-600 dark:text-blue-400">{d.count}</td>
+              <td className="py-2 px-3 text-right font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">{d.count}</td>
             </tr>
           ))}
         </tbody>

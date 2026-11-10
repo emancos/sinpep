@@ -194,17 +194,17 @@ export const ReceptionAttendanceDash: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+          <table className="w-full text-xs text-left min-w-[880px]">
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th className="py-2.5 px-3 text-center">Ordem</th>
-                <th className="py-2.5 px-3">Origem</th>
-                <th className="py-2.5 px-3">Horário</th>
-                <th className="py-2.5 px-3">Paciente</th>
-                <th className="py-2.5 px-3">CPF</th>
-                <th className="py-2.5 px-3">Especialidade</th>
-                <th className="py-2.5 px-3 text-center">Prioridade</th>
-                <th className="py-2.5 px-3 text-center">Situação</th>
+                <th className="py-2.5 px-3 text-center whitespace-nowrap">Ordem</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Origem</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Horário</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Paciente</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">CPF</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Especialidade</th>
+                <th className="py-2.5 px-3 text-center whitespace-nowrap">Prioridade</th>
+                <th className="py-2.5 px-3 text-center whitespace-nowrap">Situação</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -224,11 +224,11 @@ export const ReceptionAttendanceDash: React.FC = () => {
 
                   return (
                     <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className="py-2.5 px-3 text-center font-bold text-slate-700 dark:text-slate-300">
+                      <td className="py-2.5 px-3 text-center font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                         {item.queue_order || idx + 1}º
                       </td>
-                      <td className="py-2.5 px-3">
-                        <span className={`px-2 py-0.5 rounded text-3xs font-semibold ${
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-3xs font-semibold whitespace-nowrap shrink-0 ${
                           item.origin?.includes('e-SUS')
                             ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                             : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
@@ -236,25 +236,25 @@ export const ReceptionAttendanceDash: React.FC = () => {
                           {item.origin || 'SINPeP'}
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 text-slate-500 font-mono text-2xs">
+                      <td className="py-2.5 px-3 text-slate-500 font-mono text-2xs whitespace-nowrap">
                         {item.time || '--:--'}
                       </td>
-                      <td className="py-2.5 px-3 font-semibold text-slate-800 dark:text-slate-200">
+                      <td className="py-2.5 px-3 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                         {item.patient_name || 'Paciente Não Identificado'}
                       </td>
-                      <td className="py-2.5 px-3 text-slate-500 font-mono text-2xs">
+                      <td className="py-2.5 px-3 text-slate-500 font-mono text-2xs whitespace-nowrap">
                         {item.patient_cpf ? formatCPF(item.patient_cpf) : (item.patient_cns || '-')}
                       </td>
-                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 font-medium">
+                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 font-medium whitespace-nowrap">
                         {item.specialty_name || 'Clínica Geral'}
                       </td>
-                      <td className="py-2.5 px-3 text-center">
-                        <span className="px-2 py-0.5 rounded text-3xs font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-3xs font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 whitespace-nowrap shrink-0">
                           {item.priority || 'ELETIVO'}
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 text-center">
-                        <span className={`px-2 py-0.5 rounded text-3xs font-bold uppercase ${statusBadge}`}>
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-3xs font-bold uppercase whitespace-nowrap shrink-0 ${statusBadge}`}>
                           {item.status === 'NAO_COMPARECEU' ? 'FALTA' : (item.status === 'FINALIZADO' ? 'ATENDIDO' : item.status)}
                         </span>
                       </td>

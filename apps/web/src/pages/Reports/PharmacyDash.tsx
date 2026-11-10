@@ -29,18 +29,18 @@ export const PharmacyDash = () => {
   // Tabela Medicamentos de Uso Contínuo
   const continuousTable = (
     <div className="overflow-x-auto max-h-80">
-      <table className="w-full text-xs text-left">
+      <table className="w-full text-xs text-left min-w-[340px]">
         <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-800 sticky top-0">
           <tr>
-            <th className="py-2 px-3">Medicamento de Uso Contínuo</th>
-            <th className="py-2 px-3 text-right">Pacientes em Tratamento</th>
+            <th className="py-2 px-3 whitespace-nowrap">Medicamento de Uso Contínuo</th>
+            <th className="py-2 px-3 text-right whitespace-nowrap">Pacientes em Tratamento</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {(data.continuousMedications || []).map((m: any, idx: number) => (
             <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
               <td className="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200">{m.medication}</td>
-              <td className="py-2 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400">{m.count}</td>
+              <td className="py-2 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{m.count}</td>
             </tr>
           ))}
         </tbody>
@@ -51,18 +51,18 @@ export const PharmacyDash = () => {
   // Tabela Medicamentos Prescritos
   const prescribedTable = (
     <div className="overflow-x-auto max-h-80">
-      <table className="w-full text-xs text-left">
+      <table className="w-full text-xs text-left min-w-[340px]">
         <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-800 sticky top-0">
           <tr>
-            <th className="py-2 px-3">Medicamento Prescrito</th>
-            <th className="py-2 px-3 text-right">Prescrições Emitidas</th>
+            <th className="py-2 px-3 whitespace-nowrap">Medicamento Prescrito</th>
+            <th className="py-2 px-3 text-right whitespace-nowrap">Prescrições Emitidas</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {(data.prescribedMedications || []).map((m: any, idx: number) => (
             <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
               <td className="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200">{m.medication}</td>
-              <td className="py-2 px-3 text-right font-bold text-rose-600 dark:text-rose-400">{m.count}</td>
+              <td className="py-2 px-3 text-right font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">{m.count}</td>
             </tr>
           ))}
         </tbody>

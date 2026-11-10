@@ -147,15 +147,15 @@ export const UnitOperationalDash: React.FC = () => {
         </h3>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+          <table className="w-full text-xs text-left min-w-[680px]">
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th className="py-2.5 px-3">Profissional Médico</th>
-                <th className="py-2.5 px-3">CRM / UF</th>
-                <th className="py-2.5 px-3 text-center">Vagas na Escala</th>
-                <th className="py-2.5 px-3 text-center">Vagas Agendadas</th>
-                <th className="py-2.5 px-3 text-center">Prontuários Concluídos</th>
-                <th className="py-2.5 px-3 text-right">Taxa Preenchimento</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Profissional Médico</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">CRM / UF</th>
+                <th className="py-2.5 px-3 text-center whitespace-nowrap">Vagas na Escala</th>
+                <th className="py-2.5 px-3 text-center whitespace-nowrap">Vagas Agendadas</th>
+                <th className="py-2.5 px-3 text-center whitespace-nowrap">Prontuários Concluídos</th>
+                <th className="py-2.5 px-3 text-right whitespace-nowrap">Taxa Preenchimento</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -172,22 +172,22 @@ export const UnitOperationalDash: React.FC = () => {
                   const pct = slots > 0 ? Math.round((booked / slots) * 100) : 0;
                   return (
                     <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
+                      <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                         Dr(a). {doc.doctor_name}
                       </td>
-                      <td className="py-2.5 px-3 font-mono text-2xs text-slate-500">
+                      <td className="py-2.5 px-3 font-mono text-2xs text-slate-500 whitespace-nowrap">
                         CRM {doc.crm}/{doc.crm_state || 'UF'}
                       </td>
-                      <td className="py-2.5 px-3 text-center font-bold text-slate-700 dark:text-slate-300">
+                      <td className="py-2.5 px-3 text-center font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                         {slots}
                       </td>
-                      <td className="py-2.5 px-3 text-center font-bold text-blue-600 dark:text-blue-400">
+                      <td className="py-2.5 px-3 text-center font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
                         {booked}
                       </td>
-                      <td className="py-2.5 px-3 text-center font-bold text-emerald-600 dark:text-emerald-400">
+                      <td className="py-2.5 px-3 text-center font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
                         {doc.completed_records || 0}
                       </td>
-                      <td className="py-2.5 px-3 text-right">
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
                         <span className="px-2 py-0.5 rounded text-3xs font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
                           {pct}%
                         </span>

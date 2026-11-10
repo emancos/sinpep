@@ -192,7 +192,7 @@ export const SolicitorDash: React.FC = () => {
               <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 text-xs">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className={`px-2 py-0.5 rounded text-3xs font-semibold ${
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-3xs font-semibold whitespace-nowrap shrink-0 ${
                       r.origin?.includes('e-SUS')
                         ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                         : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
@@ -241,18 +241,18 @@ export const SolicitorDash: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+          <table className="w-full text-xs text-left min-w-[1080px]">
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th className="py-2.5 px-3">Protocolo</th>
-                <th className="py-2.5 px-3">Origem</th>
-                <th className="py-2.5 px-3">Situação</th>
-                <th className="py-2.5 px-3">Paciente</th>
-                <th className="py-2.5 px-3">CPF / CNS</th>
-                <th className="py-2.5 px-3">Especialidade / Exame</th>
-                <th className="py-2.5 px-3">Data / Agendamento</th>
-                <th className="py-2.5 px-3">Unidade Executante</th>
-                <th className="py-2.5 px-3 text-center">Chave Confirmação</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Protocolo</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Origem</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Situação</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Paciente</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">CPF / CNS</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Especialidade / Exame</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Data / Agendamento</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Unidade Executante</th>
+                <th className="py-2.5 px-3 text-center whitespace-nowrap">Chave Confirmação</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -271,11 +271,11 @@ export const SolicitorDash: React.FC = () => {
 
                   return (
                     <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-300">
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                         {p.protocol}
                       </td>
-                      <td className="py-2.5 px-3">
-                        <span className={`px-2 py-0.5 rounded text-3xs font-semibold ${
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-3xs font-semibold whitespace-nowrap shrink-0 ${
                           p.origin?.includes('e-SUS')
                             ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                             : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
@@ -283,38 +283,38 @@ export const SolicitorDash: React.FC = () => {
                           {p.origin || 'SINPeP'}
                         </span>
                       </td>
-                      <td className="py-2.5 px-3">
-                        <span className={`px-2 py-0.5 rounded text-3xs font-bold border ${statusInfo.className}`}>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-3xs font-bold border whitespace-nowrap shrink-0 ${statusInfo.className}`}>
                           {statusInfo.label}
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
+                      <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                         {p.patient_name}
                       </td>
-                      <td className="py-2.5 px-3 font-mono text-2xs text-slate-500">
-                        <div>{formatCPF(p.patient_cpf)}</div>
-                        {p.patient_cns && <div className="text-slate-400">{formatCNS(p.patient_cns)}</div>}
+                      <td className="py-2.5 px-3 font-mono text-2xs text-slate-500 whitespace-nowrap">
+                        <div className="whitespace-nowrap">{formatCPF(p.patient_cpf)}</div>
+                        {p.patient_cns && <div className="text-slate-400 whitespace-nowrap">{formatCNS(p.patient_cns)}</div>}
                       </td>
-                      <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 font-medium">
+                      <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 font-medium whitespace-nowrap">
                         {p.specialty_name}
                       </td>
-                      <td className="py-2.5 px-3">
+                      <td className="py-2.5 px-3 whitespace-nowrap">
                         {p.status === 'AGENDADA' && p.scheduled_date ? (
-                          <span className="text-emerald-700 dark:text-emerald-300 font-bold">
+                          <span className="text-emerald-700 dark:text-emerald-300 font-bold whitespace-nowrap">
                             {formatDateBR(p.scheduled_date)} às {p.scheduled_time || '—'}
                           </span>
                         ) : (
-                          <span className="text-slate-500 dark:text-slate-400 text-2xs">
+                          <span className="text-slate-500 dark:text-slate-400 text-2xs whitespace-nowrap">
                             {p.created_at ? formatDateBR(p.created_at) : '—'}
                           </span>
                         )}
                       </td>
-                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">
+                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
                         {p.executing_unit || 'Unidade Executante'}
                       </td>
-                      <td className="py-2.5 px-3 text-center">
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap">
                         {p.token ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono font-bold text-3xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono font-bold text-3xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 whitespace-nowrap">
                             <Ticket className="w-3 h-3" />
                             {p.token}
                           </span>

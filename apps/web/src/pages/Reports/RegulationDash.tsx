@@ -73,26 +73,26 @@ export const RegulationDash: React.FC = () => {
   // Tabela de apoio das Especialidades
   const specialtyTable = (
     <div className="overflow-x-auto max-h-72">
-      <table className="w-full text-xs text-left">
+      <table className="w-full text-xs text-left min-w-[560px]">
         <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-800 sticky top-0">
           <tr>
-            <th className="py-2 px-3">Especialidade / Procedimento</th>
-            <th className="py-2 px-3 text-center">Em Fila</th>
-            <th className="py-2 px-3 text-center">Agendadas</th>
-            <th className="py-2 px-3 text-center">e-SUS</th>
-            <th className="py-2 px-3 text-center">SINPeP</th>
-            <th className="py-2 px-3 text-right">Total Demandado</th>
+            <th className="py-2 px-3 whitespace-nowrap">Especialidade / Procedimento</th>
+            <th className="py-2 px-3 text-center whitespace-nowrap">Em Fila</th>
+            <th className="py-2 px-3 text-center whitespace-nowrap">Agendadas</th>
+            <th className="py-2 px-3 text-center whitespace-nowrap">e-SUS</th>
+            <th className="py-2 px-3 text-center whitespace-nowrap">SINPeP</th>
+            <th className="py-2 px-3 text-right whitespace-nowrap">Total Demandado</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {bySpecialty.map((s: any, idx: number) => (
             <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
               <td className="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200">{s.specialty_name}</td>
-              <td className="py-2 px-3 text-center text-blue-600 dark:text-blue-400 font-medium">{s.waiting || 0}</td>
-              <td className="py-2 px-3 text-center text-emerald-600 dark:text-emerald-400 font-medium">{s.scheduled || 0}</td>
-              <td className="py-2 px-3 text-center text-slate-500">{s.esus_count || 0}</td>
-              <td className="py-2 px-3 text-center text-slate-500">{s.sinpep_count || 0}</td>
-              <td className="py-2 px-3 text-right font-bold text-slate-900 dark:text-white">{s.total_requests}</td>
+              <td className="py-2 px-3 text-center text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">{s.waiting || 0}</td>
+              <td className="py-2 px-3 text-center text-emerald-600 dark:text-emerald-400 font-medium whitespace-nowrap">{s.scheduled || 0}</td>
+              <td className="py-2 px-3 text-center text-slate-500 whitespace-nowrap">{s.esus_count || 0}</td>
+              <td className="py-2 px-3 text-center text-slate-500 whitespace-nowrap">{s.sinpep_count || 0}</td>
+              <td className="py-2 px-3 text-right font-bold text-slate-900 dark:text-white whitespace-nowrap">{s.total_requests}</td>
             </tr>
           ))}
         </tbody>
@@ -294,14 +294,14 @@ export const RegulationDash: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+          <table className="w-full text-xs text-left min-w-[620px]">
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th className="py-2.5 px-3">Unidade Solicitante (UBS)</th>
-                <th className="py-2.5 px-3 text-center">Total Encaminhado</th>
-                <th className="py-2.5 px-3 text-center">Agendadas</th>
-                <th className="py-2.5 px-3 text-center">Devolvidas</th>
-                <th className="py-2.5 px-3 text-right">Taxa de Devolução</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Unidade Solicitante (UBS)</th>
+                <th className="py-2.5 px-3 text-center whitespace-nowrap">Total Encaminhado</th>
+                <th className="py-2.5 px-3 text-center whitespace-nowrap">Agendadas</th>
+                <th className="py-2.5 px-3 text-center whitespace-nowrap">Devolvidas</th>
+                <th className="py-2.5 px-3 text-right whitespace-nowrap">Taxa de Devolução</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -314,18 +314,18 @@ export const RegulationDash: React.FC = () => {
                     <td className="py-2.5 px-3 font-semibold text-slate-800 dark:text-slate-200">
                       {u.ubs_name}
                     </td>
-                    <td className="py-2.5 px-3 text-center font-bold text-blue-600 dark:text-blue-400">
+                    <td className="py-2.5 px-3 text-center font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
                       {total}
                     </td>
-                    <td className="py-2.5 px-3 text-center text-emerald-600 font-medium">
+                    <td className="py-2.5 px-3 text-center text-emerald-600 font-medium whitespace-nowrap">
                       {u.scheduled || 0}
                     </td>
-                    <td className="py-2.5 px-3 text-center text-rose-600 font-medium">
+                    <td className="py-2.5 px-3 text-center text-rose-600 font-medium whitespace-nowrap">
                       {returned}
                     </td>
-                    <td className="py-2.5 px-3 text-right">
+                    <td className="py-2.5 px-3 text-right whitespace-nowrap">
                       <span className={`px-2 py-0.5 rounded text-3xs font-bold ${
-                        rate > 20 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
+                        rate > 20 ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                       }`}>
                         {rate}%
                       </span>
