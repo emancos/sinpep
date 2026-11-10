@@ -8,6 +8,13 @@ export interface ActiveProfile {
     isDefault?: boolean;
 }
 
+export interface ActiveHealthCenter {
+    id: string;
+    name: string;
+    cnes?: string | null;
+    isDefault?: boolean;
+}
+
 export interface User {
     id: string;
     name: string;
@@ -17,6 +24,7 @@ export interface User {
     profileId?: string;
     profileName?: string;
     healthCenterId?: string;
+    isMunicipalRegulator?: boolean;
     sisregUsername?: string;
 }
 
@@ -26,22 +34,29 @@ interface AuthState {
     permissions: string[];
     activeProfile: ActiveProfile | null;
     availableProfiles: ActiveProfile[];
+    activeHealthCenter: ActiveHealthCenter | null;
+    availableHealthCenters: ActiveHealthCenter[];
     isAuthenticated: boolean;
     login: (
         token: string,
         user: User,
         permissions: string[],
         activeProfile?: ActiveProfile | null,
-        availableProfiles?: ActiveProfile[]
+        availableProfiles?: ActiveProfile[],
+        activeHealthCenter?: ActiveHealthCenter | null,
+        availableHealthCenters?: ActiveHealthCenter[]
     ) => void;
     selectProfile: (activeProfile: ActiveProfile, permissions: string[], token?: string) => void;
+    selectHealthCenter: (healthCenter: ActiveHealthCenter, token?: string) => void;
     logout: () => void;
     updateUser: (user: Partial<User>) => void;
     syncSession: (
         user: Partial<User>,
         permissions?: string[],
         activeProfile?: ActiveProfile | null,
-        availableProfiles?: ActiveProfile[]
+        availableProfiles?: ActiveProfile[],
+        activeHealthCenter?: ActiveHealthCenter | null,
+        availableHealthCenters?: ActiveHealthCenter[]
     ) => void;
 }
 
@@ -66,6 +81,8 @@ export const useAuthStore = create<AuthState>((set) => {
             localStorage.removeItem('app_base_permissions');
             localStorage.removeItem('app_base_active_profile');
             localStorage.removeItem('app_base_available_profiles');
+            localStorage.removeItem('app_base_active_health_center');
+            localStorage.removeItem('app_base_available_health_centers');
         } catch {
             // Ignora erro de storage
         }
@@ -76,6 +93,8 @@ export const useAuthStore = create<AuthState>((set) => {
     const savedPermissions = validToken ? getSavedItem('app_base_permissions') : null;
     const savedActiveProfile = validToken ? getSavedItem('app_base_active_profile') : null;
     const savedAvailableProfiles = validToken ? getSavedItem('app_base_available_profiles') : null;
+    const savedActiveHealthCenter = validToken ? getSavedItem('app_base_active_health_center') : null;
+    const savedAvailableHealthCenters = validToken ? getSavedItem('app_base_available_health_centers') : null;
 
     let parsedUser: User | null = null;
     if (savedUser) {
@@ -113,15 +132,35 @@ export const useAuthStore = create<AuthState>((set) => {
         }
     }
 
+    let parsedActiveHealthCenter: ActiveHealthCenter | null = null;
+    if (savedActiveHealthCenter) {
+        try {
+            parsedActiveHealthCenter = JSON.parse(savedActiveHealthCenter);
+        } catch {
+            parsedActiveHealthCenter = null;
+        }
+    }
+
+    let parsedAvailableHealthCenters: ActiveHealthCenter[] = [];
+    if (savedAvailableHealthCenters) {
+        try {
+            parsedAvailableHealthCenters = JSON.parse(savedAvailableHealthCenters);
+        } catch {
+            parsedAvailableHealthCenters = [];
+        }
+    }
+
     return {
         token: validToken,
         user: parsedUser,
         permissions: parsedPermissions,
         activeProfile: parsedActiveProfile,
         availableProfiles: parsedAvailableProfiles,
+        activeHealthCenter: parsedActiveHealthCenter,
+        availableHealthCenters: parsedAvailableHealthCenters,
         isAuthenticated: !!validToken,
 
-        login: (token, user, permissions, activeProfile, availableProfiles) => {
+        login: (token, user, permissions, activeProfile, availableProfiles, activeHealthCenter, availableHealthCenters) => {
             try {
                 localStorage.setItem('app_base_token', token);
                 localStorage.setItem('app_base_user', JSON.stringify(user));
@@ -132,6 +171,12 @@ export const useAuthStore = create<AuthState>((set) => {
                 if (availableProfiles) {
                     localStorage.setItem('app_base_available_profiles', JSON.stringify(availableProfiles));
                 }
+                if (activeHealthCenter) {
+                    localStorage.setItem('app_base_active_health_center', JSON.stringify(activeHealthCenter));
+                }
+                if (availableHealthCenters) {
+                    localStorage.setItem('app_base_available_health_centers', JSON.stringify(availableHealthCenters));
+                }
             } catch (e) {
                 console.error('Failed to save auth state to localStorage:', e);
             }
@@ -141,6 +186,8 @@ export const useAuthStore = create<AuthState>((set) => {
                 permissions,
                 activeProfile: activeProfile || null,
                 availableProfiles: availableProfiles || [],
+                activeHealthCenter: activeHealthCenter || null,
+                availableHealthCenters: availableHealthCenters || [],
                 isAuthenticated: true,
             });
         },
@@ -169,6 +216,27 @@ export const useAuthStore = create<AuthState>((set) => {
             }));
         },
 
+        selectHealthCenter: (healthCenter, newToken) => {
+            try {
+                localStorage.setItem('app_base_active_health_center', JSON.stringify(healthCenter));
+                if (newToken) {
+                    localStorage.setItem('app_base_token', newToken);
+                }
+            } catch (e) {
+                console.error('Failed to save active health center to localStorage:', e);
+            }
+            set((state) => ({
+                token: newToken || state.token,
+                activeHealthCenter: healthCenter,
+                user: state.user
+                    ? {
+                          ...state.user,
+                          healthCenterId: healthCenter.id,
+                      }
+                    : null,
+            }));
+        },
+
         logout: () => {
             try {
                 localStorage.removeItem('app_base_token');
@@ -176,6 +244,8 @@ export const useAuthStore = create<AuthState>((set) => {
                 localStorage.removeItem('app_base_permissions');
                 localStorage.removeItem('app_base_active_profile');
                 localStorage.removeItem('app_base_available_profiles');
+                localStorage.removeItem('app_base_active_health_center');
+                localStorage.removeItem('app_base_available_health_centers');
                 sessionStorage.removeItem('redirect_after_login');
                 sessionStorage.setItem('explicit_logout', 'true');
             } catch (e) {
@@ -187,6 +257,8 @@ export const useAuthStore = create<AuthState>((set) => {
                 permissions: [],
                 activeProfile: null,
                 availableProfiles: [],
+                activeHealthCenter: null,
+                availableHealthCenters: [],
                 isAuthenticated: false,
             });
         },
@@ -205,12 +277,14 @@ export const useAuthStore = create<AuthState>((set) => {
             });
         },
 
-        syncSession: (userData, newPermissions, activeProfile, availableProfiles) => {
+        syncSession: (userData, newPermissions, activeProfile, availableProfiles, activeHealthCenter, availableHealthCenters) => {
             set((state) => {
                 const updatedUser = state.user ? { ...state.user, ...userData } : (userData as User);
                 const updatedPermissions = newPermissions ?? state.permissions;
                 const updatedActiveProfile = activeProfile !== undefined ? activeProfile : state.activeProfile;
                 const updatedAvailableProfiles = availableProfiles !== undefined ? availableProfiles : state.availableProfiles;
+                const updatedActiveHealthCenter = activeHealthCenter !== undefined ? activeHealthCenter : state.activeHealthCenter;
+                const updatedAvailableHealthCenters = availableHealthCenters !== undefined ? availableHealthCenters : state.availableHealthCenters;
 
                 try {
                     localStorage.setItem('app_base_user', JSON.stringify(updatedUser));
@@ -221,6 +295,12 @@ export const useAuthStore = create<AuthState>((set) => {
                     if (updatedAvailableProfiles) {
                         localStorage.setItem('app_base_available_profiles', JSON.stringify(updatedAvailableProfiles));
                     }
+                    if (updatedActiveHealthCenter) {
+                        localStorage.setItem('app_base_active_health_center', JSON.stringify(updatedActiveHealthCenter));
+                    }
+                    if (updatedAvailableHealthCenters) {
+                        localStorage.setItem('app_base_available_health_centers', JSON.stringify(updatedAvailableHealthCenters));
+                    }
                 } catch (e) {
                     console.error('Failed to sync session to localStorage:', e);
                 }
@@ -230,6 +310,8 @@ export const useAuthStore = create<AuthState>((set) => {
                     permissions: updatedPermissions,
                     activeProfile: updatedActiveProfile,
                     availableProfiles: updatedAvailableProfiles,
+                    activeHealthCenter: updatedActiveHealthCenter,
+                    availableHealthCenters: updatedAvailableHealthCenters,
                 };
             });
         },

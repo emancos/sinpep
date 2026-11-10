@@ -31,10 +31,19 @@ import { ThemeToggle } from './ThemeToggle';
 import { CachedAvatar } from './CachedAvatar';
 import { useCurrentDoctor } from '../hooks/useDoctors';
 import { SwitchProfileModal } from './SwitchProfileModal';
+import { SwitchHealthCenterModal } from './SwitchHealthCenterModal';
 import { APP_VERSION } from '../config/version';
 
 export const Layout = () => {
-  const { user, permissions, activeProfile, availableProfiles, logout } = useAuthStore();
+  const {
+    user,
+    permissions,
+    activeProfile,
+    availableProfiles,
+    activeHealthCenter,
+    availableHealthCenters,
+    logout,
+  } = useAuthStore();
   const { t } = useTranslation();
   const location = useLocation();
   const isAdmin = permissions.includes('admin:access');
@@ -47,6 +56,7 @@ export const Layout = () => {
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSwitchProfileOpen, setIsSwitchProfileOpen] = useState(false);
+  const [isSwitchHealthCenterOpen, setIsSwitchHealthCenterOpen] = useState(false);
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -347,8 +357,26 @@ export const Layout = () => {
             <Breadcrumb />
           </div>
 
-          {/* User profile dropdown and Logout - exactly matching mockup image */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Quick Health Center Switcher in Header, ThemeToggle, NotificationBell, User profile dropdown and Logout */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
+            {/* Quick Health Center Switcher */}
+            {availableHealthCenters && availableHealthCenters.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsSwitchHealthCenterOpen(true)}
+                className="h-9 px-2.5 sm:px-3 flex items-center gap-1.5 sm:gap-2 rounded-lg border border-white/20 hover:border-white/30 bg-white/10 hover:bg-white/15 text-white transition-all text-xs sm:text-sm font-medium shadow-sm cursor-pointer max-w-[130px] sm:max-w-[210px]"
+                title={activeHealthCenter ? `Unidade Ativa: ${activeHealthCenter.name}` : 'Alternar Unidade de Saúde'}
+              >
+                <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-200 shrink-0" />
+                <span className="truncate">
+                  {activeHealthCenter ? activeHealthCenter.name : 'Unidade'}
+                </span>
+                {availableHealthCenters.length > 1 && (
+                  <ChevronDown className="w-3.5 h-3.5 text-white/70 shrink-0 hidden sm:block" />
+                )}
+              </button>
+            )}
+
             <ThemeToggle />
             <NotificationBell />
 
@@ -418,6 +446,25 @@ export const Layout = () => {
                       </button>
                     )}
 
+                    {availableHealthCenters && availableHealthCenters.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          setIsSwitchHealthCenterOpen(true);
+                        }}
+                        className="px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-between transition-colors text-left cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Building2 className="w-4 h-4 text-emerald-500" />
+                          <span>Alternar Unidade</span>
+                        </div>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 font-semibold">
+                          {availableHealthCenters.length}
+                        </span>
+                      </button>
+                    )}
+
                     <Link
                       to="/profile"
                       onClick={() => setUserMenuOpen(false)}
@@ -464,6 +511,12 @@ export const Layout = () => {
         <SwitchProfileModal
           isOpen={isSwitchProfileOpen}
           onClose={() => setIsSwitchProfileOpen(false)}
+        />
+
+        {/* Switch Health Center Modal */}
+        <SwitchHealthCenterModal
+          isOpen={isSwitchHealthCenterOpen}
+          onClose={() => setIsSwitchHealthCenterOpen(false)}
         />
 
         {/* Mobile Bottom Navigation */}

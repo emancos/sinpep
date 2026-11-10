@@ -101,6 +101,9 @@ export const SwitchProfileModal: React.FC<SwitchProfileModalProps> = ({ isOpen, 
 
       // 1. Atualiza imediatamente o Zustand store com o novo token, activeProfile e permissões
       selectProfileInStore(newActiveProfile, permissions, accessToken);
+      if (response.data.activeHealthCenter) {
+        useAuthStore.getState().selectHealthCenter(response.data.activeHealthCenter, accessToken);
+      }
 
       // 2. Limpa o cache do React Query de sessões ou queries anteriores
       queryClient.clear();
