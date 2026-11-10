@@ -1785,14 +1785,30 @@ export const CreateRegulationRequest: React.FC = () => {
                       value={cidSearchTerm}
                       onChange={(e) => setCidSearchTerm(e.target.value)}
                       placeholder="Buscar CID-10 por código (ex: I10, E11, M54) ou descrição (ex: Hipertensão)..."
-                      className="w-full pl-9 pr-9 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                      className="w-full pl-9 pr-10 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
                     />
-                    {isSearchingCid && (
+                    {isSearchingCid ? (
                       <Loader className="absolute right-3 top-2.5 w-4 h-4 text-purple-500 animate-spin" />
-                    )}
+                    ) : cidSearchTerm ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCidSearchTerm('');
+                          setCidResults([]);
+                        }}
+                        className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                        title="Limpar busca"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    ) : null}
 
                     {cidResults.length > 0 && (
-                      <div className="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md shadow-2xl divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="absolute z-50 left-0 right-0 mt-1 max-h-64 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md shadow-2xl divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in zoom-in-95 duration-150">
+                        <div className="p-2 bg-slate-50 dark:bg-slate-800/60 text-3xs font-semibold text-slate-500 uppercase tracking-wider flex justify-between items-center">
+                          <span>{cidResults.length} resultado(s) encontrado(s)</span>
+                          <span className="text-purple-600 dark:text-purple-400 font-normal">Clique para selecionar</span>
+                        </div>
                         {cidResults.map((c) => (
                           <button
                             key={c.code}
@@ -1802,21 +1818,28 @@ export const CreateRegulationRequest: React.FC = () => {
                               setCidResults([]);
                               setCidSearchTerm('');
                             }}
-                            className="w-full text-left p-2.5 hover:bg-purple-50/60 dark:hover:bg-slate-800 flex items-center justify-between cursor-pointer"
+                            className="w-full text-left p-2.5 hover:bg-purple-50/60 dark:hover:bg-slate-800 flex items-center justify-between cursor-pointer transition-colors"
                           >
-                            <div className="flex items-center gap-2">
-                              <span className="px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300 font-mono text-xs font-bold">
+                            <div className="flex items-center gap-2 min-w-0 pr-2">
+                              <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300 font-mono text-xs font-bold shrink-0">
                                 {c.code}
                               </span>
-                              <span className="text-xs text-slate-700 dark:text-slate-300">
+                              <span className="text-xs text-slate-700 dark:text-slate-300 truncate">
                                 {c.description}
                               </span>
                             </div>
-                            <span className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold">
+                            <span className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold shrink-0">
                               Escolher
                             </span>
                           </button>
                         ))}
+                      </div>
+                    )}
+
+                    {!isSearchingCid && cidSearchTerm.trim().length >= 2 && cidResults.length === 0 && (
+                      <div className="absolute z-50 left-0 right-0 mt-1 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-lg text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                        <span>Nenhum CID-10 encontrado para &quot;{cidSearchTerm}&quot;. Tente outro código ou termo.</span>
                       </div>
                     )}
                   </div>
