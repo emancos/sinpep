@@ -53,30 +53,54 @@ export const SwitchProfileModal: React.FC<SwitchProfileModalProps> = ({ isOpen, 
     const name = profileName.toLowerCase();
     const isAdmin = perms.includes('admin:access');
 
+    // Se o perfil mantiver acesso de administrador, permanece na rota atual
+    if (isAdmin) {
+      return currentPath === '/login' ? '/' : currentPath;
+    }
+
+    // Rotas exclusivas de administrador
+    const isAdminOnlyRoute = 
+      currentPath.startsWith('/users') ||
+      currentPath.startsWith('/health-centers') ||
+      currentPath.startsWith('/doctors') ||
+      currentPath.startsWith('/procedures') ||
+      currentPath.startsWith('/specialties') ||
+      currentPath.startsWith('/medications') ||
+      currentPath.startsWith('/municipalities');
+
     // Se estiver navegando para Solicitante UBS ou possuir permissão
     if (name.includes('solicitante') || perms.includes('regulation-solicitor:read')) {
-      if (currentPath.includes('/regulation/inbox') || currentPath === '/') {
+      if (isAdminOnlyRoute || currentPath.includes('/regulation/inbox') || currentPath === '/') {
         return '/regulation/solicitor';
       }
     }
 
     // Se estiver navegando para Regulador Central ou possuir permissão
     if (name.includes('regula') || perms.includes('regulation-operator:read')) {
-      if (currentPath.includes('/regulation/solicitor') || currentPath === '/') {
+      if (isAdminOnlyRoute || currentPath.includes('/regulation/solicitor') || currentPath === '/') {
         return '/regulation/inbox';
       }
     }
 
     // Se estiver alternando para Recepcionista
     if (name.includes('recep') || perms.includes('rooms:read')) {
-      if (currentPath.includes('/regulation') || currentPath === '/') {
+      if (isAdminOnlyRoute || currentPath.includes('/regulation') || currentPath === '/') {
         return '/reception';
       }
     }
 
-    // Para Administrador ou se a rota atual ainda for permitida
-    if (isAdmin) {
-      return currentPath === '/login' ? '/' : currentPath;
+    // Se estiver alternando para Médico
+    if (name.includes('médico') || name.includes('medico')) {
+      if (isAdminOnlyRoute || currentPath === '/') {
+        return '/patients';
+      }
+    }
+
+    // Se estiver alternando para Coordenador
+    if (name.includes('coordenador')) {
+      if (isAdminOnlyRoute || currentPath === '/') {
+        return '/schedules';
+      }
     }
 
     return '/';
@@ -99,16 +123,23 @@ export const SwitchProfileModal: React.FC<SwitchProfileModalProps> = ({ isOpen, 
         availableProfiles: newAvailableProfiles,
       } = response.data;
 
-      // 1. Atualiza imediatamente o Zustand store com o novo token, activeProfile e permissões
+      // 1. Redireciona inteligentemente de acordo com a função do novo perfil ANTES
+      // para evitar que guardas de rotas antigas exibam 'Acesso negado' indevido
+      const targetRoute = getTargetRouteForProfile(newActiveProfile.name, permissions, location.pathname);
+      if (targetRoute !== location.pathname) {
+        navigate(targetRoute, { replace: true });
+      }
+
+      // 2. Atualiza imediatamente o Zustand store com o novo token, activeProfile e permissões
       selectProfileInStore(newActiveProfile, permissions, accessToken);
       if (response.data.activeHealthCenter) {
         useAuthStore.getState().selectHealthCenter(response.data.activeHealthCenter, accessToken);
       }
 
-      // 2. Limpa o cache do React Query de sessões ou queries anteriores
+      // 3. Limpa o cache do React Query de sessões ou queries anteriores
       queryClient.clear();
 
-      // 3. Pré-popula a query auth-me vinculada ao novo token para navegação instantânea
+      // 4. Pré-popula a query auth-me vinculada ao novo token para navegação instantânea
       queryClient.setQueryData(['auth-me', accessToken], {
         id: user?.id,
         name: user?.name,
@@ -125,10 +156,6 @@ export const SwitchProfileModal: React.FC<SwitchProfileModalProps> = ({ isOpen, 
 
       toast.success(`Perfil alternado para "${profile.name}" com sucesso!`);
       onClose();
-
-      // 4. Redireciona inteligentemente de acordo com a função do novo perfil
-      const targetRoute = getTargetRouteForProfile(newActiveProfile.name, permissions, location.pathname);
-      navigate(targetRoute, { replace: true });
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Erro ao alternar perfil';
       toast.error(msg);
