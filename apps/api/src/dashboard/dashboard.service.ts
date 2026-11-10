@@ -287,13 +287,21 @@ export class DashboardService {
         r.protocol_number as protocol,
         r.created_at,
         r.updated_at,
-        r.evaluation_notes as reason,
+        COALESCE(rsh.justification, 'Devolvida para adequação clínica') as reason,
         p.name as patient_name,
         p.cpf as patient_cpf,
-        s.name as specialty_name
+        COALESCE(s.name, pr.name, 'Procedimento') as specialty_name
       FROM regulation_requests r
       JOIN patients p ON r.patient_id = p.id
-      JOIN specialties s ON r.specialty_id = s.id
+      LEFT JOIN specialties s ON r.specialty_id = s.id
+      LEFT JOIN procedures pr ON r.procedure_id = pr.id
+      LEFT JOIN LATERAL (
+        SELECT justification 
+        FROM regulation_status_history 
+        WHERE request_id = r.id AND new_status = 'DEVOLVIDA' 
+        ORDER BY created_at DESC 
+        LIMIT 1
+      ) rsh ON true
       WHERE r.requesting_health_center_id = ${healthCenterId}
         AND r.status = 'DEVOLVIDA'
       ORDER BY r.updated_at DESC
@@ -311,11 +319,12 @@ export class DashboardService {
         r.scheduled_time as scheduled_time,
         p.name as patient_name,
         p.cpf as patient_cpf,
-        s.name as specialty_name,
+        COALESCE(s.name, pr.name, 'Procedimento') as specialty_name,
         hc.name as executing_unit
       FROM regulation_requests r
       JOIN patients p ON r.patient_id = p.id
-      JOIN specialties s ON r.specialty_id = s.id
+      LEFT JOIN specialties s ON r.specialty_id = s.id
+      LEFT JOIN procedures pr ON r.procedure_id = pr.id
       LEFT JOIN health_centers hc ON r.executing_health_center_id = hc.id
       WHERE r.requesting_health_center_id = ${healthCenterId}
         AND r.status = 'AGENDADA'
