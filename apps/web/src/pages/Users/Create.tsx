@@ -263,9 +263,10 @@ export const CreateOrEditUser: React.FC = () => {
   }
 
   const isMutating = createMutation.isPending || updateMutation.isPending;
+  const executingHealthCenters = healthCenters.filter((hc) => hc.stExecutante);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-12">
+    <div className="max-w-5xl mx-auto space-y-6 pb-12">
       {/* Header Banner */}
       <div className="flex items-center gap-4">
         <button
@@ -295,8 +296,8 @@ export const CreateOrEditUser: React.FC = () => {
             <h2 className="text-lg font-semibold">Dados do Utilizador</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1 md:col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Nome Completo
               </label>
@@ -308,14 +309,14 @@ export const CreateOrEditUser: React.FC = () => {
                     {...field}
                     type="text"
                     placeholder="Ex: João Silva"
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                    className="w-full max-w-md px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                   />
                 )}
               />
               {errors.name && <p className="text-rose-700 dark:text-rose-500 text-xs">{errors.name.message}</p>}
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 E-mail
               </label>
@@ -328,7 +329,7 @@ export const CreateOrEditUser: React.FC = () => {
                     type="email"
                     placeholder="Ex: joao@exemplo.com"
                     disabled={isEditMode}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                    className="w-full max-w-md px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 disabled:opacity-50"
                   />
                 )}
               />
@@ -336,7 +337,7 @@ export const CreateOrEditUser: React.FC = () => {
               {isEditMode && <p className="text-[10px] text-slate-500">O e-mail não pode ser alterado.</p>}
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Telefone
               </label>
@@ -360,7 +361,7 @@ export const CreateOrEditUser: React.FC = () => {
                       }
                       field.onChange(formatted);
                     }}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                    className="w-full max-w-xs px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                   />
                 )}
               />
@@ -385,7 +386,7 @@ export const CreateOrEditUser: React.FC = () => {
               <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {profiles?.map((p) => {
                 const isSelected = selectedProfileIds.includes(p.id);
                 const isDefault = defaultProfileId === p.id;
@@ -476,15 +477,15 @@ export const CreateOrEditUser: React.FC = () => {
           )}
         </div>
 
-        {/* Seção: Unidades de Saúde Vinculadas */}
+        {/* Seção: Unidades de Saúde Vinculadas (Apenas Executantes) */}
         <div className="pt-4 border-t border-slate-300 dark:border-slate-800 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-slate-900 dark:text-white">
               <Building2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              <h2 className="text-lg font-semibold">Unidades de Saúde Vinculadas</h2>
+              <h2 className="text-lg font-semibold">Unidades de Saúde Vinculadas (Executantes)</h2>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Vincule uma ou mais unidades (UBS, Policlínicas, Hospitais) e defina a unidade principal.
+              Listando apenas unidades executantes aptas a regulação e atendimento. Defina a unidade principal.
             </p>
           </div>
 
@@ -493,63 +494,70 @@ export const CreateOrEditUser: React.FC = () => {
               <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto p-1">
-              {healthCenters.map((hc) => {
-                const isSelected = selectedHealthCenterIds.includes(hc.id);
-                const isDefault = defaultHealthCenterId === hc.id;
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-80 overflow-y-auto p-1">
+              {executingHealthCenters.length === 0 ? (
+                <div className="col-span-full py-8 text-center text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-dashed border-slate-300 dark:border-slate-800">
+                  Nenhuma unidade de saúde com perfil executante encontrada. Cadastre ou marque unidades com "Executante: Sim" em Administração &gt; UBS.
+                </div>
+              ) : (
+                executingHealthCenters.map((hc) => {
+                  const isSelected = selectedHealthCenterIds.includes(hc.id);
+                  const isDefault = defaultHealthCenterId === hc.id;
 
-                return (
-                  <div
-                    key={hc.id}
-                    onClick={() => toggleHealthCenter(hc.id)}
-                    className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
-                      isSelected
-                        ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-1 ring-emerald-500 shadow-xs'
-                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-slate-300 dark:hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div
-                          className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
-                            isSelected
-                              ? 'bg-emerald-600 border-emerald-600 text-white'
-                              : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900'
-                          }`}
-                        >
-                          {isSelected && <Check className="w-3 h-3" />}
+                  return (
+                    <div
+                      key={hc.id}
+                      onClick={() => toggleHealthCenter(hc.id)}
+                      className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                        isSelected
+                          ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-1 ring-emerald-500 shadow-xs'
+                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-slate-300 dark:hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
+                              isSelected
+                                ? 'bg-emerald-600 border-emerald-600 text-white'
+                                : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900'
+                            }`}
+                          >
+                            {isSelected && <Check className="w-3 h-3" />}
+                          </div>
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                            {hc.name}
+                          </span>
                         </div>
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
-                          {hc.name}
-                        </span>
+
+                        {isSelected && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDefaultHealthCenterId(hc.id);
+                            }}
+                            className={`flex items-center gap-1 text-3xs px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer shrink-0 ${
+                              isDefault
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-emerald-100 hover:text-emerald-800'
+                            }`}
+                            title={isDefault ? 'Unidade Principal' : 'Definir como Principal'}
+                          >
+                            <Star className={`w-2.5 h-2.5 ${isDefault ? 'fill-white' : ''}`} />
+                            <span>{isDefault ? 'Principal' : 'Tornar Principal'}</span>
+                          </button>
+                        )}
                       </div>
 
-                      {isSelected && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDefaultHealthCenterId(hc.id);
-                          }}
-                          className={`flex items-center gap-1 text-3xs px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer shrink-0 ${
-                            isDefault
-                              ? 'bg-emerald-600 text-white shadow-xs'
-                              : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-emerald-100 hover:text-emerald-800'
-                          }`}
-                          title={isDefault ? 'Unidade Principal' : 'Definir como Principal'}
-                        >
-                          <Star className={`w-2.5 h-2.5 ${isDefault ? 'fill-white' : ''}`} />
-                          <span>{isDefault ? 'Principal' : 'Tornar Principal'}</span>
-                        </button>
-                      )}
+                      <div className="flex items-center justify-between text-3xs text-slate-500 dark:text-slate-400 pl-6">
+                        <span>{hc.cnes ? `CNES: ${hc.cnes}` : 'CNES não informado'}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Executante</span>
+                      </div>
                     </div>
-
-                    <p className="text-3xs text-slate-500 dark:text-slate-400 pl-6">
-                      {hc.cnes ? `CNES: ${hc.cnes}` : 'CNES não informado'}
-                    </p>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           )}
         </div>
@@ -561,7 +569,7 @@ export const CreateOrEditUser: React.FC = () => {
             <h2 className="text-lg font-semibold">Credenciais de Acesso</h2>
           </div>
 
-          <div className="space-y-1 max-w-md">
+          <div className="space-y-1 max-w-xs">
             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Senha {isEditMode && '(Opcional)'}
             </label>
@@ -573,7 +581,7 @@ export const CreateOrEditUser: React.FC = () => {
                   {...field}
                   type="password"
                   placeholder={isEditMode ? "Preencha apenas para alterar" : "Mínimo 6 caracteres"}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                  className="w-full max-w-xs px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                 />
               )}
             />
