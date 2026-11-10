@@ -181,6 +181,19 @@ export const regulationService = {
     return data;
   },
 
+  async getMyScope(activeHealthCenterId?: string): Promise<{
+    isMunicipalRegulator: boolean;
+    isAdmin: boolean;
+    activeHealthCenter: { id: string; name: string; cnes?: string } | null;
+    offeredProceduresCount: number;
+    offeredProcedureGroupsCount: number;
+  }> {
+    const { data } = await api.get('/regulation/my-scope', {
+      params: activeHealthCenterId ? { activeHealthCenterId } : undefined,
+    });
+    return data;
+  },
+
   // Módulo Central de Regulação (Operador / Médico Regulador)
   async getInbox(params?: {
     page?: number;
@@ -192,6 +205,7 @@ export const regulationService = {
     priority?: string;
     requestingHealthCenterId?: string;
     executingHealthCenterId?: string;
+    activeHealthCenterId?: string;
     search?: string;
   }): Promise<{
     data: RegulationRequest[];

@@ -19,9 +19,12 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  Building2,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   useRegulationInbox,
+  useRegulationMyScope,
   useCancelRegulationSchedule,
 } from '../../hooks/useRegulation';
 import { useHealthCenters } from '../../hooks/useHealthCenters';
@@ -34,6 +37,7 @@ import { ScheduleRegulationModal } from './ScheduleRegulationModal';
 import { RequestDetailsModal } from './RequestDetailsModal';
 import { BookSlotModal } from './BookSlotModal';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
+import { SwitchHealthCenterModal } from '../../components/SwitchHealthCenterModal';
 import { TablePagination } from '../../components/TablePagination';
 import { useAuthStore } from '../../store/useAuthStore';
 import { formatCPF, formatCNS, formatDateBR } from '../../utils/brazilianFormatters';
@@ -42,10 +46,16 @@ import { toast } from 'sonner';
 export const OperatorInbox: React.FC = () => {
   const permissions = useAuthStore((state) => state.permissions);
   const activeProfile = useAuthStore((state) => state.activeProfile);
+  const activeHealthCenter = useAuthStore((state) => state.activeHealthCenter);
+  const availableHealthCenters = useAuthStore((state) => state.availableHealthCenters);
+  const [isSwitchHealthCenterOpen, setIsSwitchHealthCenterOpen] = useState(false);
+
   const isAdmin = permissions.includes('admin:access');
   const isRegulator =
     activeProfile?.name === 'Regulador (Central de Regulação)' ||
     permissions.includes('regulation-operator:read');
+
+  const { data: myScope } = useRegulationMyScope(activeHealthCenter?.id);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -81,7 +91,7 @@ export const OperatorInbox: React.FC = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, typeFilter, priorityFilter, requestingCenterFilter, debouncedSearch]);
+  }, [statusFilter, typeFilter, priorityFilter, requestingCenterFilter, debouncedSearch, activeHealthCenter?.id]);
 
   // Modals
   const [evaluatingRequest, setEvaluatingRequest] = useState<RegulationRequest | null>(null);
@@ -105,6 +115,7 @@ export const OperatorInbox: React.FC = () => {
     type: typeFilter !== 'ALL' ? typeFilter : undefined,
     priority: priorityFilter !== 'ALL' ? priorityFilter : undefined,
     requestingHealthCenterId: requestingCenterFilter !== 'ALL' ? requestingCenterFilter : undefined,
+    activeHealthCenterId: activeHealthCenter?.id,
     search: debouncedSearch.trim() || undefined,
   });
 
@@ -251,6 +262,36 @@ export const OperatorInbox: React.FC = () => {
           <p className="text-xs lg:text-sm text-slate-500 dark:text-slate-400">
             Avalie clinicamente as solicitações das UBS, autorize, devolva ou agende vagas nas unidades executantes.
           </p>
+
+          {/* Escopo Regulatório: Municipal Irrestrito vs Local por Unidade */}
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            {myScope?.isMunicipalRegulator || isAdmin ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-2xs">
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                <span>Central de Regulação Geral: Escopo Municipal Irrestrito</span>
+              </span>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs">
+                  <Building2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Unidade Executante Ativa: {activeHealthCenter?.name || 'Nenhuma unidade ativa'}</span>
+                  <span className="text-3xs font-semibold px-1.5 py-0.5 rounded-md bg-emerald-200/60 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200">
+                    {myScope?.offeredProceduresCount || 0} proc. ofertados
+                  </span>
+                </span>
+
+                {availableHealthCenters && availableHealthCenters.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsSwitchHealthCenterOpen(true)}
+                    className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 font-semibold underline underline-offset-2 cursor-pointer"
+                  >
+                    <span>Alternar unidade</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -907,6 +948,12 @@ export const OperatorInbox: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Switch Health Center Modal */}
+      <SwitchHealthCenterModal
+        isOpen={isSwitchHealthCenterOpen}
+        onClose={() => setIsSwitchHealthCenterOpen(false)}
+      />
     </div>
   );
 };

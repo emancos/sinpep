@@ -23,6 +23,14 @@ export const useRegulationMyCenter = (params?: {
   });
 };
 
+export const useRegulationMyScope = (activeHealthCenterId?: string) => {
+  return useQuery({
+    queryKey: ['regulation', 'my-scope', activeHealthCenterId],
+    queryFn: () => regulationService.getMyScope(activeHealthCenterId),
+    staleTime: 1000 * 60 * 5,
+  });
+};
+
 export const useRegulationInbox = (params?: {
   page?: number;
   limit?: number;
@@ -33,6 +41,7 @@ export const useRegulationInbox = (params?: {
   priority?: string;
   requestingHealthCenterId?: string;
   executingHealthCenterId?: string;
+  activeHealthCenterId?: string;
   search?: string;
 }) => {
   return useQuery({
