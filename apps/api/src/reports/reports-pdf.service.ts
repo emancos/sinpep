@@ -96,6 +96,10 @@ export class ReportsPdfService {
         const contentWidth = pageWidth - 2 * marginX;
         const footerY = pageHeight - 32;
 
+        // Desativa a margem inferior para evitar que o PDFKit dispare quebra automática de página ao desenhar o rodapé
+        const oldBottom = doc.page.margins.bottom;
+        doc.page.margins.bottom = 0;
+
         // Linha divisória do rodapé
         doc.strokeColor('#cbd5e1').lineWidth(0.5)
           .moveTo(marginX, footerY - 4)
@@ -108,7 +112,7 @@ export class ReportsPdfService {
           `Documento emitido eletronicamente pelo SINPeP em ${dateStr} às ${timeStr} por ${userName}${userProfile}`,
           marginX,
           footerY,
-          { width: contentWidth - 80, align: 'left' }
+          { width: contentWidth - 80, align: 'left', lineBreak: false }
         );
 
         // Paginação "Página X de Y"
@@ -117,8 +121,10 @@ export class ReportsPdfService {
           `Página ${i + 1} de ${pageCount}`,
           marginX + contentWidth - 80,
           footerY,
-          { width: 80, align: 'right' }
+          { width: 80, align: 'right', lineBreak: false }
         );
+
+        doc.page.margins.bottom = oldBottom;
       }
 
       doc.end();
@@ -157,16 +163,17 @@ export class ReportsPdfService {
 
     // Identificação Governamental
     doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#0f172a');
-    doc.text(branding.municipalityName.toUpperCase(), textStartX, y, { width: contentWidth - (textStartX - marginX) - 80 });
+    doc.text(branding.municipalityName.toUpperCase(), textStartX, y, { width: contentWidth - (textStartX - marginX) - 80, lineBreak: false });
 
     doc.font('Helvetica').fontSize(8).fillColor('#334155');
-    doc.text(branding.department, textStartX, y + 11);
+    doc.text(branding.department, textStartX, y + 11, { lineBreak: false });
 
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0051a2');
     doc.text(
       `${branding.systemTitle} — ${branding.systemSubtitle}`,
       textStartX,
-      y + 21
+      y + 21,
+      { lineBreak: false }
     );
 
     if (options.unitName) {
@@ -174,7 +181,8 @@ export class ReportsPdfService {
       doc.text(
         `Unidade: ${options.unitName}${options.cnes ? ` (CNES: ${options.cnes})` : ''}`,
         textStartX,
-        y + 30
+        y + 30,
+        { lineBreak: false }
       );
     }
 
@@ -183,7 +191,7 @@ export class ReportsPdfService {
     // Faixa com Título Oficial do Relatório
     doc.rect(marginX, y, contentWidth, 20).fill('#0051a2');
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#ffffff');
-    doc.text(options.title.toUpperCase(), marginX + 10, y + 5, { width: contentWidth - 20, align: 'center' });
+    doc.text(options.title.toUpperCase(), marginX + 10, y + 5, { width: contentWidth - 20, align: 'center', lineBreak: false });
     y += 24;
 
     // Barra de Parâmetros e Filtros (se houver)
@@ -199,7 +207,7 @@ export class ReportsPdfService {
           `Filtros aplicados: ${filterPairs.join('  |  ')}`,
           marginX + 6,
           y + 3.5,
-          { width: contentWidth - 12, ellipsis: true }
+          { width: contentWidth - 12, ellipsis: true, lineBreak: false }
         );
         y += 18;
       }
@@ -215,9 +223,15 @@ export class ReportsPdfService {
     const marginX = 30;
     const contentWidth = doc.page.width - 2 * marginX;
 
+    // Garante que não inicia uma seção colada ao rodapé sem espaço para a tabela
+    if (y + 40 > doc.page.height - 50) {
+      doc.addPage();
+      y = 35;
+    }
+
     doc.rect(marginX, y, contentWidth, 15).fill('#e2e8f0');
     doc.font('Helvetica-Bold').fontSize(8).fillColor('#1e293b');
-    doc.text(title.toUpperCase(), marginX + 6, y + 3.5);
+    doc.text(title.toUpperCase(), marginX + 6, y + 3.5, { lineBreak: false });
     return y + 19;
   }
 
@@ -242,16 +256,16 @@ export class ReportsPdfService {
 
       // Label
       doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#64748b');
-      doc.text(card.label.toUpperCase(), cx + 5, y + 4, { width: cardWidth - 10, align: 'center', ellipsis: true });
+      doc.text(card.label.toUpperCase(), cx + 5, y + 4, { width: cardWidth - 10, align: 'center', ellipsis: true, lineBreak: false });
 
       // Value
       doc.font('Helvetica-Bold').fontSize(13).fillColor(card.color || '#0f172a');
-      doc.text(String(card.value), cx + 5, y + 13, { width: cardWidth - 10, align: 'center' });
+      doc.text(String(card.value), cx + 5, y + 13, { width: cardWidth - 10, align: 'center', lineBreak: false });
 
       // Sub
       if (card.sub) {
         doc.font('Helvetica').fontSize(5.5).fillColor('#94a3b8');
-        doc.text(card.sub, cx + 5, y + 27, { width: cardWidth - 10, align: 'center' });
+        doc.text(card.sub, cx + 5, y + 27, { width: cardWidth - 10, align: 'center', lineBreak: false });
       }
     });
 
@@ -283,6 +297,7 @@ export class ReportsPdfService {
           width: h.width - 4,
           align: h.align || 'left',
           ellipsis: true,
+          lineBreak: false,
         });
         curX += h.width;
       });
@@ -312,6 +327,7 @@ export class ReportsPdfService {
           width: h ? h.width - 4 : 50,
           align: h?.align || 'left',
           ellipsis: true,
+          lineBreak: false,
         });
         if (h) curX += h.width;
       });
