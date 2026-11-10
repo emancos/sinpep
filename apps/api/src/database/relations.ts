@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { profiles, users, userProfiles, userCustomPermissions, permissions, healthCenters, healthAgents, patients, patientPhones, patientAnamnesis, doctors, profilePermissions, doctorSpecialties, specialties, doctorProcedures, procedures, doctorProcedureGroups, procedureGroups } from "./schema";
+import { profiles, users, userProfiles, userHealthCenters, userCustomPermissions, permissions, healthCenters, healthAgents, patients, patientPhones, patientAnamnesis, doctors, profilePermissions, doctorSpecialties, specialties, doctorProcedures, procedures, doctorProcedureGroups, procedureGroups } from "./schema";
 
 export const usersRelations = relations(users, ({one, many}) => ({
 	profile: one(profiles, {
@@ -11,6 +11,7 @@ export const usersRelations = relations(users, ({one, many}) => ({
 		references: [healthCenters.id]
 	}),
 	userProfiles: many(userProfiles),
+	userHealthCenters: many(userHealthCenters),
 	userCustomPermissions: many(userCustomPermissions),
 	healthAgents: many(healthAgents),
 	doctors: many(doctors),
@@ -65,6 +66,18 @@ export const healthCentersRelations = relations(healthCenters, ({many}) => ({
 	healthAgents: many(healthAgents),
 	patients: many(patients),
 	users: many(users),
+	userHealthCenters: many(userHealthCenters),
+}));
+
+export const userHealthCentersRelations = relations(userHealthCenters, ({one}) => ({
+	user: one(users, {
+		fields: [userHealthCenters.userId],
+		references: [users.id]
+	}),
+	healthCenter: one(healthCenters, {
+		fields: [userHealthCenters.healthCenterId],
+		references: [healthCenters.id]
+	}),
 }));
 
 export const patientsRelations = relations(patients, ({one, many}) => ({

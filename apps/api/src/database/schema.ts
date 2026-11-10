@@ -26,6 +26,7 @@ export const users = pgTable("users", {
 	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
 	profileId: uuid("profile_id").notNull(),
 	healthCenterId: uuid("health_center_id"),
+	isMunicipalRegulator: boolean("is_municipal_regulator").default(false).notNull(),
 }, (table) => [
 	uniqueIndex("users_email_key").using("btree", table.email.asc().nullsLast().op("text_ops")),
 	foreignKey({
@@ -88,6 +89,29 @@ export const userProfiles = pgTable("user_profiles", {
 		columns: [table.profileId],
 		foreignColumns: [profiles.id],
 		name: "user_profiles_profile_id_fkey"
+	}).onUpdate("cascade").onDelete("cascade"),
+]);
+
+export const userHealthCenters = pgTable("user_health_centers", {
+	id: uuid().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	healthCenterId: uuid("health_center_id").notNull(),
+	isDefault: boolean("is_default").default(false).notNull(),
+	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
+}, (table) => [
+	uniqueIndex("user_health_centers_user_id_health_center_id_key").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.healthCenterId.asc().nullsLast().op("uuid_ops")),
+	index("user_health_centers_user_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops")),
+	index("user_health_centers_health_center_idx").using("btree", table.healthCenterId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "user_health_centers_user_id_fkey"
+	}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+		columns: [table.healthCenterId],
+		foreignColumns: [healthCenters.id],
+		name: "user_health_centers_health_center_id_fkey"
 	}).onUpdate("cascade").onDelete("cascade"),
 ]);
 

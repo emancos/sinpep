@@ -416,7 +416,39 @@ export class DatabaseMigrationService implements OnModuleInit {
         END $scores$;
       `);
 
-      this.logger.log('Database migrations for procedures, quotas, auto-scheduling & esus import applied successfully.');
+      // Migração de Múltiplos Perfis, Múltiplas Unidades de Saúde e Escopo de Regulação
+      await this.db.execute(sql`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS is_municipal_regulator BOOLEAN NOT NULL DEFAULT false;
+
+        CREATE TABLE IF NOT EXISTS user_health_centers (
+          id UUID PRIMARY KEY NOT NULL,
+          user_id UUID NOT NULL REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
+          health_center_id UUID NOT NULL REFERENCES health_centers(id) ON UPDATE CASCADE ON DELETE CASCADE,
+          is_default BOOLEAN NOT NULL DEFAULT false,
+          created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP(3) NOT NULL,
+          CONSTRAINT user_health_centers_user_id_health_center_id_key UNIQUE (user_id, health_center_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS user_health_centers_user_idx ON user_health_centers (user_id);
+        CREATE INDEX IF NOT EXISTS user_health_centers_health_center_idx ON user_health_centers (health_center_id);
+
+        -- Migra unidades legadas de users.health_center_id para user_health_centers
+        INSERT INTO user_health_centers (id, user_id, health_center_id, is_default, created_at, updated_at)
+        SELECT gen_random_uuid(), u.id, u.health_center_id, true, NOW(), NOW()
+        FROM users u
+        WHERE u.health_center_id IS NOT NULL
+        ON CONFLICT (user_id, health_center_id) DO NOTHING;
+
+        -- Garante que todo usuário possua registro de perfil em user_profiles com is_default = true
+        INSERT INTO user_profiles (id, user_id, profile_id, is_default, created_at)
+        SELECT gen_random_uuid(), u.id, u.profile_id, true, NOW()
+        FROM users u
+        WHERE u.profile_id IS NOT NULL
+        ON CONFLICT (user_id, profile_id) DO NOTHING;
+      `);
+
+      this.logger.log('Database migrations for procedures, quotas, auto-scheduling, user health centers & esus import applied successfully.');
     } catch (error) {
       this.logger.error('Error applying procedure & quota database migrations', error);
     }
