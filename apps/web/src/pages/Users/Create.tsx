@@ -263,7 +263,29 @@ export const CreateOrEditUser: React.FC = () => {
   }
 
   const isMutating = createMutation.isPending || updateMutation.isPending;
-  const executingHealthCenters = healthCenters.filter((hc) => hc.stExecutante);
+  const [unitFilter, setUnitFilter] = useState<'solicitante' | 'executante' | 'all'>('solicitante');
+
+  // Ajusta automaticamente o filtro recomendado quando perfis específicos forem selecionados
+  useEffect(() => {
+    const isSolicitanteSelected = profiles?.some(
+      (p) => selectedProfileIds.includes(p.id) && p.name.includes('Solicitante')
+    );
+    const isRegulatorSelected = profiles?.some(
+      (p) => selectedProfileIds.includes(p.id) && p.name.includes('Regulador')
+    );
+
+    if (isSolicitanteSelected && !isRegulatorSelected) {
+      setUnitFilter('solicitante');
+    } else if (isRegulatorSelected && !isSolicitanteSelected) {
+      setUnitFilter('executante');
+    }
+  }, [selectedProfileIds, profiles]);
+
+  const filteredHealthCenters = healthCenters.filter((hc) => {
+    if (unitFilter === 'solicitante') return hc.stSolicitante;
+    if (unitFilter === 'executante') return hc.stExecutante;
+    return true;
+  });
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
@@ -477,30 +499,69 @@ export const CreateOrEditUser: React.FC = () => {
           )}
         </div>
 
-        {/* Seção: Unidades de Saúde Vinculadas (Apenas Executantes) */}
+        {/* Seção: Unidades de Saúde Vinculadas */}
         <div className="pt-4 border-t border-slate-300 dark:border-slate-800 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-slate-900 dark:text-white">
-              <Building2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              <h2 className="text-lg font-semibold">Unidades de Saúde Vinculadas (Executantes)</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+                <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <h2 className="text-lg font-semibold">Unidades de Saúde Vinculadas</h2>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Usuários com perfil <strong>Solicitante (UBS)</strong> devem ser vinculados a unidades solicitantes. Defina a unidade principal.
+              </p>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Listando apenas unidades executantes aptas a regulação e atendimento. Defina a unidade principal.
-            </p>
+
+            {/* Alternador de Filtro de Unidades */}
+            <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shrink-0">
+              <button
+                type="button"
+                onClick={() => setUnitFilter('solicitante')}
+                className={`px-2.5 py-1 text-2xs font-bold rounded-md transition-all cursor-pointer ${
+                  unitFilter === 'solicitante'
+                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Solicitantes (UBS)
+              </button>
+              <button
+                type="button"
+                onClick={() => setUnitFilter('executante')}
+                className={`px-2.5 py-1 text-2xs font-bold rounded-md transition-all cursor-pointer ${
+                  unitFilter === 'executante'
+                    ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Executantes
+              </button>
+              <button
+                type="button"
+                onClick={() => setUnitFilter('all')}
+                className={`px-2.5 py-1 text-2xs font-bold rounded-md transition-all cursor-pointer ${
+                  unitFilter === 'all'
+                    ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Todas ({healthCenters.length})
+              </button>
+            </div>
           </div>
 
           {loadingHealthCenters ? (
             <div className="flex items-center justify-center py-6">
-              <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
+              <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-80 overflow-y-auto p-1">
-              {executingHealthCenters.length === 0 ? (
+              {filteredHealthCenters.length === 0 ? (
                 <div className="col-span-full py-8 text-center text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-dashed border-slate-300 dark:border-slate-800">
-                  Nenhuma unidade de saúde com perfil executante encontrada. Cadastre ou marque unidades com "Executante: Sim" em Administração &gt; UBS.
+                  Nenhuma unidade de saúde encontrada para o filtro selecionado ({unitFilter === 'solicitante' ? 'Solicitantes' : unitFilter === 'executante' ? 'Executantes' : 'Todas'}).
                 </div>
               ) : (
-                executingHealthCenters.map((hc) => {
+                filteredHealthCenters.map((hc) => {
                   const isSelected = selectedHealthCenterIds.includes(hc.id);
                   const isDefault = defaultHealthCenterId === hc.id;
 
@@ -510,7 +571,7 @@ export const CreateOrEditUser: React.FC = () => {
                       onClick={() => toggleHealthCenter(hc.id)}
                       className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
                         isSelected
-                          ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-1 ring-emerald-500 shadow-xs'
+                          ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 ring-1 ring-blue-500 shadow-xs'
                           : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-slate-300 dark:hover:border-slate-700'
                       }`}
                     >
@@ -519,7 +580,7 @@ export const CreateOrEditUser: React.FC = () => {
                           <div
                             className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
                               isSelected
-                                ? 'bg-emerald-600 border-emerald-600 text-white'
+                                ? 'bg-blue-600 border-blue-600 text-white'
                                 : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900'
                             }`}
                           >
@@ -539,8 +600,8 @@ export const CreateOrEditUser: React.FC = () => {
                             }}
                             className={`flex items-center gap-1 text-3xs px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer shrink-0 ${
                               isDefault
-                                ? 'bg-emerald-600 text-white shadow-xs'
-                                : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-emerald-100 hover:text-emerald-800'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-blue-100 hover:text-blue-800'
                             }`}
                             title={isDefault ? 'Unidade Principal' : 'Definir como Principal'}
                           >
@@ -550,9 +611,20 @@ export const CreateOrEditUser: React.FC = () => {
                         )}
                       </div>
 
-                      <div className="flex items-center justify-between text-3xs text-slate-500 dark:text-slate-400 pl-6">
-                        <span>{hc.cnes ? `CNES: ${hc.cnes}` : 'CNES não informado'}</span>
-                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Executante</span>
+                      <div className="flex items-center justify-between text-3xs text-slate-500 dark:text-slate-400 pl-6 gap-1">
+                        <span className="truncate">{hc.cnes ? `CNES: ${hc.cnes}` : 'Sem CNES'}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {hc.stSolicitante && (
+                            <span className="px-1.5 py-0.5 rounded font-semibold text-3xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                              Solicitante
+                            </span>
+                          )}
+                          {hc.stExecutante && (
+                            <span className="px-1.5 py-0.5 rounded font-semibold text-3xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                              Executante
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
