@@ -427,12 +427,163 @@ export class RegulationService implements OnModuleInit {
   // MÓDULO CENTRAL DE REGULAÇÃO MUNICIPAL (REGULADOR)
   // =========================================================================
 
-  async findInbox(query: any) {
+  /**
+   * Identifica o escopo regulatório do usuário:
+   * - Administradores e Reguladores Centrais Gerais possuem acesso irrestrito a todo o município.
+   * - Reguladores locais são estritamente limitados aos procedimentos e grupos ofertados
+   *   pela sua Unidade de Saúde ativa vinculada.
+   */
+  async checkRegulatorScope(user: any, activeHealthCenterId?: string) {
+    if (!user) {
+      return { isUnlimited: false, targetCenterId: null, offeredProcedureIds: [], offeredGroupIds: [] };
+    }
+
+    const isAdmin =
+      user.profile?.name === 'Administrador' ||
+      user.profile?.profilePermissions?.some((pp: any) => pp.permission?.name === 'admin:access') ||
+      user.userProfiles?.some(
+        (up: any) =>
+          up.profile?.name === 'Administrador' ||
+          up.profile?.profilePermissions?.some((pp: any) => pp.permission?.name === 'admin:access'),
+      );
+
+    if (isAdmin || user.isMunicipalRegulator) {
+      return { isUnlimited: true, targetCenterId: null, offeredProcedureIds: [], offeredGroupIds: [] };
+    }
+
+    const targetCenterId = activeHealthCenterId || user.activeHealthCenterId || user.healthCenterId;
+    if (!targetCenterId) {
+      return { isUnlimited: false, targetCenterId: null, offeredProcedureIds: [], offeredGroupIds: [] };
+    }
+
+    const [procs, groups] = await Promise.all([
+      this.db.query.healthCenterProcedures.findMany({
+        where: and(
+          eq(schema.healthCenterProcedures.healthCenterId, targetCenterId),
+          eq(schema.healthCenterProcedures.isOffered, true),
+        ),
+        columns: { procedureId: true },
+      }),
+      this.db.query.healthCenterProcedureGroups.findMany({
+        where: and(
+          eq(schema.healthCenterProcedureGroups.healthCenterId, targetCenterId),
+          eq(schema.healthCenterProcedureGroups.isOffered, true),
+        ),
+        columns: { procedureGroupId: true },
+      }),
+    ]);
+
+    return {
+      isUnlimited: false,
+      targetCenterId,
+      offeredProcedureIds: procs.map((p) => p.procedureId),
+      offeredGroupIds: groups.map((g) => g.procedureGroupId),
+    };
+  }
+
+  async assertRegulatorCanManageRequest(request: any, user: any, activeHealthCenterId?: string) {
+    const scope = await this.checkRegulatorScope(user, activeHealthCenterId);
+    if (scope.isUnlimited) return;
+
+    if (!scope.targetCenterId) {
+      throw new ForbiddenException(
+        'Acesso negado: Usuário regulador não possui nenhuma unidade de saúde ativa vinculada.',
+      );
+    }
+
+    const isExecuting = request.executingHealthCenterId && request.executingHealthCenterId === scope.targetCenterId;
+    const isProcedureOffered = request.procedureId && scope.offeredProcedureIds.includes(request.procedureId);
+    const isGroupOffered = request.procedureGroupId && scope.offeredGroupIds.includes(request.procedureGroupId);
+
+    if (!isExecuting && !isProcedureOffered && !isGroupOffered) {
+      throw new ForbiddenException(
+        'Acesso negado: Este procedimento/exame não é ofertado pela sua unidade de saúde executante vinculada ativa.',
+      );
+    }
+  }
+
+  async getMyScope(user: any, requestedCenterId?: string) {
+    const isAdmin =
+      user?.profile?.name === 'Administrador' ||
+      user?.profile?.profilePermissions?.some((pp: any) => pp.permission?.name === 'admin:access') ||
+      user?.userProfiles?.some(
+        (up: any) =>
+          up.profile?.name === 'Administrador' ||
+          up.profile?.profilePermissions?.some((pp: any) => pp.permission?.name === 'admin:access'),
+      );
+
+    const isMunicipalRegulator = Boolean(user?.isMunicipalRegulator);
+    const activeCenterId = requestedCenterId || user?.activeHealthCenterId || user?.healthCenterId;
+
+    let activeHealthCenter = null;
+    let offeredProceduresCount = 0;
+    let offeredProcedureGroupsCount = 0;
+
+    if (activeCenterId) {
+      const [hc, procs, groups] = await Promise.all([
+        this.db.query.healthCenters.findFirst({
+          where: eq(schema.healthCenters.id, activeCenterId),
+          columns: { id: true, name: true, cnes: true },
+        }),
+        this.db.query.healthCenterProcedures.findMany({
+          where: and(
+            eq(schema.healthCenterProcedures.healthCenterId, activeCenterId),
+            eq(schema.healthCenterProcedures.isOffered, true),
+          ),
+          columns: { procedureId: true },
+        }),
+        this.db.query.healthCenterProcedureGroups.findMany({
+          where: and(
+            eq(schema.healthCenterProcedureGroups.healthCenterId, activeCenterId),
+            eq(schema.healthCenterProcedureGroups.isOffered, true),
+          ),
+          columns: { procedureGroupId: true },
+        }),
+      ]);
+      activeHealthCenter = hc || null;
+      offeredProceduresCount = procs.length;
+      offeredProcedureGroupsCount = groups.length;
+    }
+
+    return {
+      isMunicipalRegulator,
+      isAdmin,
+      activeHealthCenter,
+      offeredProceduresCount,
+      offeredProcedureGroupsCount,
+    };
+  }
+
+  async findInbox(query: any, user?: any) {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.max(1, Math.min(100, Number(query.limit) || 20));
     const offset = (page - 1) * limit;
 
     const conditions: any[] = [];
+
+    // Escopo de Unidade vs Regulador Municipal
+    const scope = await this.checkRegulatorScope(user, query.activeHealthCenterId);
+    if (!scope.isUnlimited) {
+      if (!scope.targetCenterId) {
+        // Regulador sem unidade vinculada não visualiza solicitações
+        conditions.push(sql`1 = 0`);
+      } else {
+        const scopeOr = [];
+        if (scope.offeredProcedureIds.length > 0) {
+          scopeOr.push(inArray(schema.regulationRequests.procedureId, scope.offeredProcedureIds));
+        }
+        if (scope.offeredGroupIds.length > 0) {
+          scopeOr.push(inArray(schema.regulationRequests.procedureGroupId, scope.offeredGroupIds));
+        }
+        scopeOr.push(eq(schema.regulationRequests.executingHealthCenterId, scope.targetCenterId));
+
+        if (scopeOr.length === 1) {
+          conditions.push(scopeOr[0]);
+        } else {
+          conditions.push(or(...scopeOr));
+        }
+      }
+    }
 
     if (query.status && query.status !== 'ALL') {
       conditions.push(eq(schema.regulationRequests.status, query.status));
@@ -497,11 +648,30 @@ export class RegulationService implements OnModuleInit {
       orderClause = isAsc ? asc(schema.regulationRequests.confirmationToken) : desc(schema.regulationRequests.confirmationToken);
     }
 
-    const centerFilter = query.requestingHealthCenterId
-      ? sql`WHERE requesting_health_center_id = ${query.requestingHealthCenterId}`
-      : sql``;
+    // Condições de base para o cálculo dos contadores das abas
+    const countConditions: any[] = [];
+    if (!scope.isUnlimited) {
+      if (!scope.targetCenterId) {
+        countConditions.push(sql`1 = 0`);
+      } else {
+        const scopeOr = [];
+        if (scope.offeredProcedureIds.length > 0) {
+          scopeOr.push(inArray(schema.regulationRequests.procedureId, scope.offeredProcedureIds));
+        }
+        if (scope.offeredGroupIds.length > 0) {
+          scopeOr.push(inArray(schema.regulationRequests.procedureGroupId, scope.offeredGroupIds));
+        }
+        scopeOr.push(eq(schema.regulationRequests.executingHealthCenterId, scope.targetCenterId));
 
-    const [items, [totalRow], countsResult] = await Promise.all([
+        if (scopeOr.length === 1) countConditions.push(scopeOr[0]);
+        else countConditions.push(or(...scopeOr));
+      }
+    }
+    if (query.requestingHealthCenterId && query.requestingHealthCenterId !== 'ALL') {
+      countConditions.push(eq(schema.regulationRequests.requestingHealthCenterId, query.requestingHealthCenterId));
+    }
+
+    const [items, [totalRow], [countsRow]] = await Promise.all([
       this.db.query.regulationRequests.findMany({
         where: conditions.length > 0 ? and(...conditions) : undefined,
         with: {
@@ -526,21 +696,20 @@ export class RegulationService implements OnModuleInit {
         .from(schema.regulationRequests)
         .where(conditions.length > 0 ? and(...conditions) : undefined),
 
-      this.db.execute(sql`
-        SELECT 
-          count(*)::int as total_all,
-          count(*) FILTER (WHERE status = 'PENDENTE_REGULACAO')::int as to_evaluate,
-          count(*) FILTER (WHERE status = 'PENDENTE_AGENDAMENTO')::int as to_schedule,
-          count(*) FILTER (WHERE status = 'AGENDADA')::int as scheduled,
-          count(*) FILTER (WHERE status = 'DEVOLVIDA')::int as returned,
-          count(*) FILTER (WHERE status = 'NEGADA')::int as denied
-        FROM regulation_requests
-        ${centerFilter}
-      `),
+      this.db
+        .select({
+          total_all: sql<number>`count(*)::int`,
+          to_evaluate: sql<number>`count(*) FILTER (WHERE ${schema.regulationRequests.status} = 'PENDENTE_REGULACAO')::int`,
+          to_schedule: sql<number>`count(*) FILTER (WHERE ${schema.regulationRequests.status} = 'PENDENTE_AGENDAMENTO')::int`,
+          scheduled: sql<number>`count(*) FILTER (WHERE ${schema.regulationRequests.status} = 'AGENDADA')::int`,
+          returned: sql<number>`count(*) FILTER (WHERE ${schema.regulationRequests.status} = 'DEVOLVIDA')::int`,
+          denied: sql<number>`count(*) FILTER (WHERE ${schema.regulationRequests.status} = 'NEGADA')::int`,
+        })
+        .from(schema.regulationRequests)
+        .where(countConditions.length > 0 ? and(...countConditions) : undefined),
     ]);
 
-    const countsRows = (countsResult as any)?.rows || (Array.isArray(countsResult) ? countsResult : []);
-    const c: any = countsRows[0] || {};
+    const c: any = countsRow || {};
     return {
       data: items,
       total: totalRow?.count || 0,
@@ -562,7 +731,8 @@ export class RegulationService implements OnModuleInit {
     decision: 'AUTORIZAR' | 'DEVOLVER' | 'NEGAR',
     justification: string,
     adjustedPriority: any,
-    user: any
+    user: any,
+    activeHealthCenterId?: string,
   ) {
     if (!justification || justification.trim().length < 5) {
       throw new BadRequestException('A justificativa da avaliação é estritamente obrigatória');
@@ -570,6 +740,8 @@ export class RegulationService implements OnModuleInit {
 
     const existing = await this.findOne(id);
     if (!existing) throw new NotFoundException('Solicitação não encontrada');
+    await this.assertRegulatorCanManageRequest(existing, user, activeHealthCenterId);
+
     if (existing.status !== 'PENDENTE_REGULACAO') {
       throw new BadRequestException(`Esta solicitação está com status ${existing.status} e não pode ser avaliada`);
     }
@@ -669,6 +841,7 @@ export class RegulationService implements OnModuleInit {
     if (!existing) {
       throw new NotFoundException('Solicitação de regulação não encontrada');
     }
+    await this.assertRegulatorCanManageRequest(existing, user, (body as any)?.activeHealthCenterId);
 
     if (existing.status === 'NEGADA' || existing.status === 'CANCELADA') {
       throw new BadRequestException(`Não é possível alterar o procedimento de uma solicitação com status ${existing.status}.`);
@@ -793,6 +966,15 @@ export class RegulationService implements OnModuleInit {
 
     const existing = await this.findOne(id);
     if (!existing) throw new NotFoundException('Solicitação não encontrada');
+    await this.assertRegulatorCanManageRequest(existing, user, payload?.activeHealthCenterId);
+
+    const scope = await this.checkRegulatorScope(user, payload?.activeHealthCenterId);
+    if (!scope.isUnlimited && scope.targetCenterId && executingHealthCenterId !== scope.targetCenterId) {
+      throw new ForbiddenException(
+        'Acesso negado: Um regulador de unidade só pode agendar vagas para sua própria unidade executante vinculada ativa.',
+      );
+    }
+
     if (existing.status !== 'PENDENTE_AGENDAMENTO' && existing.status !== 'AGENDAMENTO_CANCELADO') {
       throw new BadRequestException(`Apenas solicitações autorizadas podem ser agendadas (status atual: ${existing.status})`);
     }

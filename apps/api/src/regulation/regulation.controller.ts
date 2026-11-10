@@ -105,10 +105,19 @@ export class RegulationController {
   // MÓDULO CENTRAL DE REGULAÇÃO MUNICIPAL (REGULADOR)
   // =========================================================================
 
+  @Get('my-scope')
+  @Permissions('regulation-operator:read')
+  async getMyScope(
+    @Query('activeHealthCenterId') activeHealthCenterId: string,
+    @Req() req: any,
+  ) {
+    return this.regulationService.getMyScope(req.user, activeHealthCenterId);
+  }
+
   @Get('inbox')
   @Permissions('regulation-operator:read')
-  async findInbox(@Query() query: any) {
-    return this.regulationService.findInbox(query);
+  async findInbox(@Query() query: any, @Req() req: any) {
+    return this.regulationService.findInbox(query, req.user);
   }
 
   @Post('requests/:id/evaluate')
