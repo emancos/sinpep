@@ -186,6 +186,78 @@ export class AuthService {
 
     const permissionMap = new Map<string, boolean>();
 
+    // Aplica permissões operacionais padrão essenciais por perfil de acesso
+    const roleDefaults: Record<string, string[]> = {
+      'Solicitante (UBS)': [
+        'regulation-solicitor:read',
+        'regulation-solicitor:write',
+        'regulation-solicitor:cancel',
+        'regulation-solicitor:edit_returned',
+        'regulation:read',
+        'patients:read',
+        'patients:write',
+        'specialties:read',
+        'health-centers:read',
+        'schedules:read',
+        'schedules:book',
+        'reports:read',
+      ],
+      'Regulador (Central de Regulação)': [
+        'regulation-operator:read',
+        'regulation-operator:evaluate',
+        'regulation-operator:schedule',
+        'regulation-operator:cancel',
+        'regulation:read',
+        'regulation:write',
+        'patients:read',
+        'specialties:read',
+        'specialties:write',
+        'health-centers:read',
+        'schedules:read',
+        'schedules:write',
+        'schedules:book',
+        'reports:read',
+      ],
+      'Coordenador de Unidade': [
+        'health-centers:read',
+        'health-agents:read',
+        'health-agents:write',
+        'doctors:read',
+        'doctors:write',
+        'schedules:read',
+        'schedules:write',
+        'schedules:book',
+        'rooms:read',
+        'patients:read',
+        'reports:read',
+        'regulation-solicitor:read',
+        'regulation:read',
+      ],
+      'Médico': [
+        'medical-records:read',
+        'medical-records:write',
+        'patients:read',
+        'patients:write',
+        'schedules:read',
+        'reports:read',
+        'regulation-solicitor:read',
+        'regulation-solicitor:write',
+      ],
+      'Recepcionista': [
+        'patients:read',
+        'patients:write',
+        'schedules:read',
+        'schedules:book',
+        'rooms:read',
+        'reports:read',
+      ],
+    };
+
+    const defaultPerms = roleDefaults[targetProfile.name] || [];
+    for (const p of defaultPerms) {
+      permissionMap.set(p, true);
+    }
+
     if (fullProfile && fullProfile.profilePermissions) {
       for (const pp of fullProfile.profilePermissions) {
         if (pp.permission && pp.permission.name) {

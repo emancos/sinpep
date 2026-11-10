@@ -25,13 +25,28 @@ const PERMISSIONS = [
   { name: 'reports:read', description: 'Visualizar Relatórios e BI' },
   { name: 'schedules:read', description: 'Visualizar agendas e escalas' },
   { name: 'schedules:book', description: 'Agendar vagas e consultas' },
+  { name: 'schedules:write', description: 'Criar e editar escalas e agendas' },
   { name: 'medical-records:read', description: 'Visualizar prontuários médicos' },
   { name: 'medical-records:write', description: 'Gerenciar e registrar prontuários médicos' },
   { name: 'bpa:read', description: 'Visualizar Boletim de Produção Ambulatorial' },
   { name: 'bpa:export', description: 'Exportar arquivos magnéticos do BPA' },
   { name: 'bpa:manage', description: 'Configurar parâmetros e regras do BPA' },
+  { name: 'bpa:access', description: 'Acesso às rotinas de BPA' },
   { name: 'regulation:read', description: 'Visualizar solicitações de regulação' },
   { name: 'regulation:write', description: 'Regular e despachar solicitações' },
+  { name: 'regulation-solicitor:read', description: 'Visualizar solicitações de regulação da UBS' },
+  { name: 'regulation-solicitor:write', description: 'Criar solicitações de regulação na UBS' },
+  { name: 'regulation-solicitor:cancel', description: 'Cancelar solicitações da UBS' },
+  { name: 'regulation-solicitor:edit_returned', description: 'Corrigir e reenviar solicitações devolvidas' },
+  { name: 'regulation-operator:read', description: 'Visualizar painel do operador de regulação' },
+  { name: 'regulation-operator:evaluate', description: 'Avaliar e triar solicitações de regulação' },
+  { name: 'regulation-operator:schedule', description: 'Agendar solicitações autorizadas' },
+  { name: 'regulation-operator:cancel', description: 'Cancelar agendamentos na regulação' },
+  { name: 'rooms:read', description: 'Visualizar consultórios e salas' },
+  { name: 'rooms:write', description: 'Gerenciar consultórios e salas' },
+  { name: 'procedure-groups:read', description: 'Visualizar grupos de procedimentos' },
+  { name: 'procedures:read', description: 'Visualizar procedimentos' },
+  { name: 'procedures:write', description: 'Gerenciar procedimentos' },
 ];
 
 const DEFAULT_PROFILES = [
@@ -111,36 +126,86 @@ async function main() {
     }
     console.log('✅ Permissões vinculadas ao Administrador.');
 
-    // 4. Vincular permissões específicas a perfis comuns (Schedules & Reports & Receptionist)
-    const schedulesReadId = permissionIds.get('schedules:read');
-    const schedulesBookId = permissionIds.get('schedules:book');
-    const reportsReadId = permissionIds.get('reports:read');
+    // 4. Vincular permissões específicas a cada perfil de acesso
+    const rolePermissionsConfig: Record<string, string[]> = {
+      'Solicitante (UBS)': [
+        'regulation-solicitor:read',
+        'regulation-solicitor:write',
+        'regulation-solicitor:cancel',
+        'regulation-solicitor:edit_returned',
+        'regulation:read',
+        'patients:read',
+        'patients:write',
+        'specialties:read',
+        'health-centers:read',
+        'schedules:read',
+        'schedules:book',
+        'reports:read',
+      ],
+      'Regulador (Central de Regulação)': [
+        'regulation-operator:read',
+        'regulation-operator:evaluate',
+        'regulation-operator:schedule',
+        'regulation-operator:cancel',
+        'regulation:read',
+        'regulation:write',
+        'patients:read',
+        'specialties:read',
+        'specialties:write',
+        'health-centers:read',
+        'schedules:read',
+        'schedules:write',
+        'schedules:book',
+        'reports:read',
+      ],
+      'Coordenador de Unidade': [
+        'health-centers:read',
+        'health-agents:read',
+        'health-agents:write',
+        'doctors:read',
+        'doctors:write',
+        'schedules:read',
+        'schedules:write',
+        'schedules:book',
+        'rooms:read',
+        'patients:read',
+        'reports:read',
+        'regulation-solicitor:read',
+        'regulation:read',
+      ],
+      'Médico': [
+        'medical-records:read',
+        'medical-records:write',
+        'patients:read',
+        'patients:write',
+        'schedules:read',
+        'reports:read',
+        'regulation-solicitor:read',
+        'regulation-solicitor:write',
+      ],
+      'Recepcionista': [
+        'patients:read',
+        'patients:write',
+        'schedules:read',
+        'schedules:book',
+        'rooms:read',
+        'reports:read',
+      ],
+    };
 
-    const basicProfiles = [
-      profileIds.get('Regulador (Central de Regulação)'),
-      profileIds.get('Solicitante (UBS)'),
-    ].filter(Boolean) as string[];
+    for (const [profName, perms] of Object.entries(rolePermissionsConfig)) {
+      const profId = profileIds.get(profName);
+      if (!profId) continue;
 
-    for (const profId of basicProfiles) {
-      if (schedulesReadId) {
-        await client.query(
-          `INSERT INTO profile_permissions (profile_id, permission_id, created_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING;`,
-          [profId, schedulesReadId]
-        );
-      }
-      if (schedulesBookId) {
-        await client.query(
-          `INSERT INTO profile_permissions (profile_id, permission_id, created_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING;`,
-          [profId, schedulesBookId]
-        );
-      }
-    }
+      for (const pName of perms) {
+        const permId = permissionIds.get(pName);
+        if (!permId) continue;
 
-    if (reportsReadId) {
-      for (const profId of profileIds.values()) {
         await client.query(
-          `INSERT INTO profile_permissions (profile_id, permission_id, created_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING;`,
-          [profId, reportsReadId]
+          `INSERT INTO profile_permissions (profile_id, permission_id, created_at)
+           VALUES ($1, $2, CURRENT_TIMESTAMP)
+           ON CONFLICT (profile_id, permission_id) DO NOTHING;`,
+          [profId, permId]
         );
       }
     }
