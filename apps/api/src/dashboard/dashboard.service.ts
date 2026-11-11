@@ -184,52 +184,65 @@ export class DashboardService {
     const regRows = (regResult as any)?.rows || [];
     const regStats = regRows[0] || { total: 0, to_evaluate: 0, to_schedule: 0, scheduled: 0, returned: 0, denied: 0 };
 
-    // 2. Fila de espera por gravidade/risco
+    // 2. Fila de espera por gravidade/prioridade clínica
     const riskResult = await this.db.execute(sql`
       SELECT 
-        risk_classification as risk,
+        priority::text as risk,
         count(*)::int as count
       FROM regulation_requests
       WHERE status IN ('PENDENTE_REGULACAO', 'PENDENTE_AGENDAMENTO')
-      GROUP BY risk_classification
-      ORDER BY count DESC
+      GROUP BY priority
+      ORDER BY
+        CASE priority
+          WHEN 'URGENCIA' THEN 1
+          WHEN 'PRIORITARIO' THEN 2
+          WHEN 'ELETIVO' THEN 3
+          ELSE 4
+        END,
+        count DESC
     `);
     const riskBreakdown = (riskResult as any)?.rows || [];
 
-    // 3. Top Especialidades aguardando na fila
+    // 3. Top Especialidades / Procedimentos aguardando na fila
     const specWaitingResult = await this.db.execute(sql`
-      SELECT s.name as specialty_name, count(r.id)::int as count
+      SELECT
+        COALESCE(pg.name, pr.name, s.name, 'Procedimento') as specialty_name,
+        count(r.id)::int as count
       FROM regulation_requests r
-      JOIN specialties s ON r.specialty_id = s.id
+      LEFT JOIN specialties s ON r.specialty_id = s.id
+      LEFT JOIN procedure_groups pg ON r.procedure_group_id = pg.id
+      LEFT JOIN procedures pr ON r.procedure_id = pr.id
       WHERE r.status = 'PENDENTE_AGENDAMENTO'
-      GROUP BY s.name
+      GROUP BY COALESCE(pg.name, pr.name, s.name, 'Procedimento')
       ORDER BY count DESC
       LIMIT 6
     `);
     const topWaitingSpecialties = (specWaitingResult as any)?.rows || [];
 
-    // 4. Solicitações urgentes recém-chegadas (últimas 24h/mais recentes de risco VERMELHO/AMARELO)
+    // 4. Solicitações urgentes recém-chegadas (prioridade URGENCIA/PRIORITARIO)
     const urgentResult = await this.db.execute(sql`
       SELECT 
         r.id,
         r.protocol_number as protocol,
-        r.risk_classification as risk,
+        r.priority::text as risk,
         r.status,
         r.created_at,
         p.name as patient_name,
         p.cpf as patient_cpf,
-        s.name as specialty_name,
+        COALESCE(pg.name, pr.name, s.name, 'Procedimento') as specialty_name,
         hc.name as requesting_unit
       FROM regulation_requests r
       JOIN patients p ON r.patient_id = p.id
-      JOIN specialties s ON r.specialty_id = s.id
+      LEFT JOIN specialties s ON r.specialty_id = s.id
+      LEFT JOIN procedure_groups pg ON r.procedure_group_id = pg.id
+      LEFT JOIN procedures pr ON r.procedure_id = pr.id
       JOIN health_centers hc ON r.requesting_health_center_id = hc.id
       WHERE r.status = 'PENDENTE_REGULACAO'
       ORDER BY 
-        CASE r.risk_classification
-          WHEN 'VERMELHO' THEN 1
-          WHEN 'AMARELO' THEN 2
-          WHEN 'VERDE' THEN 3
+        CASE r.priority
+          WHEN 'URGENCIA' THEN 1
+          WHEN 'PRIORITARIO' THEN 2
+          WHEN 'ELETIVO' THEN 3
           ELSE 4
         END,
         r.created_at ASC
