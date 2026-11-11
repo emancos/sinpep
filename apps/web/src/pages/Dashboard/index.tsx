@@ -14,12 +14,14 @@ export const Dashboard: React.FC = () => {
   const { data: summary, isLoading } = useDashboardSummary();
 
   const profileName = activeProfile?.name || '';
-  const isAdmin = permissions.includes('admin:access') || profileName === 'Administrador';
-  const isRegulator = profileName === 'Regulador (Central de Regulação)';
-  const isSolicitor = profileName.includes('Solicitante');
+  const profileLower = profileName.toLowerCase();
+  const isAdminProfile = profileLower.includes('administrador');
+  const isRegulator = profileLower.includes('regulador');
+  const isSolicitor = profileLower.includes('solicitante');
   const isCoordinator = profileName === 'Coordenador de Unidade';
   const isDoctor = profileName === 'Médico';
   const isReceptionist = profileName === 'Recepcionista';
+  const hasAdminAccess = permissions.includes('admin:access');
 
   return (
     <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-10">
@@ -27,7 +29,7 @@ export const Dashboard: React.FC = () => {
       <NoticeBoard />
 
       {/* 2. Dashboard Contextualizado por Perfil */}
-      {isAdmin ? (
+      {isAdminProfile ? (
         <AdminDashboard summary={summary} isLoading={isLoading} />
       ) : isRegulator ? (
         <RegulatorDashboard summary={summary} isLoading={isLoading} />
@@ -39,6 +41,8 @@ export const Dashboard: React.FC = () => {
         <DoctorDashboard summary={summary} isLoading={isLoading} />
       ) : isReceptionist ? (
         <ReceptionistDashboard summary={summary} isLoading={isLoading} />
+      ) : hasAdminAccess ? (
+        <AdminDashboard summary={summary} isLoading={isLoading} />
       ) : (
         /* Administrador ou padrão */
         <AdminDashboard summary={summary} isLoading={isLoading} />

@@ -2,7 +2,7 @@ import api from './api';
 import type { ReturnEditableField } from '../utils/regulationReturnFields';
 
 export type RegulationRequestType = 'CONSULTA' | 'EXAME' | 'PROCEDIMENTO';
-export type RegulationRequestPriority = 'ELETIVO' | 'URGENCIA' | 'PRIORITARIO';
+export type RegulationRequestPriority = 'ELETIVO' | 'URGENCIA' | 'PRIORITARIO' | 'URGENTE';
 export type RegulationRequestStatus =
   | 'PENDENTE_REGULACAO'
   | 'PENDENTE_AGENDAMENTO'

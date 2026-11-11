@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom';
 import type { DashboardSummaryResponse } from '../../../hooks/useDashboard';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { formatDateBR } from '../../../utils/brazilianFormatters';
+import { getRegulationPriorityLabel } from '../../../utils/regulationStatus';
 
 interface RegulatorDashboardProps {
   summary?: DashboardSummaryResponse;
@@ -154,7 +155,7 @@ export const RegulatorDashboard: React.FC<RegulatorDashboardProps> = ({ summary,
                 Demanda por Classificação de Risco
               </h3>
             </div>
-            <span className="text-2xs text-slate-400">Protocolo de Manchester</span>
+            <span className="text-2xs text-slate-400">Prioridade Clínica</span>
           </div>
 
           <div className="pt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -162,23 +163,25 @@ export const RegulatorDashboard: React.FC<RegulatorDashboardProps> = ({ summary,
               const riskCardMap: Record<string, string> = {
                 VERMELHO: 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/40',
                 URGENCIA: 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/40',
+                URGENTE: 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/40',
                 AMARELO: 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900/40',
                 PRIORITARIO: 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900/40',
                 VERDE: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/40',
                 ELETIVO: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/40',
                 AZUL: 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900/40',
               };
-              const bg = riskCardMap[String(r.risk || '').toUpperCase()] || 'bg-slate-50 text-slate-700 border-slate-200';
+              const riskKey = String(r.risk || '').toUpperCase();
+              const bg = riskCardMap[riskKey] || 'bg-slate-50 text-slate-700 border-slate-200';
 
               return (
                 <div key={idx} className={`p-3 rounded-xl border text-center ${bg}`}>
                   <span className="text-2xs font-bold uppercase tracking-wider block">
-                    {r.risk}
+                    {getRegulationPriorityLabel(r.risk)}
                   </span>
                   <strong className="text-xl font-extrabold mt-1 block">
                     {r.count}
                   </strong>
-                  <span className="text-3xs opacity-80">pacientes</span>
+                  <span className="text-3xs opacity-80">solicitações</span>
                 </div>
               );
             })}
@@ -186,20 +189,26 @@ export const RegulatorDashboard: React.FC<RegulatorDashboardProps> = ({ summary,
 
           <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-2.5">
-              Especialidades com Maior Fila de Espera (Aguardando Vagas)
+              Especialidades / Grupos com Maior Fila de Espera (Aguardando Vagas)
             </span>
             <div className="space-y-2">
-              {charts.topWaitingSpecialties?.map((spec: any, idx: number) => (
-                <div key={idx} className="flex items-center justify-between text-xs p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40">
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">
-                    {spec.specialty_name}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <strong className="font-bold text-blue-600 dark:text-blue-400">{spec.count}</strong>
-                    <span className="text-2xs text-slate-400">aguardando</span>
-                  </div>
+              {(!charts.topWaitingSpecialties || charts.topWaitingSpecialties.length === 0) ? (
+                <div className="py-4 text-center text-xs text-slate-400">
+                  Nenhuma solicitação aguardando vaga na fila de espera.
                 </div>
-              ))}
+              ) : (
+                charts.topWaitingSpecialties.map((spec: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between text-xs p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40">
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">
+                      {spec.specialty_name}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <strong className="font-bold text-blue-600 dark:text-blue-400">{spec.count}</strong>
+                      <span className="text-2xs text-slate-400">aguardando</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -232,6 +241,7 @@ export const RegulatorDashboard: React.FC<RegulatorDashboardProps> = ({ summary,
                   const riskBadgeMap: Record<string, string> = {
                     VERMELHO: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
                     URGENCIA: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+                    URGENTE: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
                     AMARELO: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
                     PRIORITARIO: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
                     VERDE: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
@@ -244,7 +254,7 @@ export const RegulatorDashboard: React.FC<RegulatorDashboardProps> = ({ summary,
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className={`px-1.5 py-0.5 rounded text-3xs font-bold uppercase ${badge}`}>
-                            {item.risk}
+                            {getRegulationPriorityLabel(item.risk)}
                           </span>
                           <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 truncate">
                             {item.patient_name}

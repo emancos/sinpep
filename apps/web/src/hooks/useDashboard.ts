@@ -72,6 +72,7 @@ export function useDashboardSummary() {
     },
     enabled: !!token,
     staleTime: 30000,
+    retry: 1,
   });
 }
 
