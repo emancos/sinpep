@@ -159,11 +159,16 @@ export const RegulatorDashboard: React.FC<RegulatorDashboardProps> = ({ summary,
 
           <div className="pt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
             {charts.riskBreakdown?.map((r: any, idx: number) => {
-              let bg = 'bg-slate-50 text-slate-700 border-slate-200';
-              if (r.risk === 'VERMELHO') bg = 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/40';
-              if (r.risk === 'AMARELO') bg = 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900/40';
-              if (r.risk === 'VERDE') bg = 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/40';
-              if (r.risk === 'AZUL') bg = 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900/40';
+              const riskCardMap: Record<string, string> = {
+                VERMELHO: 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/40',
+                URGENCIA: 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/40',
+                AMARELO: 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900/40',
+                PRIORITARIO: 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900/40',
+                VERDE: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/40',
+                ELETIVO: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/40',
+                AZUL: 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900/40',
+              };
+              const bg = riskCardMap[String(r.risk || '').toUpperCase()] || 'bg-slate-50 text-slate-700 border-slate-200';
 
               return (
                 <div key={idx} className={`p-3 rounded-xl border text-center ${bg}`}>
@@ -224,9 +229,15 @@ export const RegulatorDashboard: React.FC<RegulatorDashboardProps> = ({ summary,
                 </div>
               ) : (
                 recentItems.map((item: any) => {
-                  let badge = 'bg-slate-100 text-slate-700';
-                  if (item.risk === 'VERMELHO') badge = 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300';
-                  if (item.risk === 'AMARELO') badge = 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
+                  const riskBadgeMap: Record<string, string> = {
+                    VERMELHO: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+                    URGENCIA: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+                    AMARELO: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+                    PRIORITARIO: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+                    VERDE: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+                    ELETIVO: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+                  };
+                  const badge = riskBadgeMap[String(item.risk || '').toUpperCase()] || 'bg-slate-100 text-slate-700';
 
                   return (
                     <div key={item.id} className="py-2.5 flex items-center justify-between gap-3">
