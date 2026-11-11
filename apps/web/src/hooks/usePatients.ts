@@ -136,6 +136,40 @@ export const usePatient = (id: string) => {
  });
 };
 
+export interface PatientEditChange {
+  field: string;
+  label: string;
+  before: unknown;
+  after: unknown;
+}
+
+export interface PatientEditHistoryEntry {
+  id: string;
+  patientId: string;
+  editedByUserId: string | null;
+  editedByName: string;
+  editedByEmail: string;
+  editedByPhone?: string | null;
+  origin: 'PATIENT_EDIT' | 'PATIENT_STATUS' | 'PATIENT_ATTENTION' | 'REGULATION_CREATE' | 'REGULATION_RESUBMIT' | string;
+  changes: PatientEditChange[];
+  createdAt: string;
+}
+
+export const usePatientEditHistory = (id: string) => {
+  const token = useAuthStore((state) => state.token);
+
+  return useQuery<PatientEditHistoryEntry[]>({
+    queryKey: ['patients', id, 'history'],
+    queryFn: async () => {
+      const response = await axios.get(`${apiUrl}/patients/${id}/history`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data;
+    },
+    enabled: !!token && !!id,
+  });
+};
+
 export const useDeletePatient = () => {
  const token = useAuthStore((state) => state.token);
  const queryClient = useQueryClient();
@@ -184,7 +218,9 @@ export const useCreatePatient = () => {
 
 export interface UpdatePatientInput {
  id: string;
- data: Partial<CreatePatientInput>;
+ data: Partial<Omit<CreatePatientInput, 'healthAgentId'>> & {
+   healthAgentId?: string | null;
+ };
 }
 
 export const useUpdatePatient = () => {
@@ -198,12 +234,12 @@ export const useUpdatePatient = () => {
  });
  return response.data;
  },
- onSuccess: (_, { id }) => {
- queryClient.invalidateQueries({ queryKey: ['patients'] });
- queryClient.invalidateQueries({ queryKey: ['patients', id] });
- queryClient.invalidateQueries({ queryKey: ['requests'] });
- queryClient.invalidateQueries({ queryKey: ['requests'] });
- },
+  onSuccess: (_, { id }) => {
+    queryClient.invalidateQueries({ queryKey: ['patients'] });
+    queryClient.invalidateQueries({ queryKey: ['patients', id] });
+    queryClient.invalidateQueries({ queryKey: ['patients', id, 'history'] });
+    queryClient.invalidateQueries({ queryKey: ['requests'] });
+  },
  });
 };
 

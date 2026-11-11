@@ -11,6 +11,11 @@ import { toast } from 'sonner';
 import { fetchAddressByCep } from '../../services/viacep';
 import { formatDateBR } from '../../utils/brazilianFormatters';
 import {
+    buildPatientUpdatePayload,
+    canEditPatient,
+    isSolicitorRestrictedUser,
+} from '../../utils/patientPermissions';
+import {
     ArrowLeft,
     User,
     MapPin,
@@ -22,7 +27,9 @@ import {
     Loader2,
     Info,
     ChevronRight,
-    ChevronLeft
+    ChevronLeft,
+    Lock,
+    ShieldAlert
 } from 'lucide-react';
 
 const editPatientSchema = zod.object({
@@ -74,6 +81,41 @@ const editPatientSchema = zod.object({
 });
 
 type FormData = zod.infer<typeof editPatientSchema>;
+
+const solicitorEditPatientSchema = zod.object({
+    name: zod.string().optional().default(''),
+    cpf: zod.string().optional().default(''),
+    cns: zod.string().optional().default(''),
+    birthDate: zod.string().optional().default(''),
+    gender: zod.string().optional().default(''),
+    healthCenterId: zod.string().uuid('Selecione uma UBS válida'),
+    healthAgentId: zod.string().optional(),
+    zipCode: zod.string().optional(),
+    street: zod.string().optional(),
+    number: zod.string().optional(),
+    complement: zod.string().optional(),
+    neighborhood: zod.string().optional(),
+    city: zod.string().optional(),
+    state: zod.string().optional(),
+    ibgeCode: zod.string().optional(),
+    noPhone: zod.boolean(),
+    phones: zod.array(
+        zod.object({
+            phoneNumber: zod.string().min(8, 'Telefone muito curto'),
+            isWhatsapp: zod.boolean(),
+        })
+    ).optional(),
+}).superRefine((data, ctx) => {
+    if (!data.noPhone) {
+        if (!data.phones || data.phones.length === 0) {
+            ctx.addIssue({
+                code: zod.ZodIssueCode.custom,
+                path: ['phones'],
+                message: 'Adicione pelo menos um telefone ou marque a opção "Contactar Agente de Saúde"',
+            });
+        }
+    }
+});
 
 const parseAddressString = (addressString?: string | null) => {
     const defaultAddress = {
@@ -196,8 +238,19 @@ const formatPhone = (phone: string) => {
 export const EditPatient: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const [step, setStep] = useState(1);
+    const user = useAuthStore((state) => state.user);
+    const activeProfile = useAuthStore((state) => state.activeProfile);
+    const permissions = useAuthStore((state) => state.permissions);
+    const isSolicitorRestricted = isSolicitorRestrictedUser(user, activeProfile, permissions);
+
+    const [step, setStep] = useState(isSolicitorRestricted ? 2 : 1);
     const [isLoadingCep, setIsLoadingCep] = useState(false);
+
+    useEffect(() => {
+        if (isSolicitorRestricted && step === 1) {
+            setStep(2);
+        }
+    }, [isSolicitorRestricted, step]);
 
     const { data: patient, isLoading: loadingPatient, error: patientError } = usePatient(id || '');
     const updatePatientMutation = useUpdatePatient();
@@ -229,7 +282,7 @@ export const EditPatient: React.FC = () => {
         reset,
         formState: { errors },
     } = useForm<FormData>({
-        resolver: zodResolver(editPatientSchema),
+        resolver: zodResolver((isSolicitorRestricted ? solicitorEditPatientSchema : editPatientSchema) as any),
         mode: 'onChange',
         defaultValues: {
             name: '',
@@ -428,17 +481,19 @@ export const EditPatient: React.FC = () => {
             resolvedPhones = [{ phoneNumber: 'Contactar Agente de Saúde', isWhatsapp: false }];
         }
 
-        const payload = {
+        const fullPayload = {
             name: data.name,
             cpf: data.cpf.replace(/\D/g, ''),
             cns: data.cns ? data.cns.replace(/\D/g, '') : undefined,
-            birthDate: new Date(data.birthDate).toISOString(),
+            birthDate: data.birthDate ? new Date(data.birthDate).toISOString() : '',
             gender: data.gender,
             healthCenterId: data.healthCenterId,
-            healthAgentId: data.healthAgentId || undefined,
+            healthAgentId: data.healthAgentId || null,
             address: addressString || undefined,
             phones: resolvedPhones,
         };
+
+        const payload = buildPatientUpdatePayload(isSolicitorRestricted, fullPayload);
 
         updatePatientMutation.mutate({
             id,
@@ -448,9 +503,10 @@ export const EditPatient: React.FC = () => {
                 toast.success('Cadastro do paciente atualizado com sucesso!');
                 navigate('/patients');
             },
-            onError: (err) => {
+            onError: (err: any) => {
                 console.error(err);
-                toast.error('Ocorreu um erro ao atualizar o paciente.');
+                const msg = err?.response?.data?.message || 'Ocorreu um erro ao atualizar o paciente.';
+                toast.error(msg);
             },
         });
     };
@@ -485,6 +541,34 @@ export const EditPatient: React.FC = () => {
         );
     }
 
+    if (!canEditPatient(user, activeProfile, permissions, patient.healthCenterId)) {
+        return (
+            <div className="max-w-xl mx-auto flex flex-col items-center justify-center py-20 text-center gap-3">
+                <ShieldAlert className="w-12 h-12 text-amber-600 dark:text-amber-400" />
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                    Edição não permitida para esta Unidade de Saúde
+                </h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Como <strong>Solicitante (UBS)</strong>, você visualiza todos os pacientes do município, mas só pode alterar Vínculo, Endereço e Contatos de pacientes vinculados às suas unidades.
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                    <button
+                        onClick={() => navigate(`/patients/${patient.id}`)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium cursor-pointer"
+                    >
+                        Ver Ficha do Paciente
+                    </button>
+                    <button
+                        onClick={() => navigate('/patients')}
+                        className="px-4 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-200 rounded-md text-sm cursor-pointer"
+                    >
+                        Voltar para a Lista
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-3xl mx-auto space-y-6">
             {/* Header Banner */}
@@ -503,38 +587,53 @@ export const EditPatient: React.FC = () => {
             </div>
 
             {/* Progress Tracker */}
+            {isSolicitorRestricted && (
+                <div className="flex items-start gap-2.5 p-3.5 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/30 text-xs text-amber-900 dark:text-amber-200">
+                    <Lock className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                    <span>
+                        Para o perfil <strong>Solicitante (UBS)</strong>, apenas as etapas{' '}
+                        <strong>Vínculo & Endereço</strong> e <strong>Contatos Telefônicos</strong> estão liberadas para edição. Os dados de identificação permanecem protegidos.
+                    </span>
+                </div>
+            )}
+
             <div className="grid grid-cols-3 gap-4 bg-white shadow-md dark:bg-slate-900/40 border border-slate-900 rounded-md p-4 backdrop-blur-md">
                 {steps.map((s) => {
                     const Icon = s.icon;
-                    const isCompleted = step > s.number;
+                    const isLockedStep = isSolicitorRestricted && s.number === 1;
+                    const isCompleted = !isLockedStep && step > s.number;
                     const isActive = step === s.number;
 
                     return (
                         <div
                             key={s.number}
-                            className={`flex items-center gap-3 p-2.5 rounded-md transition-all duration-300 ${isActive
-                                    ? 'bg-blue-100 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-slate-900 dark:text-white'
-                                    : isCompleted
-                                        ? 'text-teal-600 dark:text-teal-400'
-                                        : 'text-slate-500'
+                            className={`flex items-center gap-3 p-2.5 rounded-md transition-all duration-300 ${isLockedStep
+                                    ? 'text-slate-400 opacity-75'
+                                    : isActive
+                                        ? 'bg-blue-100 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-slate-900 dark:text-white'
+                                        : isCompleted
+                                            ? 'text-teal-600 dark:text-teal-400'
+                                            : 'text-slate-500'
                                 }`}
                         >
                             <div
-                                className={`w-9 h-9 rounded-md flex items-center justify-center font-bold text-sm shrink-0 ${isActive
-                                        ? 'bg-blue-500 text-white'
-                                        : isCompleted
-                                            ? 'bg-teal-500/20 text-teal-600 dark:text-teal-400'
-                                            : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+                                className={`w-9 h-9 rounded-md flex items-center justify-center font-bold text-sm shrink-0 ${isLockedStep
+                                        ? 'bg-slate-200 dark:bg-slate-800 text-slate-400'
+                                        : isActive
+                                            ? 'bg-blue-500 text-white'
+                                            : isCompleted
+                                                ? 'bg-teal-500/20 text-teal-600 dark:text-teal-400'
+                                                : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                                     }`}
                             >
-                                {isCompleted ? <Check className="w-4.5 h-4.5" /> : <Icon className="w-4.5 h-4.5" />}
+                                {isLockedStep ? <Lock className="w-4 h-4" /> : isCompleted ? <Check className="w-4.5 h-4.5" /> : <Icon className="w-4.5 h-4.5" />}
                             </div>
                             <div className="hidden sm:block min-w-0">
                                 <span className="block text-[10px] font-semibold uppercase tracking-wider opacity-60">
                                     {s.title}
                                 </span>
                                 <span className="block text-xs font-medium truncate mt-0.5">
-                                    {s.description}
+                                    {isLockedStep ? 'Somente leitura' : s.description}
                                 </span>
                             </div>
                         </div>
@@ -550,8 +649,18 @@ export const EditPatient: React.FC = () => {
                     <div className="space-y-4">
                         <div>
                             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Dados de Identificação</h2>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">Preencha os dados pessoais fundamentais do paciente.</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                {isSolicitorRestricted
+                                    ? 'Visualização somente leitura. O perfil Solicitante (UBS) só pode editar Vínculo & Endereço e Contatos Telefônicos.'
+                                    : 'Preencha os dados pessoais fundamentais do paciente.'}
+                            </p>
                         </div>
+
+                        {isSolicitorRestricted && (
+                            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-800 dark:text-amber-300">
+                                Os campos de identificação do paciente são bloqueados para edição no perfil Solicitante (UBS). Utilize os passos 2 e 3 para atualizar vínculo, endereço ou telefones.
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-1">
@@ -565,8 +674,9 @@ export const EditPatient: React.FC = () => {
                                         <input
                                             {...field}
                                             type="text"
+                                            disabled={isSolicitorRestricted}
                                             placeholder="Ex: João da Silva"
-                                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-900"
                                         />
                                     )}
                                 />
@@ -584,13 +694,14 @@ export const EditPatient: React.FC = () => {
                                         <input
                                             {...field}
                                             type="text"
+                                            disabled={isSolicitorRestricted}
                                             placeholder="Ex: 000.000.000-00"
                                             onChange={(e) => field.onChange(formatCPF(e.target.value))}
                                             onBlur={(e) => {
                                                 field.onBlur();
                                                 handleCpfBlur(e.target.value);
                                             }}
-                                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono"
+                                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-900"
                                         />
                                     )}
                                 />
@@ -608,13 +719,14 @@ export const EditPatient: React.FC = () => {
                                         <input
                                             {...field}
                                             type="text"
+                                            disabled={isSolicitorRestricted}
                                             placeholder="Ex: 000000000000000"
                                             onChange={(e) => field.onChange(formatCNS(e.target.value))}
                                             onBlur={(e) => {
                                                 field.onBlur();
                                                 handleCnsBlur(e.target.value);
                                             }}
-                                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono"
+                                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-900"
                                         />
                                     )}
                                 />
@@ -632,7 +744,8 @@ export const EditPatient: React.FC = () => {
                                         <input
                                             {...field}
                                             type="date"
-                                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                                            disabled={isSolicitorRestricted}
+                                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-900"
                                         />
                                     )}
                                 />
@@ -649,7 +762,8 @@ export const EditPatient: React.FC = () => {
                                     render={({ field }) => (
                                         <select
                                             {...field}
-                                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                                            disabled={isSolicitorRestricted}
+                                            className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-900"
                                         >
                                             <option value="">Selecione...</option>
                                             <option value="MASCULINO">Masculino</option>
@@ -1080,7 +1194,7 @@ export const EditPatient: React.FC = () => {
 
                 {/* Action Buttons */}
                 <div className="flex justify-between pt-4 border-t border-slate-300 dark:border-slate-800/40">
-                    {step > 1 ? (
+                    {step > (isSolicitorRestricted ? 2 : 1) ? (
                         <button
                             key="prev-btn"
                             type="button"

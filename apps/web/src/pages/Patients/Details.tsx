@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { usePatient, useUpdatePatientAttention } from '../../hooks/usePatients';
+import { usePatient, usePatientEditHistory, useUpdatePatientAttention } from '../../hooks/usePatients';
 import { useMedicalRecords } from '../../hooks/useMedicalRecords';
 import { usePermission } from '../../hooks/usePermission';
+import { useAuthStore } from '../../store/useAuthStore';
+import { canEditPatient, isSolicitorRestrictedUser } from '../../utils/patientPermissions';
 import { toast } from 'sonner';
 import {
     ArrowLeft,
@@ -22,7 +24,9 @@ import {
     Edit,
     Building2,
     Send,
-    Mail
+    Mail,
+    History,
+    Lock
 } from 'lucide-react';
 import { PrescriptionPrintModal } from '../../components/PrescriptionPrintModal';
 import { MedicalCertificateModal } from '../../components/MedicalCertificateModal';
@@ -66,7 +70,13 @@ export const PatientDetails: React.FC = () => {
     const navigate = useNavigate();
 
     const { data: patient, isLoading, error, refetch } = usePatient(id || '');
+    const { data: editHistory = [], isLoading: isLoadingHistory } = usePatientEditHistory(id || '');
     const { hasPermission } = usePermission();
+    const user = useAuthStore((state) => state.user);
+    const activeProfile = useAuthStore((state) => state.activeProfile);
+    const permissions = useAuthStore((state) => state.permissions);
+    const isSolicitorRestricted = isSolicitorRestrictedUser(user, activeProfile, permissions);
+    const allowEditPatient = canEditPatient(user, activeProfile, permissions, patient?.healthCenterId);
     const canViewMedicalRecords = hasPermission('medical-records:read');
     const canEditAttention = hasPermission('patients:write_attention');
     const canSolicitRegulation = hasPermission('regulation-solicitor:write') || hasPermission('admin:access');
@@ -216,10 +226,21 @@ export const PatientDetails: React.FC = () => {
                     )}
 
                     <button
+                        type="button"
+                        disabled={!allowEditPatient}
                         onClick={() => navigate(`/patients/${patient.id}/edit`)}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 hover:border-slate-300 text-slate-600 dark:text-slate-300 font-medium rounded-md text-sm transition-all cursor-pointer shadow-md active:scale-95"
+                        title={
+                            !allowEditPatient && isSolicitorRestricted
+                                ? 'Solicitantes (UBS) só podem editar pacientes vinculados às suas Unidades de Saúde'
+                                : 'Editar Paciente'
+                        }
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 hover:border-slate-300 text-slate-600 dark:text-slate-300 font-medium rounded-md text-sm transition-all cursor-pointer shadow-md active:scale-95 disabled:opacity-45 disabled:cursor-not-allowed"
                     >
-                        <Edit className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                        {!allowEditPatient && isSolicitorRestricted ? (
+                            <Lock className="w-4 h-4 text-slate-400" />
+                        ) : (
+                            <Edit className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                        )}
                         <span>Editar Paciente</span>
                     </button>
                 </div>
@@ -629,6 +650,108 @@ export const PatientDetails: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Histórico de Edições do Paciente */}
+            <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-6 backdrop-blur-md space-y-4">
+                <div className="flex items-center justify-between gap-2 border-b border-slate-300 dark:border-slate-800/60 pb-3">
+                    <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <History className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        <span>Histórico de Edições do Paciente</span>
+                    </h2>
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                        {editHistory.length} registro(s)
+                    </span>
+                </div>
+
+                {isLoadingHistory ? (
+                    <div className="py-6 text-center text-sm text-slate-500">Carregando histórico de edições...</div>
+                ) : editHistory.length === 0 ? (
+                    <div className="py-6 text-center text-sm text-slate-500 italic">
+                        Nenhuma alteração cadastral ou de anamnese registrada até o momento.
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {editHistory.map((entry) => {
+                            const originLabels: Record<string, string> = {
+                                PATIENT_EDIT: 'Edição Cadastral',
+                                PATIENT_STATUS: 'Status do Cadastro',
+                                PATIENT_ATTENTION: 'Nível de Atenção',
+                                REGULATION_CREATE: 'Anamnese (Nova Solicitação)',
+                                REGULATION_RESUBMIT: 'Anamnese (Correção de Solicitação)',
+                            };
+
+                            return (
+                                <div
+                                    key={entry.id}
+                                    className="border border-slate-200 dark:border-slate-800 rounded-md p-4 bg-slate-50/70 dark:bg-slate-950/30 space-y-2.5"
+                                >
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/70 dark:border-slate-800">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 text-xs font-bold">
+                                                {originLabels[entry.origin] || entry.origin}
+                                            </span>
+                                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                                                {formatDateWithTime(entry.createdAt)}
+                                            </span>
+                                        </div>
+                                        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                                            ID Usuário: {entry.editedByUserId || 'N/A'}
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-slate-600 dark:text-slate-300">
+                                        <div>
+                                            <span className="text-slate-400 block text-[10px] uppercase font-bold">Responsável</span>
+                                            <span className="font-semibold text-slate-800 dark:text-slate-100">{entry.editedByName}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 block text-[10px] uppercase font-bold">E-mail</span>
+                                            <span className="font-mono break-all">{entry.editedByEmail}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 block text-[10px] uppercase font-bold">Telefone</span>
+                                            <span className="font-mono">{entry.editedByPhone || 'Não informado'}</span>
+                                        </div>
+                                    </div>
+
+                                    {entry.changes && entry.changes.length > 0 && (
+                                        <div className="pt-2 space-y-1.5">
+                                            <span className="text-[10px] font-bold uppercase text-slate-500 block">
+                                                Campos alterados
+                                            </span>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                {entry.changes.map((chg, idx) => (
+                                                    <div
+                                                        key={`${entry.id}-${chg.field}-${idx}`}
+                                                        className="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-2"
+                                                    >
+                                                        <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                                                            {chg.label}
+                                                        </span>
+                                                        <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 break-words">
+                                                            <span className="line-through text-rose-600/80 dark:text-rose-400/80 mr-1.5">
+                                                                {chg.before !== null && chg.before !== undefined && String(chg.before).trim() !== ''
+                                                                    ? String(chg.before)
+                                                                    : 'Vazio'}
+                                                            </span>
+                                                            <span className="text-slate-400 mr-1.5">→</span>
+                                                            <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                                                                {chg.after !== null && chg.after !== undefined && String(chg.after).trim() !== ''
+                                                                    ? String(chg.after)
+                                                                    : 'Vazio'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
             {/* Modal de Edição de Nível de Atenção */}

@@ -28,6 +28,11 @@ import { TablePagination } from '../../components/TablePagination';
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { formatDateBR } from '../../utils/brazilianFormatters';
+import {
+    canEditPatient,
+    canTogglePatientActive,
+    isSolicitorRestrictedUser,
+} from '../../utils/patientPermissions';
 
 // Helpers to format CPF and Date
 const formatCPF = (cpf?: string | null) => {
@@ -45,8 +50,12 @@ export const PatientsList: React.FC = () => {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const confirm = useConfirm();
+    const user = useAuthStore(state => state.user);
+    const activeProfile = useAuthStore(state => state.activeProfile);
     const userPermissions = useAuthStore(state => state.permissions);
     const canViewHealthCenters = userPermissions.includes('health-centers:read') || userPermissions.includes('admin:access');
+    const isSolicitorRestricted = isSolicitorRestrictedUser(user, activeProfile, userPermissions);
+    const allowToggleActive = canTogglePatientActive(user, activeProfile, userPermissions);
     const deletePatientMutation = useDeletePatient();
     const toggleActiveMutation = useTogglePatientActive();
     const [page, setPage] = useState(1);
@@ -364,16 +373,25 @@ export const PatientsList: React.FC = () => {
                                                         <Eye className="w-4 h-4" />
                                                     </button>
 
-                                                    <button
-                                                        onClick={() => navigate(`/patients/${patient.id}/edit`)}
-                                                        className="p-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/20 rounded-md transition-all cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                                                        disabled={!userPermissions.includes('patients:write') && !userPermissions.includes('admin:access')}
-                                                        title="Editar Paciente"
-                                                    >
-                                                        <Edit className="w-4 h-4" />
-                                                    </button>
+                                                    {(() => {
+                                                        const allowEditRow = canEditPatient(user, activeProfile, userPermissions, patient.healthCenterId);
+                                                        return (
+                                                            <button
+                                                                onClick={() => navigate(`/patients/${patient.id}/edit`)}
+                                                                className="p-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/20 rounded-md transition-all cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                                                disabled={!allowEditRow}
+                                                                title={
+                                                                    !allowEditRow && isSolicitorRestricted
+                                                                        ? 'Solicitantes (UBS) só podem editar pacientes vinculados às suas Unidades de Saúde'
+                                                                        : 'Editar Paciente'
+                                                                }
+                                                            >
+                                                                <Edit className="w-4 h-4" />
+                                                            </button>
+                                                        );
+                                                    })()}
 
-                                                    {(userPermissions.includes('patients:write') || userPermissions.includes('admin:access')) && (
+                                                    {allowToggleActive && (
                                                         <button
                                                             onClick={() => handleToggleActive(patient.id, patient.isActive)}
                                                             className={`p-1.5 border rounded-md transition-all cursor-pointer shadow-sm ${patient.isActive
