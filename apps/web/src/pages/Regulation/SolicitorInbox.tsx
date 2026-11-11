@@ -354,13 +354,15 @@ export const SolicitorInbox: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => navigate('/regulation/solicitor/new')}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md text-sm transition shadow-md active:scale-95 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nova Solicitação</span>
-        </button>
+        {(permissions.includes('regulation-solicitor:write') || isAdmin) && (
+          <button
+            onClick={() => navigate('/regulation/solicitor/new')}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md text-sm transition shadow-md active:scale-95 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nova Solicitação</span>
+          </button>
+        )}
       </div>
 
       {/* Stats Cards com cantos arredondados padrão (rounded-md) */}

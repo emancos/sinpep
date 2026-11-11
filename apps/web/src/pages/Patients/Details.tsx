@@ -69,7 +69,7 @@ export const PatientDetails: React.FC = () => {
     const { hasPermission } = usePermission();
     const canViewMedicalRecords = hasPermission('medical-records:read');
     const canEditAttention = hasPermission('patients:write_attention');
-    const canSolicitRegulation = hasPermission('regulation-solicitor:create') || hasPermission('admin:access');
+    const canSolicitRegulation = hasPermission('regulation-solicitor:write') || hasPermission('admin:access');
     const { data: recordsData, isLoading: isLoadingRecords } = useMedicalRecords(id || '', { enabled: canViewMedicalRecords });
     const medicalRecords = recordsData?.data || [];
     const updatePatientAttentionMutation = useUpdatePatientAttention();

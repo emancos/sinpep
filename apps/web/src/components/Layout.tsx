@@ -133,7 +133,7 @@ export const Layout = () => {
     ...(isAdmin ? [
       { name: 'Ambulatórios & Salas', path: '/rooms' }
     ] : []),
-    ...(permissions.includes('procedure-groups:write') || isAdmin ? [
+    ...(permissions.includes('specialties:write') || isAdmin ? [
       { name: 'Especialidades Médicas', path: '/specialties' }
     ] : []),
     ...(isAdmin ? [

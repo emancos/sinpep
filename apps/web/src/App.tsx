@@ -87,6 +87,8 @@ function App() {
 
                   <Route element={<ProtectedRoute requiredPermission="regulation-solicitor:read" />}>
                     <Route path="/regulation/solicitor" element={<SolicitorInbox />} />
+                  </Route>
+                  <Route element={<ProtectedRoute requiredPermission="regulation-solicitor:write" />}>
                     <Route path="/regulation/solicitor/new" element={<CreateRegulationRequest />} />
                   </Route>
                   <Route element={<ProtectedRoute requiredPermission="regulation-operator:read" />}>
