@@ -118,12 +118,21 @@ export const useEvaluateRegulationRequest = () => {
       decision,
       justification,
       adjustedPriority,
+      returnEditableFields,
     }: {
       id: string;
       decision: 'AUTORIZAR' | 'DEVOLVER' | 'NEGAR';
       justification: string;
       adjustedPriority?: RegulationRequestPriority;
-    }) => regulationService.evaluateRequest(id, decision, justification, adjustedPriority),
+      returnEditableFields?: string[];
+    }) =>
+      regulationService.evaluateRequest(
+        id,
+        decision,
+        justification,
+        adjustedPriority,
+        returnEditableFields as any,
+      ),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['regulation'] });
       const actions = {

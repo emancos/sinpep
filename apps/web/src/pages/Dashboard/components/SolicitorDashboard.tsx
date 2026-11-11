@@ -193,7 +193,7 @@ export const SolicitorDashboard: React.FC<SolicitorDashboardProps> = ({ summary,
 
                     <div className="pt-1 flex justify-end">
                       <Link
-                        to="/regulation/solicitor"
+                        to={`/regulation/requests/${item.id}?edit=true`}
                         className="px-2.5 py-1 text-2xs font-bold rounded-lg bg-rose-600 hover:bg-rose-700 text-white transition-colors flex items-center gap-1 shadow-sm"
                       >
                         <RotateCcw className="w-3 h-3" />

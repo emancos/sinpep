@@ -24,7 +24,6 @@ import {
 } from '../../hooks/useRegulation';
 import type { RegulationRequest, RegulationRequestStatus } from '../../services/regulation';
 import { RequestDetailsModal } from './RequestDetailsModal';
-import { ResubmitReturnedModal } from './ResubmitReturnedModal';
 import { BookSlotModal } from './BookSlotModal';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
 import { TablePagination } from '../../components/TablePagination';
@@ -49,7 +48,6 @@ export const SolicitorInbox: React.FC = () => {
 
   // Modals state
   const [selectedDetailsRequest, setSelectedDetailsRequest] = useState<RegulationRequest | null>(null);
-  const [selectedResubmitRequest, setSelectedResubmitRequest] = useState<RegulationRequest | null>(null);
   const [bookingSlotRequest, setBookingSlotRequest] = useState<RegulationRequest | null>(null);
   const [printingRequest, setPrintingRequest] = useState<RegulationRequest | null>(null);
 
@@ -634,13 +632,13 @@ export const SolicitorInbox: React.FC = () => {
                   )}
 
                   {req.status === 'DEVOLVIDA' && (
-                    <button
-                      onClick={() => setSelectedResubmitRequest(req)}
+                    <Link
+                      to={`/regulation/requests/${req.id}?edit=true`}
                       className="px-2 py-1 text-[11px] font-semibold text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 rounded-md flex items-center gap-1 shrink-0"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Reenviar</span>
-                    </button>
+                      <span>Corrigir & Reenviar</span>
+                    </Link>
                   )}
 
                   {!['CANCELADA', 'NEGADA'].includes(req.status) && (
@@ -829,13 +827,13 @@ export const SolicitorInbox: React.FC = () => {
                             </Link>
 
                             {req.status === 'DEVOLVIDA' && (
-                              <button
-                                onClick={() => setSelectedResubmitRequest(req)}
-                                title="Reenviar com Correções"
-                                className="p-1.5 text-orange-600 hover:text-orange-700 rounded-md bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/40 transition cursor-pointer shadow-sm"
+                              <Link
+                                to={`/regulation/requests/${req.id}?edit=true`}
+                                title="Corrigir e Reenviar"
+                                className="p-1.5 text-orange-600 hover:text-orange-700 rounded-md bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/40 transition inline-flex items-center cursor-pointer shadow-sm"
                               >
                                 <RotateCcw className="w-4 h-4" />
-                              </button>
+                              </Link>
                             )}
 
                             {!['CANCELADA', 'NEGADA'].includes(req.status) && (
@@ -891,15 +889,6 @@ export const SolicitorInbox: React.FC = () => {
         }}
         request={bookingSlotRequest}
         onSuccess={() => refetch()}
-      />
-
-      <ResubmitReturnedModal
-        isOpen={!!selectedResubmitRequest}
-        onClose={() => {
-          setSelectedResubmitRequest(null);
-          refetch();
-        }}
-        request={selectedResubmitRequest}
       />
 
       {printingRequest && (

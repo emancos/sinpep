@@ -1,4 +1,5 @@
 import api from './api';
+import type { ReturnEditableField } from '../utils/regulationReturnFields';
 
 export type RegulationRequestType = 'CONSULTA' | 'EXAME' | 'PROCEDIMENTO';
 export type RegulationRequestPriority = 'ELETIVO' | 'URGENCIA' | 'PRIORITARIO';
@@ -25,6 +26,7 @@ export interface RegulationStatusHistory {
   previousStatus: RegulationRequestStatus | null;
   newStatus: RegulationRequestStatus;
   justification: string;
+  editableFields?: ReturnEditableField[] | null;
   createdAt: string;
   actionByUser?: {
     id: string;
@@ -49,6 +51,7 @@ export interface RegulationRequest {
   clinicalHistory?: string | null;
   priority: RegulationRequestPriority;
   status: RegulationRequestStatus;
+  returnEditableFields?: ReturnEditableField[];
   executingHealthCenterId?: string | null;
   scheduledDate?: string | null;
   scheduledTime?: string | null;
@@ -71,6 +74,22 @@ export interface RegulationRequest {
     birthDate?: string;
     gender?: string;
     address?: string;
+    patientAnamnesis?: {
+      isHypertensive: boolean;
+      isDiabetic: boolean;
+      isSmoker: boolean;
+      otherDiseases?: string | null;
+      isOncological: boolean;
+      oncologicalStage?: string | null;
+      allergies?: string | null;
+      isPcd: boolean;
+      pcdDescription?: string | null;
+      continuousMedications: string[];
+      bloodPressure?: string | null;
+      glycemia?: string | null;
+      weight?: string | null;
+      height?: string | null;
+    } | null;
   };
   requestingHealthCenter?: {
     id: string;
@@ -245,11 +264,13 @@ export const regulationService = {
     decision: 'AUTORIZAR' | 'DEVOLVER' | 'NEGAR',
     justification: string,
     adjustedPriority?: RegulationRequestPriority,
+    returnEditableFields?: ReturnEditableField[],
   ): Promise<RegulationRequest> {
     const { data } = await api.post<RegulationRequest>(`/regulation/requests/${id}/evaluate`, {
       decision,
       justification,
       adjustedPriority,
+      returnEditableFields,
     });
     return data;
   },

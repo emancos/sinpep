@@ -1,13 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   Stethoscope,
   CheckCircle2,
   XCircle,
   RotateCcw,
+  ListChecks,
 } from 'lucide-react';
 import type { RegulationRequest } from '../../services/regulation';
 import { useEvaluateRegulationRequest } from '../../hooks/useRegulation';
+import {
+  RETURN_EDITABLE_FIELD_OPTIONS,
+  type ReturnEditableField,
+} from '../../utils/regulationReturnFields';
 import { toast } from 'sonner';
 
 interface EvaluateRegulationModalProps {
@@ -26,10 +31,34 @@ export const EvaluateRegulationModal: React.FC<EvaluateRegulationModalProps> = (
   const [adjustedPriority, setAdjustedPriority] = useState<'ELETIVO' | 'PRIORITARIO' | 'URGENCIA'>(
     (request?.priority as any) || 'ELETIVO',
   );
+  const [returnEditableFields, setReturnEditableFields] = useState<ReturnEditableField[]>([]);
 
   const evaluateMutation = useEvaluateRegulationRequest();
 
+  useEffect(() => {
+    if (isOpen && request) {
+      setDecision('AUTORIZAR');
+      setJustification('');
+      setAdjustedPriority((request.priority as any) || 'ELETIVO');
+      setReturnEditableFields([]);
+    }
+  }, [isOpen, request?.id]);
+
   if (!isOpen || !request) return null;
+
+  const toggleEditableField = (field: ReturnEditableField) => {
+    setReturnEditableFields((prev) =>
+      prev.includes(field) ? prev.filter((item) => item !== field) : [...prev, field],
+    );
+  };
+
+  const toggleAllEditableFields = () => {
+    if (returnEditableFields.length === RETURN_EDITABLE_FIELD_OPTIONS.length) {
+      setReturnEditableFields([]);
+    } else {
+      setReturnEditableFields(RETURN_EDITABLE_FIELD_OPTIONS.map((item) => item.value));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,12 +68,18 @@ export const EvaluateRegulationModal: React.FC<EvaluateRegulationModalProps> = (
       return;
     }
 
+    if (decision === 'DEVOLVER' && returnEditableFields.length === 0) {
+      toast.error('Selecione pelo menos um campo que o solicitante deve corrigir.');
+      return;
+    }
+
     try {
       await evaluateMutation.mutateAsync({
         id: request.id,
         decision,
         justification: justification.trim(),
         adjustedPriority: decision === 'AUTORIZAR' ? adjustedPriority : undefined,
+        returnEditableFields: decision === 'DEVOLVER' ? returnEditableFields : undefined,
       });
       onClose();
     } catch {
@@ -185,6 +220,62 @@ export const EvaluateRegulationModal: React.FC<EvaluateRegulationModalProps> = (
                     {p.label}
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Seleção de Campos Liberados para Correção (apenas se Devolver) */}
+          {decision === 'DEVOLVER' && (
+            <div className="p-3.5 rounded-md border border-orange-200 dark:border-orange-900/50 bg-orange-50/50 dark:bg-orange-950/20 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-orange-900 dark:text-orange-200">
+                  <ListChecks className="w-4 h-4 text-orange-600" />
+                  <span>
+                    Campos liberados para correção pela UBS <span className="text-red-500">*</span>
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  onClick={toggleAllEditableFields}
+                  className="text-[11px] font-semibold text-orange-700 dark:text-orange-300 hover:underline cursor-pointer"
+                >
+                  {returnEditableFields.length === RETURN_EDITABLE_FIELD_OPTIONS.length
+                    ? 'Limpar seleção'
+                    : 'Selecionar todos'}
+                </button>
+              </div>
+              <p className="text-[11px] text-orange-800/80 dark:text-orange-300/80">
+                Apenas os blocos marcados abaixo poderão ser alterados pelo solicitante; os demais ficarão bloqueados.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {RETURN_EDITABLE_FIELD_OPTIONS.map((option) => {
+                  const checked = returnEditableFields.includes(option.value);
+                  return (
+                    <label
+                      key={option.value}
+                      className={`flex items-start gap-2.5 p-2 rounded-md border text-xs cursor-pointer transition ${
+                        checked
+                          ? 'bg-white dark:bg-slate-900 border-orange-400 dark:border-orange-600 shadow-xs'
+                          : 'bg-white/60 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-orange-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleEditableField(option.value)}
+                        className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                      />
+                      <div className="min-w-0">
+                        <span className="font-semibold text-slate-800 dark:text-slate-100 block">
+                          {option.label}
+                        </span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight block mt-0.5">
+                          {option.description}
+                        </span>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
             </div>
           )}
