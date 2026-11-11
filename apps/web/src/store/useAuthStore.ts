@@ -24,6 +24,7 @@ export interface User {
     profileId?: string;
     profileName?: string;
     healthCenterId?: string;
+    linkedHealthCenterIds?: string[];
     isMunicipalRegulator?: boolean;
     sisregUsername?: string;
 }
