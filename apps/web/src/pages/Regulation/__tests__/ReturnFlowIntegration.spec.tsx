@@ -379,4 +379,61 @@ describe('Fluxo de Devolução Granular (Frontend Integration)', () => {
       { procedureId: 'proc-tc-3', code: '0206030010', name: 'Tomografia de Abdome' },
     ]);
   });
+
+  it('RequestDetailsPage exibe nomes amigáveis de status no histórico da solicitação em vez dos códigos crus', () => {
+    currentRequestFixture = buildBaseRequest({
+      status: 'AGENDADA',
+      statusHistory: [
+        {
+          id: 'hist-1',
+          previousStatus: null,
+          newStatus: 'PENDENTE_REGULACAO',
+          justification: 'Solicitação enviada pela UBS.',
+          createdAt: '2026-11-01T10:00:00.000Z',
+          actionByUser: { id: 'user-sol-1', name: 'Maria Solicitante' },
+        },
+        {
+          id: 'hist-2',
+          previousStatus: 'PENDENTE_REGULACAO',
+          newStatus: 'DEVOLVIDA',
+          justification: 'Falta exame complementar',
+          createdAt: '2026-11-02T10:00:00.000Z',
+          actionByUser: { id: 'reg-1', name: 'Dr. Regulador' },
+        },
+        {
+          id: 'hist-3',
+          previousStatus: 'DEVOLVIDA',
+          newStatus: 'PENDENTE_REGULACAO',
+          justification: 'Exame anexado pela UBS',
+          createdAt: '2026-11-03T10:00:00.000Z',
+          actionByUser: { id: 'user-sol-1', name: 'Maria Solicitante' },
+        },
+        {
+          id: 'hist-4',
+          previousStatus: 'PENDENTE_REGULACAO',
+          newStatus: 'PENDENTE_AGENDAMENTO',
+          justification: 'Solicitação autorizada',
+          createdAt: '2026-11-04T10:00:00.000Z',
+          actionByUser: { id: 'reg-1', name: 'Dr. Regulador' },
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/regulation/requests/req-123']}>
+        <Routes>
+          <Route path="/regulation/requests/:id" element={<RequestDetailsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Solicitação Registrada (Aguardando Regulação)')).toBeInTheDocument();
+    expect(screen.getByText('Devolvida para Correção')).toBeInTheDocument();
+    expect(screen.getByText('Corrigida e Reenviada para Regulação')).toBeInTheDocument();
+    expect(screen.getByText('Autorizada (Aguardando Agendamento)')).toBeInTheDocument();
+
+    expect(screen.queryByText('PENDENTE_REGULACAO')).not.toBeInTheDocument();
+    expect(screen.queryByText('DEVOLVIDA')).not.toBeInTheDocument();
+    expect(screen.queryByText('PENDENTE_AGENDAMENTO')).not.toBeInTheDocument();
+  });
 });

@@ -25,6 +25,10 @@ import { useProcedures, useProcedureGroups } from '../../hooks/useProcedures';
 import { apiUrl } from '../../services/api';
 import type { RegulationRequestPriority, RegulationRequestType } from '../../services/regulation';
 import { formatDateBR, formatDateTimeBR } from '../../utils/brazilianFormatters';
+import {
+  getRegulationStatusMeta,
+  getStatusHistoryEventLabel,
+} from '../../utils/regulationStatus';
 
 export const ChangeProcedurePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -686,23 +690,24 @@ export const ChangeProcedurePage: React.FC = () => {
               <div className="space-y-3 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-700">
                 {request.statusHistory.map((hist, idx) => {
                   const isProcChange = hist.justification.startsWith('ALTERAÇÃO DE PROCEDIMENTO:');
+                  const statusMeta = getRegulationStatusMeta(hist.newStatus);
 
                   return (
                     <div key={hist.id || idx} className="relative pl-7 text-xs">
                       <div
-                        className={`absolute left-1.5 top-1 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-900 ${
-                          isProcChange ? 'bg-indigo-600' : 'bg-blue-500'
+                        className={`absolute left-1.5 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-900 ${
+                          isProcChange ? 'bg-indigo-600' : statusMeta.dotClass
                         }`}
                       />
 
                       <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                         {isProcChange ? (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 flex items-center gap-1">
-                            <ArrowRightLeft className="w-3 h-3" /> ALTERAÇÃO DE PROCEDIMENTO
+                            <ArrowRightLeft className="w-3 h-3" /> Alteração de Procedimento
                           </span>
                         ) : (
-                          <span className="font-bold text-slate-900 dark:text-white">
-                            {hist.newStatus.replace('_', ' ')}
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${statusMeta.badgeClass}`}>
+                            {getStatusHistoryEventLabel(hist)}
                           </span>
                         )}
 
