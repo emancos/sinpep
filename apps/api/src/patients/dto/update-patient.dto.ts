@@ -5,6 +5,7 @@ import {
   IsISO8601,
   IsArray,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PatientPhoneDto, PatientAnamnesisDto } from './create-patient.dto';
@@ -22,6 +23,10 @@ export class UpdatePatientDto {
   @IsOptional()
   cns?: string;
 
+  @IsString()
+  @IsOptional()
+  email?: string;
+
   @IsISO8601()
   @IsOptional()
   birthDate?: string;
@@ -34,13 +39,14 @@ export class UpdatePatientDto {
   @IsOptional()
   healthCenterId?: string;
 
+  @ValidateIf((_obj, value) => value !== null && value !== undefined && value !== '')
   @IsUUID()
   @IsOptional()
-  healthAgentId?: string;
+  healthAgentId?: string | null;
 
   @IsString()
   @IsOptional()
-  address?: string;
+  address?: string | null;
 
   @IsArray()
   @IsOptional()

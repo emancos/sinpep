@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject } from '@nestjs/common';
 import { DATABASE_CONNECTION } from '../database/database.module';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database/schema';
@@ -8,6 +8,26 @@ import { UpdateAttentionDto } from './dto/update-attention.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { eq, ilike, or, and, asc, desc, sql, inArray } from 'drizzle-orm';
 import * as crypto from 'crypto';
+import { extractLinkedHealthCenterIds, isSolicitorRestrictedUser } from '../auth/utils/role-scope.util';
+import {
+  buildAnamnesisChanges,
+  buildPatientUpdateChanges,
+  recordPatientEditHistory,
+} from './patient-history.helper';
+
+const SOLICITOR_FORBIDDEN_PATIENT_FIELDS = new Set([
+  'name',
+  'cpf',
+  'cns',
+  'email',
+  'birthDate',
+  'gender',
+  'anamnesis',
+  'active',
+  'isActive',
+  'attentionLevel',
+  'attentionNotes',
+]);
 
 @Injectable()
 export class PatientsService {
@@ -253,11 +273,61 @@ export class PatientsService {
     return { ...patient, phones: patient.patientPhones };
   }
 
-  async update(id: string, updatePatientDto: UpdatePatientDto) {
-    await this.findOne(id);
+  private assertSolicitorCanEditPatient(
+    existingPatient: any,
+    payload: Record<string, any>,
+    rawBody: Record<string, any> | undefined,
+    user: any,
+  ) {
+    if (!isSolicitorRestrictedUser(user)) {
+      return;
+    }
+
+    const linkedCenterIds = extractLinkedHealthCenterIds(user);
+    if (!existingPatient.healthCenterId || !linkedCenterIds.includes(existingPatient.healthCenterId)) {
+      throw new ForbiddenException(
+        'Solicitantes (UBS) só podem editar pacientes vinculados às suas Unidades de Saúde.',
+      );
+    }
+
+    const combined = { ...(rawBody || {}), ...(payload || {}) };
+    const forbiddenSent = Object.keys(combined).filter(
+      (key) => SOLICITOR_FORBIDDEN_PATIENT_FIELDS.has(key) && combined[key] !== undefined,
+    );
+
+    if (forbiddenSent.length > 0) {
+      throw new ForbiddenException(
+        'Solicitantes (UBS) só têm permissão para editar Vínculo & Endereço e Contatos Telefônicos do paciente.',
+      );
+    }
+  }
+
+  async getEditHistory(patientId: string) {
+    const existing = await this.db.query.patients.findFirst({
+      where: eq(schema.patients.id, patientId),
+      columns: { id: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Patient with ID ${patientId} not found`);
+    }
+
+    return this.db.query.patientEditHistory.findMany({
+      where: eq(schema.patientEditHistory.patientId, patientId),
+      orderBy: [desc(schema.patientEditHistory.createdAt)],
+    });
+  }
+
+  async update(id: string, updatePatientDto: UpdatePatientDto, user?: any, rawBody?: any) {
+    const existingPatient = await this.findOne(id);
+    this.assertSolicitorCanEditPatient(existingPatient, updatePatientDto as any, rawBody, user);
+
     const { phones, birthDate, anamnesis, ...rest } = updatePatientDto;
 
     const dataToUpdate: any = { ...rest, updatedAt: new Date().toISOString() };
+    if (dataToUpdate.healthAgentId === '') {
+      dataToUpdate.healthAgentId = null;
+    }
     if (birthDate) {
       dataToUpdate.birthDate = new Date(birthDate).toISOString().split('T')[0] + 'T00:00:00.000Z';
     }
@@ -325,18 +395,50 @@ export class PatientsService {
       }
     }
 
-    return this.findOne(id);
+    const updatedPatient = await this.findOne(id);
+    const changes = [
+      ...buildPatientUpdateChanges(existingPatient, updatedPatient),
+      ...(anamnesis ? buildAnamnesisChanges(existingPatient.patientAnamnesis, updatedPatient.patientAnamnesis) : []),
+    ];
+
+    await recordPatientEditHistory(this.db, {
+      patientId: id,
+      user,
+      origin: 'PATIENT_EDIT',
+      changes,
+    });
+
+    return updatedPatient;
   }
 
-  async toggleActive(id: string) {
+  async toggleActive(id: string, user?: any) {
+    if (isSolicitorRestrictedUser(user)) {
+      throw new ForbiddenException('Usuários com perfil Solicitante (UBS) não têm permissão para desativar ou reativar pacientes.');
+    }
+
     const patient = await this.findOne(id);
+    const nextIsActive = !patient.isActive;
     await this.db.update(schema.patients)
       .set({
-        isActive: !patient.isActive,
+        isActive: nextIsActive,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(schema.patients.id, id));
-      
+
+    await recordPatientEditHistory(this.db, {
+      patientId: id,
+      user,
+      origin: 'PATIENT_STATUS',
+      changes: [
+        {
+          field: 'isActive',
+          label: 'Status do cadastro',
+          before: patient.isActive ? 'Ativo' : 'Inativo',
+          after: nextIsActive ? 'Ativo' : 'Inativo',
+        },
+      ],
+    });
+
     return this.findOne(id);
   }
 
@@ -348,8 +450,8 @@ export class PatientsService {
     return deleted;
   }
 
-  async updateAttention(id: string, updateAttentionDto: UpdateAttentionDto) {
-    await this.findOne(id);
+  async updateAttention(id: string, updateAttentionDto: UpdateAttentionDto, user?: any) {
+    const existingPatient = await this.findOne(id);
 
     await this.db.update(schema.patients)
       .set({
@@ -359,6 +461,14 @@ export class PatientsService {
       })
       .where(eq(schema.patients.id, id));
 
-    return this.findOne(id);
+    const updatedPatient = await this.findOne(id);
+    await recordPatientEditHistory(this.db, {
+      patientId: id,
+      user,
+      origin: 'PATIENT_ATTENTION',
+      changes: buildPatientUpdateChanges(existingPatient, updatedPatient),
+    });
+
+    return updatedPatient;
   }
 }

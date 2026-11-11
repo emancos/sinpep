@@ -9,6 +9,7 @@ import {
   Patch,
   UseGuards,
   Query,
+  Req,
 } from '@nestjs/common';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
@@ -46,6 +47,12 @@ export class PatientsController {
     return this.patientsService.checkUnique(cpf, cns, excludeId);
   }
 
+  @Get(':id/history')
+  @Permissions('patients:read')
+  getEditHistory(@Param('id') id: string) {
+    return this.patientsService.getEditHistory(id);
+  }
+
   @Get(':id')
   @Permissions('patients:read')
   findOne(@Param('id') id: string) {
@@ -54,8 +61,12 @@ export class PatientsController {
 
   @Put(':id')
   @Permissions('patients:write')
-  update(@Param('id') id: string, @Body() updatePatientDto: UpdatePatientDto) {
-    return this.patientsService.update(id, updatePatientDto);
+  update(
+    @Param('id') id: string,
+    @Body() updatePatientDto: UpdatePatientDto,
+    @Req() req: any,
+  ) {
+    return this.patientsService.update(id, updatePatientDto, req.user, req.body);
   }
 
   @Delete(':id')
@@ -66,8 +77,8 @@ export class PatientsController {
 
   @Patch(':id/toggle-active')
   @Permissions('patients:write')
-  toggleActive(@Param('id') id: string) {
-    return this.patientsService.toggleActive(id);
+  toggleActive(@Param('id') id: string, @Req() req: any) {
+    return this.patientsService.toggleActive(id, req.user);
   }
 
   @Patch(':id/attention')
@@ -75,7 +86,8 @@ export class PatientsController {
   updateAttention(
     @Param('id') id: string,
     @Body() updateAttentionDto: UpdateAttentionDto,
+    @Req() req: any,
   ) {
-    return this.patientsService.updateAttention(id, updateAttentionDto);
+    return this.patientsService.updateAttention(id, updateAttentionDto, req.user);
   }
 }
