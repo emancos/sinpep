@@ -6,7 +6,7 @@ import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { UpdateAttentionDto } from './dto/update-attention.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { eq, ilike, or, and, asc, desc, sql } from 'drizzle-orm';
+import { eq, ilike, or, and, asc, desc, sql, inArray } from 'drizzle-orm';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -108,7 +108,10 @@ export class PatientsService {
   }
 
   async findAll(query: PaginationQueryDto) {
-    const { page = 1, limit = 10, sortBy, sortOrder = 'asc', search } = query;
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(query.limit) || 20));
+    const sortBy = query.sortBy || 'name';
+    const sortOrder = query.sortOrder === 'desc' ? 'desc' : 'asc';
     const skip = (page - 1) * limit;
 
     const conditions = [];
@@ -117,8 +120,12 @@ export class PatientsService {
       conditions.push(eq(schema.patients.isActive, true));
     }
 
-    if (search) {
-      const trimmedSearch = search.trim();
+    if (query.healthCenterId && query.healthCenterId !== 'ALL') {
+      conditions.push(eq(schema.patients.healthCenterId, query.healthCenterId));
+    }
+
+    if (query.search && query.search.trim()) {
+      const trimmedSearch = query.search.trim();
       const cleanDigits = trimmedSearch.replace(/\D/g, '');
 
       const searchConditions = [
@@ -127,7 +134,7 @@ export class PatientsService {
         ilike(schema.patients.cns, `%${trimmedSearch}%`),
       ];
 
-      if (cleanDigits.length > 0) {
+      if (cleanDigits.length >= 2) {
         searchConditions.push(ilike(schema.patients.cpf, `%${cleanDigits}%`));
         searchConditions.push(ilike(schema.patients.cns, `%${cleanDigits}%`));
       }
@@ -136,42 +143,97 @@ export class PatientsService {
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const isDesc = sortOrder === 'desc';
 
-    // 1. Contagem total executada diretamente no banco de dados
-    const totalResult = await this.db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(schema.patients)
-      .where(whereClause);
-    const total = totalResult[0]?.count || 0;
-
-    // 2. Cláusula de ordenação SQL
-    let orderClause = [sortOrder === 'desc' ? desc(schema.patients.name) : asc(schema.patients.name)];
-    if (sortBy === 'cpf') {
-      orderClause = [sortOrder === 'desc' ? desc(schema.patients.cpf) : asc(schema.patients.cpf)];
+    let orderClause = [isDesc ? desc(schema.patients.name) : asc(schema.patients.name)];
+    if (sortBy === 'healthCenter') {
+      orderClause = [
+        isDesc
+          ? sql`${schema.healthCenters.name} DESC NULLS LAST`
+          : sql`${schema.healthCenters.name} ASC NULLS LAST`,
+        asc(schema.patients.name),
+      ];
+    } else if (sortBy === 'cpf') {
+      orderClause = [isDesc ? desc(schema.patients.cpf) : asc(schema.patients.cpf), asc(schema.patients.name)];
     } else if (sortBy === 'cns') {
-      orderClause = [sortOrder === 'desc' ? desc(schema.patients.cns) : asc(schema.patients.cns)];
+      orderClause = [isDesc ? desc(schema.patients.cns) : asc(schema.patients.cns), asc(schema.patients.name)];
     } else if (sortBy === 'createdAt') {
-      orderClause = [sortOrder === 'desc' ? desc(schema.patients.createdAt) : asc(schema.patients.createdAt)];
+      orderClause = [isDesc ? desc(schema.patients.createdAt) : asc(schema.patients.createdAt)];
     }
 
-    // 3. Consulta paginada e enxuta (sem anamnese pesada na listagem de tabela)
-    const patients = await this.db.query.patients.findMany({
-      where: whereClause,
-      with: {
-        healthCenter: {
-          columns: { id: true, name: true, cnes: true },
-        },
-        healthAgent: {
-          columns: { id: true, name: true },
-        },
-        patientPhones: true,
-      },
-      orderBy: orderClause,
-      limit,
-      offset: skip,
+    // 1. Executa contagem e consulta paginada via LEFT JOIN direto em paralelo (evita LATERAL N×M antes do LIMIT)
+    const [totalResult, rows] = await Promise.all([
+      this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.patients)
+        .where(whereClause),
+      this.db
+        .select({
+          id: schema.patients.id,
+          name: schema.patients.name,
+          cpf: schema.patients.cpf,
+          cns: schema.patients.cns,
+          email: schema.patients.email,
+          birthDate: schema.patients.birthDate,
+          gender: schema.patients.gender,
+          createdAt: schema.patients.createdAt,
+          updatedAt: schema.patients.updatedAt,
+          healthCenterId: schema.patients.healthCenterId,
+          healthAgentId: schema.patients.healthAgentId,
+          attentionLevel: schema.patients.attentionLevel,
+          attentionNotes: schema.patients.attentionNotes,
+          address: schema.patients.address,
+          isActive: schema.patients.isActive,
+          healthCenter: {
+            id: schema.healthCenters.id,
+            name: schema.healthCenters.name,
+            cnes: schema.healthCenters.cnes,
+          },
+          healthAgent: {
+            id: schema.healthAgents.id,
+            name: schema.healthAgents.name,
+          },
+        })
+        .from(schema.patients)
+        .leftJoin(schema.healthCenters, eq(schema.patients.healthCenterId, schema.healthCenters.id))
+        .leftJoin(schema.healthAgents, eq(schema.patients.healthAgentId, schema.healthAgents.id))
+        .where(whereClause)
+        .orderBy(...orderClause)
+        .limit(limit)
+        .offset(skip),
+    ]);
+
+    const total = totalResult[0]?.count || 0;
+
+    // 2. Carrega telefones em lote apenas para os registros retornados na página
+    const patientIds = rows.map((r) => r.id);
+    const phonesByPatientId = new Map<string, (typeof schema.patientPhones.$inferSelect)[]>();
+
+    if (patientIds.length > 0) {
+      const phones = await this.db
+        .select()
+        .from(schema.patientPhones)
+        .where(inArray(schema.patientPhones.patientId, patientIds));
+
+      for (const phone of phones) {
+        const list = phonesByPatientId.get(phone.patientId) || [];
+        list.push(phone);
+        phonesByPatientId.set(phone.patientId, list);
+      }
+    }
+
+    const data = rows.map((row) => {
+      const patientPhones = phonesByPatientId.get(row.id) || [];
+      return {
+        ...row,
+        healthCenter: row.healthCenter?.id ? row.healthCenter : null,
+        healthAgent: row.healthAgent?.id ? row.healthAgent : null,
+        patientPhones,
+        phones: patientPhones,
+      };
     });
 
-    return { data: patients.map((p) => ({ ...p, phones: p.patientPhones })), total };
+    return { data, total, page, limit };
   }
 
   async findOne(id: string) {

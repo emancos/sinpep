@@ -158,6 +158,8 @@ export const patients = pgTable("patients", {
 }, (table) => [
 	uniqueIndex("patients_cns_key").using("btree", table.cns.asc().nullsLast().op("text_ops")),
 	uniqueIndex("patients_cpf_key").using("btree", table.cpf.asc().nullsLast().op("text_ops")),
+	index("idx_patients_health_center_id").on(table.healthCenterId),
+	index("idx_patients_active_name").on(table.isActive, table.name),
 	foreignKey({
 			columns: [table.healthAgentId],
 			foreignColumns: [healthAgents.id],
@@ -214,6 +216,7 @@ export const patientPhones = pgTable("patient_phones", {
 	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
 }, (table) => [
+	index("idx_patient_phones_patient_id").on(table.patientId),
 	foreignKey({
 			columns: [table.patientId],
 			foreignColumns: [patients.id],
