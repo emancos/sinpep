@@ -26,6 +26,7 @@ const PERMISSIONS = [
   { name: 'schedules:read', description: 'Visualizar agendas e escalas' },
   { name: 'schedules:book', description: 'Agendar vagas e consultas' },
   { name: 'schedules:write', description: 'Criar e editar escalas e agendas' },
+  { name: 'schedules:delete', description: 'Excluir agendas e escalas' },
   { name: 'medical-records:read', description: 'Visualizar prontuários médicos' },
   { name: 'medical-records:write', description: 'Gerenciar e registrar prontuários médicos' },
   { name: 'bpa:read', description: 'Visualizar Boletim de Produção Ambulatorial' },

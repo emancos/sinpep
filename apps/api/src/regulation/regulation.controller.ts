@@ -29,7 +29,7 @@ export class RegulationController {
   // =========================================================================
 
   @Post('requests')
-  @Permissions('regulation-solicitor:create')
+  @Permissions('regulation-solicitor:write')
   @UseInterceptors(
     FilesInterceptor('attachments', 10, {
       storage: memoryStorage(),
