@@ -446,6 +446,28 @@ export class DatabaseMigrationService implements OnModuleInit {
         FROM users u
         WHERE u.profile_id IS NOT NULL
         ON CONFLICT (user_id, profile_id) DO NOTHING;
+
+        -- Migração: Devolução granular de solicitações de regulação e Histórico de edições de pacientes
+        ALTER TABLE regulation_requests
+          ADD COLUMN IF NOT EXISTS return_editable_fields JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+        ALTER TABLE regulation_status_history
+          ADD COLUMN IF NOT EXISTS editable_fields JSONB;
+
+        CREATE TABLE IF NOT EXISTS patient_edit_history (
+          id UUID PRIMARY KEY NOT NULL,
+          patient_id UUID NOT NULL REFERENCES patients(id) ON UPDATE CASCADE ON DELETE CASCADE,
+          edited_by_user_id UUID REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL,
+          edited_by_name TEXT NOT NULL,
+          edited_by_email TEXT NOT NULL,
+          edited_by_phone TEXT,
+          origin TEXT NOT NULL,
+          changes JSONB NOT NULL,
+          created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_patient_edit_history_patient_created
+          ON patient_edit_history (patient_id, created_at DESC);
       `);
 
       this.logger.log('Database migrations for procedures, quotas, auto-scheduling, user health centers & esus import applied successfully.');

@@ -1,5 +1,6 @@
 import { pgTable, uniqueIndex, index, uuid, text, timestamp, foreignKey, boolean, integer, primaryKey, pgEnum, serial, jsonb, numeric } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
+import type { ReturnEditableField } from "../regulation/regulation-return-fields"
 
 
 
@@ -983,6 +984,7 @@ export const regulationRequests = pgTable("regulation_requests", {
   clinicalHistory: text("clinical_history"),
   priority: regulationRequestPriorityEnum("priority").default("ELETIVO").notNull(),
   status: regulationRequestStatusEnum("status").default("PENDENTE_REGULACAO").notNull(),
+  returnEditableFields: jsonb("return_editable_fields").$type<ReturnEditableField[]>().default([]).notNull(),
 
   executingHealthCenterId: uuid("executing_health_center_id"),
   scheduledDate: text("scheduled_date"),
@@ -1070,6 +1072,7 @@ export const regulationStatusHistory = pgTable("regulation_status_history", {
   previousStatus: regulationRequestStatusEnum("previous_status"),
   newStatus: regulationRequestStatusEnum("new_status").notNull(),
   justification: text().notNull(),
+  editableFields: jsonb("editable_fields").$type<ReturnEditableField[]>(),
   actionByUserId: uuid("action_by_user_id").notNull(),
   createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 }, (table) => [
@@ -1652,6 +1655,34 @@ export const bpaExportRulesRelations = relations(bpaExportRules, ({ one }) => ({
     references: [healthCenters.id],
   }),
 }));
+
+// ==========================================
+// HISTÓRICO DE EDIÇÕES DE PACIENTES
+// ==========================================
+
+export const patientEditHistory = pgTable("patient_edit_history", {
+  id: uuid().primaryKey().notNull(),
+  patientId: uuid("patient_id").notNull(),
+  editedByUserId: uuid("edited_by_user_id"),
+  editedByName: text("edited_by_name").notNull(),
+  editedByEmail: text("edited_by_email").notNull(),
+  editedByPhone: text("edited_by_phone"),
+  origin: text("origin").notNull(),
+  changes: jsonb("changes").$type<Array<{ field: string; label: string; before: unknown; after: unknown }>>().notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+}, (table) => [
+  index("idx_patient_edit_history_patient_created").on(table.patientId, table.createdAt.desc()),
+  foreignKey({
+    columns: [table.patientId],
+    foreignColumns: [patients.id],
+    name: "patient_edit_history_patient_id_fkey",
+  }).onUpdate("cascade").onDelete("cascade"),
+  foreignKey({
+    columns: [table.editedByUserId],
+    foreignColumns: [users.id],
+    name: "patient_edit_history_edited_by_user_id_fkey",
+  }).onUpdate("cascade").onDelete("set null"),
+]);
 
 
 
