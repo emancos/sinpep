@@ -14,7 +14,7 @@ function extractSqlText(node: unknown): string {
 }
 
 describe('DashboardService (getRegulatorSummary)', () => {
-  it('consulta priority em vez de risk_classification e retorna breakdown, especialidades/grupos e urgências', async () => {
+  const createMockDb = () => {
     const executedSqlStrings: string[] = [];
 
     const mockDb = {
@@ -22,40 +22,36 @@ describe('DashboardService (getRegulatorSummary)', () => {
         const sqlText = extractSqlText(queryObj);
         executedSqlStrings.push(sqlText);
 
-        if (sqlText.includes('FILTER (WHERE status =')) {
+        if (sqlText.includes('GROUP BY status, priority')) {
           return {
             rows: [
-              {
-                to_evaluate: 4,
-                to_schedule: 2,
-                scheduled: 3,
-                returned: 1,
-                denied: 0,
-              },
+              { status: 'PENDENTE_REGULACAO', priority: 'URGENTE', count: 4 },
+              { status: 'PENDENTE_REGULACAO', priority: 'PRIORITARIO', count: 1 },
+              { status: 'PENDENTE_AGENDAMENTO', priority: 'ELETIVO', count: 3 },
+              { status: 'AGENDADA', priority: 'ELETIVO', count: 2 },
+              { status: 'DEVOLVIDA', priority: 'ELETIVO', count: 1 },
+              { status: 'NEGADA', priority: 'PRIORITARIO', count: 1 },
             ],
           };
         }
-        if (sqlText.includes('GROUP BY priority')) {
+        if (
+          sqlText.includes('WITH waiting_agg AS') &&
+          sqlText.includes("WHERE status = 'PENDENTE_AGENDAMENTO'")
+        ) {
           return {
-            rows: [
-              { risk: 'URGENCIA', count: 2 },
-              { risk: 'PRIORITARIO', count: 1 },
-              { risk: 'ELETIVO', count: 3 },
-            ],
+            rows: [{ specialty_name: 'GRUPO - TOMOGRAFIA - GERAL', count: 3 }],
           };
         }
-        if (sqlText.includes("WHERE r.status = 'PENDENTE_AGENDAMENTO'")) {
-          return {
-            rows: [{ specialty_name: 'GRUPO - TOMOGRAFIA - GERAL', count: 2 }],
-          };
-        }
-        if (sqlText.includes("WHERE r.status = 'PENDENTE_REGULACAO'")) {
+        if (
+          sqlText.includes('WITH top_pending AS') &&
+          sqlText.includes("WHERE status = 'PENDENTE_REGULACAO'")
+        ) {
           return {
             rows: [
               {
                 id: 'req-urg-1',
                 protocol: 'SOL-202611-1001',
-                risk: 'URGENCIA',
+                risk: 'URGENTE',
                 status: 'PENDENTE_REGULACAO',
                 created_at: '2026-11-11T10:00:00.000Z',
                 patient_name: 'Ana Paula',
@@ -70,41 +66,81 @@ describe('DashboardService (getRegulatorSummary)', () => {
       }),
     };
 
+    return { mockDb, executedSqlStrings };
+  };
+
+  it('executa 3 consultas em paralelo usando priority::text (sem risk_classification) e retorna KPIs e breakdown ordenados', async () => {
+    const { mockDb, executedSqlStrings } = createMockDb();
     const service = new DashboardService(mockDb as any);
+
     const result: any = await service.getSummary({
       id: 'reg-1',
       activeProfileName: 'Regulador (Central de Regulação)',
       permissions: ['regulation-operator:read'],
     });
 
-    expect(executedSqlStrings.length).toBe(4);
+    expect(executedSqlStrings.length).toBe(3);
     for (const sqlText of executedSqlStrings) {
       expect(sqlText).not.toContain('risk_classification');
     }
 
     const joinedSql = executedSqlStrings.join('\n');
-    expect(joinedSql).toContain('priority');
+    expect(joinedSql).toContain('priority::text');
+    expect(joinedSql).toContain('URGENTE');
+    expect(joinedSql).toContain('URGENCIA');
     expect(joinedSql).toContain('LEFT JOIN specialties');
     expect(joinedSql).toContain('LEFT JOIN procedure_groups');
     expect(joinedSql).toContain('LEFT JOIN procedures');
 
     expect(result.kpis).toEqual({
-      toEvaluate: 4,
-      waitingList: 2,
-      scheduled: 3,
+      toEvaluate: 5,
+      waitingList: 3,
+      scheduled: 2,
       returned: 1,
-      denied: 0,
-      totalActive: 6,
+      denied: 1,
+      totalActive: 8,
     });
     expect(result.charts.riskBreakdown).toEqual([
-      { risk: 'URGENCIA', count: 2 },
+      { risk: 'URGENTE', count: 4 },
       { risk: 'PRIORITARIO', count: 1 },
       { risk: 'ELETIVO', count: 3 },
     ]);
     expect(result.charts.topWaitingSpecialties).toEqual([
-      { specialty_name: 'GRUPO - TOMOGRAFIA - GERAL', count: 2 },
+      { specialty_name: 'GRUPO - TOMOGRAFIA - GERAL', count: 3 },
     ]);
     expect(result.recentItems).toHaveLength(1);
-    expect(result.recentItems[0].risk).toBe('URGENCIA');
+    expect(result.recentItems[0].risk).toBe('URGENTE');
+  });
+
+  it('roteia perfil Regulador mesmo com admin:access, deduplica chamadas concorrentes e reutiliza cache de 10s', async () => {
+    const { mockDb, executedSqlStrings } = createMockDb();
+    const service = new DashboardService(mockDb as any);
+
+    const [first, second]: any[] = await Promise.all([
+      service.getSummary({
+        id: 'reg-1',
+        activeProfileName: 'Regulador (Central de Regulação)',
+        permissions: ['admin:access', 'regulation-operator:read'],
+      }),
+      service.getSummary({
+        id: 'reg-2',
+        activeProfileName: 'Regulador (Central de Regulação)',
+        permissions: ['admin:access'],
+      }),
+    ]);
+
+    expect(mockDb.execute).toHaveBeenCalledTimes(3);
+    expect(executedSqlStrings.some((s) => s.includes('GROUP BY status, priority'))).toBe(true);
+    expect(first.kpis.toEvaluate).toBe(5);
+    expect(second).toEqual(first);
+
+    const third: any = await service.getSummary({
+      id: 'reg-3',
+      activeProfileName: 'Regulador (Central de Regulação)',
+      permissions: ['regulation-operator:read'],
+    });
+
+    expect(mockDb.execute).toHaveBeenCalledTimes(3);
+    expect(third).toEqual(first);
   });
 });

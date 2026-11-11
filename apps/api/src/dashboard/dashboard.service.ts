@@ -8,6 +8,10 @@ import { randomUUID } from 'crypto';
 
 @Injectable()
 export class DashboardService {
+  private regulatorSummaryCache: { data: any; expiresAt: number } | null = null;
+  private regulatorSummaryInFlight: Promise<any> | null = null;
+  private static readonly REGULATOR_CACHE_TTL_MS = 10_000;
+
   constructor(
     @Inject('DATABASE_CONNECTION')
     private readonly db: NodePgDatabase<typeof schema>,
@@ -18,17 +22,19 @@ export class DashboardService {
    */
   async getSummary(user: any) {
     const profileName = user.activeProfileName || '';
-    const isAdmin = user.permissions?.includes('admin:access') || profileName === 'Administrador';
-    const isRegulator = profileName === 'Regulador (Central de Regulação)';
-    const isSolicitor = profileName.includes('Solicitante');
+    const profileLower = profileName.toLowerCase();
+    const isAdminProfile = profileLower.includes('administrador');
+    const isRegulator = profileLower.includes('regulador');
+    const isSolicitor = profileLower.includes('solicitante');
     const isCoordinator = profileName === 'Coordenador de Unidade';
     const isDoctor = profileName === 'Médico';
     const isReceptionist = profileName === 'Recepcionista';
+    const hasAdminAccess = Boolean(user.permissions?.includes('admin:access'));
 
     const today = new Date().toISOString().split('T')[0];
 
-    // 1. Visão do Administrador
-    if (isAdmin) {
+    // 1. Visão explícita do perfil ativo antes do fallback por permissão
+    if (isAdminProfile) {
       return this.getAdminSummary();
     }
 
@@ -58,6 +64,10 @@ export class DashboardService {
     }
 
     // Fallback: painel administrativo geral
+    if (hasAdminAccess) {
+      return this.getAdminSummary();
+    }
+
     return this.getAdminSummary();
   }
 
@@ -169,96 +179,175 @@ export class DashboardService {
     };
   }
 
+  private getDbRows<T = any>(result: unknown): T[] {
+    return (result as any)?.rows || (Array.isArray(result) ? result : []);
+  }
+
   private async getRegulatorSummary() {
-    // 1. Contadores da Central de Regulação
-    const regResult = await this.db.execute(sql`
-      SELECT 
-        count(*)::int as total,
-        count(*) FILTER (WHERE status = 'PENDENTE_REGULACAO')::int as to_evaluate,
-        count(*) FILTER (WHERE status = 'PENDENTE_AGENDAMENTO')::int as to_schedule,
-        count(*) FILTER (WHERE status = 'AGENDADA')::int as scheduled,
-        count(*) FILTER (WHERE status = 'DEVOLVIDA')::int as returned,
-        count(*) FILTER (WHERE status = 'NEGADA')::int as denied
-      FROM regulation_requests
-    `);
-    const regRows = (regResult as any)?.rows || [];
-    const regStats = regRows[0] || { total: 0, to_evaluate: 0, to_schedule: 0, scheduled: 0, returned: 0, denied: 0 };
+    if (this.regulatorSummaryCache && Date.now() < this.regulatorSummaryCache.expiresAt) {
+      return this.regulatorSummaryCache.data;
+    }
 
-    // 2. Fila de espera por gravidade/prioridade clínica
-    const riskResult = await this.db.execute(sql`
-      SELECT 
-        priority::text as risk,
-        count(*)::int as count
-      FROM regulation_requests
-      WHERE status IN ('PENDENTE_REGULACAO', 'PENDENTE_AGENDAMENTO')
-      GROUP BY priority
-      ORDER BY
-        CASE priority
-          WHEN 'URGENCIA' THEN 1
-          WHEN 'PRIORITARIO' THEN 2
-          WHEN 'ELETIVO' THEN 3
-          ELSE 4
-        END,
-        count DESC
-    `);
-    const riskBreakdown = (riskResult as any)?.rows || [];
+    if (this.regulatorSummaryInFlight) {
+      return this.regulatorSummaryInFlight;
+    }
 
-    // 3. Top Especialidades / Procedimentos aguardando na fila
-    const specWaitingResult = await this.db.execute(sql`
-      SELECT
-        COALESCE(pg.name, pr.name, s.name, 'Procedimento') as specialty_name,
-        count(r.id)::int as count
-      FROM regulation_requests r
-      LEFT JOIN specialties s ON r.specialty_id = s.id
-      LEFT JOIN procedure_groups pg ON r.procedure_group_id = pg.id
-      LEFT JOIN procedures pr ON r.procedure_id = pr.id
-      WHERE r.status = 'PENDENTE_AGENDAMENTO'
-      GROUP BY COALESCE(pg.name, pr.name, s.name, 'Procedimento')
-      ORDER BY count DESC
-      LIMIT 6
-    `);
-    const topWaitingSpecialties = (specWaitingResult as any)?.rows || [];
+    this.regulatorSummaryInFlight = this.computeRegulatorSummary()
+      .then((data) => {
+        this.regulatorSummaryCache = {
+          data,
+          expiresAt: Date.now() + DashboardService.REGULATOR_CACHE_TTL_MS,
+        };
+        return data;
+      })
+      .finally(() => {
+        this.regulatorSummaryInFlight = null;
+      });
 
-    // 4. Solicitações urgentes recém-chegadas (prioridade URGENCIA/PRIORITARIO)
-    const urgentResult = await this.db.execute(sql`
-      SELECT 
-        r.id,
-        r.protocol_number as protocol,
-        r.priority::text as risk,
-        r.status,
-        r.created_at,
-        p.name as patient_name,
-        p.cpf as patient_cpf,
-        COALESCE(pg.name, pr.name, s.name, 'Procedimento') as specialty_name,
-        hc.name as requesting_unit
-      FROM regulation_requests r
-      JOIN patients p ON r.patient_id = p.id
-      LEFT JOIN specialties s ON r.specialty_id = s.id
-      LEFT JOIN procedure_groups pg ON r.procedure_group_id = pg.id
-      LEFT JOIN procedures pr ON r.procedure_id = pr.id
-      JOIN health_centers hc ON r.requesting_health_center_id = hc.id
-      WHERE r.status = 'PENDENTE_REGULACAO'
-      ORDER BY 
-        CASE r.priority
-          WHEN 'URGENCIA' THEN 1
-          WHEN 'PRIORITARIO' THEN 2
-          WHEN 'ELETIVO' THEN 3
-          ELSE 4
-        END,
-        r.created_at ASC
-      LIMIT 6
-    `);
-    const urgentRequests = (urgentResult as any)?.rows || [];
+    return this.regulatorSummaryInFlight;
+  }
+
+  private async computeRegulatorSummary() {
+    const [statusPriorityResult, specWaitingResult, urgentResult] = await Promise.all([
+      // 1. Leitura única consolidada para KPIs e distribuição por prioridade clínica
+      this.db.execute(sql`
+        SELECT
+          status::text as status,
+          priority::text as priority,
+          count(*)::int as count
+        FROM regulation_requests
+        GROUP BY status, priority
+      `),
+      // 2. Agrega IDs antes dos JOINs para evitar junções desnecessárias na fila inteira
+      this.db.execute(sql`
+        WITH waiting_agg AS (
+          SELECT procedure_group_id, procedure_id, specialty_id, count(*)::int as cnt
+          FROM regulation_requests
+          WHERE status = 'PENDENTE_AGENDAMENTO'
+          GROUP BY procedure_group_id, procedure_id, specialty_id
+        )
+        SELECT
+          COALESCE(pg.name, pr.name, s.name, 'Procedimento') as specialty_name,
+          SUM(w.cnt)::int as count
+        FROM waiting_agg w
+        LEFT JOIN specialties s ON w.specialty_id = s.id
+        LEFT JOIN procedure_groups pg ON w.procedure_group_id = pg.id
+        LEFT JOIN procedures pr ON w.procedure_id = pr.id
+        GROUP BY COALESCE(pg.name, pr.name, s.name, 'Procedimento')
+        ORDER BY count DESC
+        LIMIT 6
+      `),
+      // 3. Filtra e ordena apenas os 6 registros prioritários antes de realizar JOINs
+      this.db.execute(sql`
+        WITH top_pending AS (
+          SELECT
+            id,
+            protocol_number,
+            priority::text as priority_text,
+            status::text as status_text,
+            created_at,
+            patient_id,
+            specialty_id,
+            procedure_group_id,
+            procedure_id,
+            requesting_health_center_id
+          FROM regulation_requests
+          WHERE status = 'PENDENTE_REGULACAO'
+          ORDER BY
+            CASE priority::text
+              WHEN 'URGENTE' THEN 1
+              WHEN 'URGENCIA' THEN 1
+              WHEN 'PRIORITARIO' THEN 2
+              WHEN 'ELETIVO' THEN 3
+              ELSE 4
+            END,
+            created_at ASC
+          LIMIT 6
+        )
+        SELECT
+          r.id,
+          r.protocol_number as protocol,
+          r.priority_text as risk,
+          r.status_text as status,
+          r.created_at,
+          p.name as patient_name,
+          p.cpf as patient_cpf,
+          COALESCE(pg.name, pr.name, s.name, 'Procedimento') as specialty_name,
+          hc.name as requesting_unit
+        FROM top_pending r
+        JOIN patients p ON r.patient_id = p.id
+        LEFT JOIN specialties s ON r.specialty_id = s.id
+        LEFT JOIN procedure_groups pg ON r.procedure_group_id = pg.id
+        LEFT JOIN procedures pr ON r.procedure_id = pr.id
+        JOIN health_centers hc ON r.requesting_health_center_id = hc.id
+        ORDER BY
+          CASE r.priority_text
+            WHEN 'URGENTE' THEN 1
+            WHEN 'URGENCIA' THEN 1
+            WHEN 'PRIORITARIO' THEN 2
+            WHEN 'ELETIVO' THEN 3
+            ELSE 4
+          END,
+          r.created_at ASC
+      `),
+    ]);
+
+    const statusPriorityRows = this.getDbRows<{
+      status: string;
+      priority: string;
+      count: number | string;
+    }>(statusPriorityResult);
+
+    const statusCounts: Record<string, number> = {
+      PENDENTE_REGULACAO: 0,
+      PENDENTE_AGENDAMENTO: 0,
+      AGENDADA: 0,
+      DEVOLVIDA: 0,
+      NEGADA: 0,
+    };
+    const activeRiskMap = new Map<string, number>();
+
+    for (const row of statusPriorityRows) {
+      const count = Number(row.count) || 0;
+      if (row.status in statusCounts) {
+        statusCounts[row.status] += count;
+      }
+      if (row.status === 'PENDENTE_REGULACAO' || row.status === 'PENDENTE_AGENDAMENTO') {
+        const riskKey = String(row.priority || 'ELETIVO').toUpperCase();
+        activeRiskMap.set(riskKey, (activeRiskMap.get(riskKey) || 0) + count);
+      }
+    }
+
+    const priorityOrder: Record<string, number> = {
+      URGENTE: 1,
+      URGENCIA: 1,
+      VERMELHO: 1,
+      PRIORITARIO: 2,
+      AMARELO: 2,
+      ELETIVO: 3,
+      VERDE: 3,
+      AZUL: 4,
+    };
+
+    const riskBreakdown = Array.from(activeRiskMap.entries())
+      .map(([risk, count]) => ({ risk, count }))
+      .sort((a, b) => {
+        const rankDiff = (priorityOrder[a.risk] || 99) - (priorityOrder[b.risk] || 99);
+        return rankDiff !== 0 ? rankDiff : b.count - a.count;
+      });
+
+    const topWaitingSpecialties = this.getDbRows(specWaitingResult);
+    const urgentRequests = this.getDbRows(urgentResult);
 
     return {
       profile: 'Regulador (Central de Regulação)',
       kpis: {
-        toEvaluate: regStats.to_evaluate,
-        waitingList: regStats.to_schedule,
-        scheduled: regStats.scheduled,
-        returned: regStats.returned,
-        denied: regStats.denied,
-        totalActive: regStats.to_evaluate + regStats.to_schedule,
+        toEvaluate: statusCounts.PENDENTE_REGULACAO,
+        waitingList: statusCounts.PENDENTE_AGENDAMENTO,
+        scheduled: statusCounts.AGENDADA,
+        returned: statusCounts.DEVOLVIDA,
+        denied: statusCounts.NEGADA,
+        totalActive: statusCounts.PENDENTE_REGULACAO + statusCounts.PENDENTE_AGENDAMENTO,
       },
       charts: {
         riskBreakdown,
