@@ -6,6 +6,7 @@ export interface PaginationParams {
  search?: string;
  includeInactive?: boolean;
  status?: string;
+ healthCenterId?: string;
 }
 
 export interface PaginatedResponse<T> {

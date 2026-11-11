@@ -19,7 +19,7 @@ export interface HealthCenter {
     updatedAt: string;
 }
 
-export const useHealthCenters = (params: PaginationParams) => {
+export const useHealthCenters = (params: PaginationParams, options?: { enabled?: boolean }) => {
     const token = useAuthStore((state) => state.token);
 
     return useQuery<PaginatedResponse<HealthCenter>>({
@@ -33,7 +33,8 @@ export const useHealthCenters = (params: PaginationParams) => {
             });
             return response.data;
         },
-        enabled: !!token,
+        enabled: !!token && (options?.enabled ?? true),
+        staleTime: 1000 * 60 * 5,
     });
 };
 

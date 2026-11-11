@@ -1,5 +1,6 @@
 import { usePatients, useDeletePatient, useTogglePatientActive } from '../../hooks/usePatients';
 import type { Patient } from '../../hooks/usePatients';
+import { useHealthCenters } from '../../hooks/useHealthCenters';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useConfirm } from '../../contexts/ConfirmContext';
@@ -45,14 +46,16 @@ export const PatientsList: React.FC = () => {
     const navigate = useNavigate();
     const confirm = useConfirm();
     const userPermissions = useAuthStore(state => state.permissions);
+    const canViewHealthCenters = userPermissions.includes('health-centers:read') || userPermissions.includes('admin:access');
     const deletePatientMutation = useDeletePatient();
     const toggleActiveMutation = useTogglePatientActive();
     const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(100);
+    const [limit, setLimit] = useState(20);
     const [sortBy, setSortBy] = useState('name');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [healthCenterFilter, setHealthCenterFilter] = useState('ALL');
     const [showInactive, setShowInactive] = useState(false);
 
     useEffect(() => {
@@ -63,12 +66,19 @@ export const PatientsList: React.FC = () => {
         return () => clearTimeout(handler);
     }, [searchTerm]);
 
-    const { data, isLoading, isError, error } = usePatients({
+    const { data: healthCentersData } = useHealthCenters(
+        { page: 1, limit: 100, sortBy: 'name', sortOrder: 'asc' },
+        { enabled: canViewHealthCenters }
+    );
+    const healthCenters = healthCentersData?.data || [];
+
+    const { data, isLoading, isFetching, isError, error } = usePatients({
         page,
         limit,
         sortBy,
         sortOrder,
-        search: debouncedSearch,
+        search: debouncedSearch || undefined,
+        healthCenterId: healthCenterFilter !== 'ALL' ? healthCenterFilter : undefined,
         includeInactive: showInactive,
     });
 
@@ -130,18 +140,18 @@ export const PatientsList: React.FC = () => {
         return (
             <th
                 onClick={() => handleSort(field)}
-                className="px-2 py-1.5 lg:px-3 lg:py-2.5 cursor-pointer hover:bg-slate-200 dark:bg-slate-800/40 hover:text-slate-900 dark:text-white transition-colors duration-150 select-none group"
+                className="px-2 py-1.5 lg:px-3 lg:py-2.5 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white transition-colors duration-150 select-none group"
             >
                 <div className="flex items-center gap-1.5">
                     <span>{label}</span>
                     {isSorted ? (
                         sortOrder === 'asc' ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                            <ArrowUp className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                         ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                            <ArrowDown className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                         )
                     ) : (
-                        <ArrowUpDown className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-500 dark:text-slate-400 opacity-0 group-hover:opacity-100 transition-all" />
+                        <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200 opacity-0 group-hover:opacity-100 transition-all shrink-0" />
                     )}
                 </div>
             </th>
@@ -170,26 +180,50 @@ export const PatientsList: React.FC = () => {
             </div>
 
             {/* Search and Filter bar */}
-            <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-2.5 lg:p-4 backdrop-blur-md flex flex-col sm:flex-row items-center gap-2 lg:gap-4">
-                <div className="relative w-full sm:max-w-md">
-                    <Search className="absolute left-3 top-3 w-5 h-5 text-slate-500" />
+            <div className="bg-white shadow-md dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md p-2.5 lg:p-4 backdrop-blur-md flex flex-col lg:flex-row lg:items-center gap-2.5 lg:gap-4">
+                <div className="relative w-full lg:max-w-md">
+                    <Search className="absolute left-3 top-2.5 lg:top-3 w-4 h-4 lg:w-5 lg:h-5 text-slate-500" />
                     <input
                         type="text"
                         placeholder="Buscar por nome, CPF ou CNS..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-3 py-1.5 lg:py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
+                        className="w-full pl-9 pr-3 py-1.5 lg:py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm"
                     />
                 </div>
 
+                {canViewHealthCenters && (
+                    <div className="w-full lg:w-64">
+                        <select
+                            value={healthCenterFilter}
+                            onChange={(e) => {
+                                setHealthCenterFilter(e.target.value);
+                                setPage(1);
+                            }}
+                            aria-label="Filtrar por UBS Vinculada"
+                            className="w-full px-3 py-1.5 lg:py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-slate-700 dark:text-slate-200 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/80 transition-all text-sm cursor-pointer"
+                        >
+                            <option value="ALL">Todas as UBS</option>
+                            {healthCenters.map((hc) => (
+                                <option key={hc.id} value={hc.id}>
+                                    {hc.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
                 <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 cursor-pointer hover:text-slate-700 transition-colors">
+                    <label className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 cursor-pointer hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
                         <div className="relative inline-flex items-center">
                             <input
                                 type="checkbox"
                                 className="sr-only peer"
                                 checked={showInactive}
-                                onChange={(e) => setShowInactive(e.target.checked)}
+                                onChange={(e) => {
+                                    setShowInactive(e.target.checked);
+                                    setPage(1);
+                                }}
                             />
                             <div className="w-9 h-5 bg-slate-200 dark:bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 peer-checked:after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
                         </div>
@@ -197,7 +231,10 @@ export const PatientsList: React.FC = () => {
                     </label>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 ml-auto">
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 lg:ml-auto">
+                    {isFetching && !isLoading && (
+                        <Loader2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 animate-spin" />
+                    )}
                     <span>Total: </span>
                     <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-800 rounded-md font-mono text-slate-700 dark:text-slate-200">
                         {total}
@@ -238,7 +275,7 @@ export const PatientsList: React.FC = () => {
                                     <th className="px-2 py-1.5 lg:px-3 lg:py-2.5 text-right">Ações</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 text-sm">
+                            <tbody className={`divide-y divide-slate-200 dark:divide-slate-800/60 text-sm transition-opacity duration-150 ${isFetching ? 'opacity-60' : ''}`}>
                                 {patientsList && patientsList.length > 0 ? (
                                     patientsList.map((patient: Patient) => (
                                         <tr key={patient.id} className="hover:bg-slate-200 dark:bg-slate-800/20 transition-colors duration-150 group">
