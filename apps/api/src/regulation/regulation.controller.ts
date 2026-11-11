@@ -127,9 +127,18 @@ export class RegulationController {
     @Body('decision') decision: 'AUTORIZAR' | 'DEVOLVER' | 'NEGAR',
     @Body('justification') justification: string,
     @Body('adjustedPriority') adjustedPriority: any,
+    @Body('returnEditableFields') returnEditableFields: any,
     @Req() req: any,
   ) {
-    return this.regulationService.evaluateRequest(id, decision, justification, adjustedPriority, req.user);
+    return this.regulationService.evaluateRequest(
+      id,
+      decision,
+      justification,
+      adjustedPriority,
+      req.user,
+      req.body?.activeHealthCenterId,
+      returnEditableFields,
+    );
   }
 
   @Patch('requests/:id/change-procedure')

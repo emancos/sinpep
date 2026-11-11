@@ -5,6 +5,18 @@ import { eq, desc, asc, and, or, ilike, inArray, sql } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import { StorageService } from '../storage/storage.service';
 import { EventsGateway } from '../events/events.gateway';
+import { extractLinkedHealthCenterIds } from '../auth/utils/role-scope.util';
+import {
+  buildAnamnesisChanges,
+  PatientEditOrigin,
+  recordPatientEditHistory,
+} from '../patients/patient-history.helper';
+import {
+  getEffectiveReturnEditableFields,
+  normalizeReturnEditableFields,
+  RETURN_EDITABLE_FIELD_LABELS,
+  ReturnEditableField,
+} from './regulation-return-fields';
 
 // Gerador de Token Alfanumérico Único com formato SB-XXXX-YYYY
 function generateConfirmationToken(): string {
@@ -49,6 +61,167 @@ export class RegulationService implements OnModuleInit {
     }
   }
 
+  private async syncPatientAnamnesisWithHistory(
+    patientId: string,
+    rawAnamnesis: unknown,
+    user: any,
+    origin: PatientEditOrigin,
+    now: Date,
+  ) {
+    const anamnesis = typeof rawAnamnesis === 'string' ? JSON.parse(rawAnamnesis) : (rawAnamnesis as any);
+    if (!anamnesis || typeof anamnesis !== 'object') return;
+
+    const existingAnamnesis = await this.db.query.patientAnamnesis.findFirst({
+      where: eq(schema.patientAnamnesis.patientId, patientId),
+    });
+
+    const anamnesisValues = {
+      isHypertensive: anamnesis.isHypertensive ?? false,
+      isDiabetic: anamnesis.isDiabetic ?? false,
+      isSmoker: anamnesis.isSmoker ?? false,
+      otherDiseases: anamnesis.otherDiseases ?? null,
+      isOncological: anamnesis.isOncological ?? false,
+      oncologicalStage: anamnesis.oncologicalStage ?? null,
+      allergies: anamnesis.allergies ?? null,
+      isPcd: anamnesis.isPcd ?? false,
+      pcdDescription: anamnesis.pcdDescription ?? null,
+      continuousMedications: Array.isArray(anamnesis.continuousMedications)
+        ? anamnesis.continuousMedications
+        : [],
+      bloodPressure: anamnesis.bloodPressure ?? null,
+      glycemia: anamnesis.glycemia ?? null,
+      weight: anamnesis.weight ?? null,
+      height: anamnesis.height ?? null,
+      updatedAt: now.toISOString(),
+    };
+
+    if (existingAnamnesis) {
+      await this.db.update(schema.patientAnamnesis)
+        .set(anamnesisValues)
+        .where(eq(schema.patientAnamnesis.patientId, patientId));
+    } else {
+      await this.db.insert(schema.patientAnamnesis).values({
+        id: crypto.randomUUID(),
+        patientId,
+        ...anamnesisValues,
+        createdAt: now.toISOString(),
+      });
+    }
+
+    const changes = buildAnamnesisChanges(existingAnamnesis, anamnesisValues);
+    await recordPatientEditHistory(this.db, {
+      patientId,
+      user,
+      origin,
+      changes,
+    });
+  }
+
+  private parseIdList(input: unknown): string[] {
+    if (!input) return [];
+    let raw = input;
+    if (typeof input === 'string') {
+      const trimmed = input.trim();
+      if (!trimmed) return [];
+      try {
+        raw = JSON.parse(trimmed);
+      } catch {
+        raw = trimmed.split(',').map((s) => s.trim()).filter(Boolean);
+      }
+    }
+    return Array.isArray(raw) ? Array.from(new Set(raw.filter((id): id is string => typeof id === 'string' && id.trim().length > 0))) : [];
+  }
+
+  private async resolveGroupProceduresPayload(
+    rawGroupProcedures: unknown,
+    rawProcedureIds: unknown,
+  ): Promise<Array<{ procedureId?: string; code: string; sigtapCode?: string; name: string }>> {
+    type GroupProcEntry = { procedureId?: string; code: string; sigtapCode?: string; name: string };
+
+    let candidates: Array<Partial<GroupProcEntry>> = [];
+    if (rawGroupProcedures !== undefined) {
+      let parsed: unknown = rawGroupProcedures;
+      if (typeof rawGroupProcedures === 'string') {
+        const trimmed = rawGroupProcedures.trim();
+        if (!trimmed) {
+          parsed = [];
+        } else {
+          try {
+            parsed = JSON.parse(trimmed);
+          } catch {
+            throw new BadRequestException('Lista de procedimentos do grupo inválida');
+          }
+        }
+      }
+      if (!Array.isArray(parsed)) {
+        throw new BadRequestException('Lista de procedimentos do grupo inválida');
+      }
+      candidates = parsed
+        .filter((item): item is Record<string, any> => Boolean(item && typeof item === 'object'))
+        .map((item) => ({
+          ...(typeof item.procedureId === 'string' && item.procedureId.trim()
+            ? { procedureId: item.procedureId.trim() }
+            : {}),
+          code: typeof item.code === 'string' ? item.code.trim() : '',
+          ...(typeof item.sigtapCode === 'string' && item.sigtapCode.trim()
+            ? { sigtapCode: item.sigtapCode.trim() }
+            : {}),
+          name: typeof item.name === 'string' ? item.name.trim() : '',
+        }));
+    } else if (rawProcedureIds !== undefined) {
+      const ids = this.parseIdList(rawProcedureIds);
+      candidates = ids.map((procedureId) => ({
+        procedureId,
+        code: '',
+        name: '',
+      }));
+    }
+
+    const lookupIds = Array.from(
+      new Set(candidates.map((item) => item.procedureId).filter((pid): pid is string => Boolean(pid))),
+    );
+
+    const dbProcMap = new Map<string, { id: string; code: string | null; name: string }>();
+    if (lookupIds.length > 0) {
+      const dbRows = await this.db
+        .select({
+          id: schema.procedures.id,
+          code: schema.procedures.code,
+          name: schema.procedures.name,
+        })
+        .from(schema.procedures)
+        .where(inArray(schema.procedures.id, lookupIds));
+
+      for (const row of dbRows) {
+        dbProcMap.set(row.id, row);
+      }
+    }
+
+    const resolved: GroupProcEntry[] = [];
+    const seenKeys = new Set<string>();
+    for (const candidate of candidates) {
+      const dbRow = candidate.procedureId ? dbProcMap.get(candidate.procedureId) : undefined;
+      const code = candidate.code || dbRow?.code || '';
+      const name = candidate.name || dbRow?.name || '';
+      if (!candidate.procedureId && !code && !name) continue;
+
+      const dedupeKey = candidate.procedureId
+        ? `id:${candidate.procedureId}`
+        : `text:${code.toUpperCase()}::${name.toUpperCase()}`;
+      if (seenKeys.has(dedupeKey)) continue;
+      seenKeys.add(dedupeKey);
+
+      resolved.push({
+        ...(candidate.procedureId ? { procedureId: candidate.procedureId } : {}),
+        code,
+        ...(candidate.sigtapCode ? { sigtapCode: candidate.sigtapCode } : {}),
+        name,
+      });
+    }
+
+    return resolved;
+  }
+
   // =========================================================================
   // MÓDULO SOLICITANTE (UBS)
   // =========================================================================
@@ -79,46 +252,10 @@ export class RegulationService implements OnModuleInit {
     const randomSuffix = crypto.randomInt(1000, 9999);
     const protocolNumber = `SOL-${yearMonth}-${randomSuffix}`;
 
-    // Atualiza ou insere anamnese do paciente se fornecida
+    // Atualiza ou insere anamnese de qualquer paciente do município ao criar solicitação
     if (data.anamnesis) {
       try {
-        const anamnesis = typeof data.anamnesis === 'string' ? JSON.parse(data.anamnesis) : data.anamnesis;
-        const existingAnamnesis = await this.db.query.patientAnamnesis.findFirst({
-          where: eq(schema.patientAnamnesis.patientId, data.patientId),
-        });
-
-        const anamnesisValues = {
-          isHypertensive: anamnesis.isHypertensive ?? false,
-          isDiabetic: anamnesis.isDiabetic ?? false,
-          isSmoker: anamnesis.isSmoker ?? false,
-          otherDiseases: anamnesis.otherDiseases ?? null,
-          isOncological: anamnesis.isOncological ?? false,
-          oncologicalStage: anamnesis.oncologicalStage ?? null,
-          allergies: anamnesis.allergies ?? null,
-          isPcd: anamnesis.isPcd ?? false,
-          pcdDescription: anamnesis.pcdDescription ?? null,
-          continuousMedications: Array.isArray(anamnesis.continuousMedications)
-            ? anamnesis.continuousMedications
-            : [],
-          bloodPressure: anamnesis.bloodPressure ?? null,
-          glycemia: anamnesis.glycemia ?? null,
-          weight: anamnesis.weight ?? null,
-          height: anamnesis.height ?? null,
-          updatedAt: now.toISOString(),
-        };
-
-        if (existingAnamnesis) {
-          await this.db.update(schema.patientAnamnesis)
-            .set(anamnesisValues)
-            .where(eq(schema.patientAnamnesis.patientId, data.patientId));
-        } else {
-          await this.db.insert(schema.patientAnamnesis).values({
-            id: crypto.randomUUID(),
-            patientId: data.patientId,
-            ...anamnesisValues,
-            createdAt: now.toISOString(),
-          });
-        }
+        await this.syncPatientAnamnesisWithHistory(data.patientId, data.anamnesis, user, 'REGULATION_CREATE', now);
       } catch (e) {
         console.error('Erro ao sincronizar anamnese na regulação:', e);
       }
@@ -326,25 +463,129 @@ export class RegulationService implements OnModuleInit {
     if (existing.status !== 'DEVOLVIDA') {
       throw new BadRequestException('Apenas solicitações com status DEVOLVIDA podem ser reenviadas para reavaliação');
     }
+
+    const isAdmin = Array.isArray(user?.permissions) && user.permissions.includes('admin:access');
+    if (!isAdmin) {
+      const linkedCenterIds = extractLinkedHealthCenterIds(user);
+      if (!linkedCenterIds.includes(existing.requestingHealthCenterId)) {
+        throw new ForbiddenException(
+          'Você só pode corrigir e reenviar solicitações vinculadas às suas Unidades de Saúde.',
+        );
+      }
+    }
+
     if (!data.justification || data.justification.trim().length < 5) {
       throw new BadRequestException('Justificativa das alterações e correções é obrigatória');
     }
 
+    const allowedFields = new Set<ReturnEditableField>(
+      getEffectiveReturnEditableFields((existing as any).returnEditableFields),
+    );
+    const removeAttachmentIds = this.parseIdList(data.removeAttachmentIds);
+
+    const attemptedForbidden: ReturnEditableField[] = [];
+    if (
+      (data.type !== undefined ||
+        data.specialtyId !== undefined ||
+        data.procedureId !== undefined ||
+        data.procedureGroupId !== undefined ||
+        data.procedureIds !== undefined ||
+        data.groupProcedures !== undefined) &&
+      !allowedFields.has('PROCEDURE')
+    ) {
+      attemptedForbidden.push('PROCEDURE');
+    }
+    if (data.priority !== undefined && !allowedFields.has('PRIORITY')) {
+      attemptedForbidden.push('PRIORITY');
+    }
+    if (data.cid10 !== undefined && !allowedFields.has('CID10')) {
+      attemptedForbidden.push('CID10');
+    }
+    if (data.clinicalJustification !== undefined && !allowedFields.has('CLINICAL_JUSTIFICATION')) {
+      attemptedForbidden.push('CLINICAL_JUSTIFICATION');
+    }
+    if (data.clinicalHistory !== undefined && !allowedFields.has('CLINICAL_HISTORY')) {
+      attemptedForbidden.push('CLINICAL_HISTORY');
+    }
+    if (data.anamnesis !== undefined && !allowedFields.has('ANAMNESIS')) {
+      attemptedForbidden.push('ANAMNESIS');
+    }
+    if (((files && files.length > 0) || removeAttachmentIds.length > 0) && !allowedFields.has('ATTACHMENTS')) {
+      attemptedForbidden.push('ATTACHMENTS');
+    }
+
+    if (attemptedForbidden.length > 0) {
+      const labels = attemptedForbidden.map((f) => RETURN_EDITABLE_FIELD_LABELS[f]).join(', ');
+      throw new ForbiddenException(
+        `Edição não permitida para o(s) bloco(s) não indicado(s) na devolução: ${labels}.`,
+      );
+    }
+
     const now = new Date();
+    const updateValues: Record<string, any> = {
+      status: 'PENDENTE_REGULACAO',
+      returnEditableFields: [],
+      updatedAt: now.toISOString(),
+    };
+
+    if (allowedFields.has('PROCEDURE')) {
+      if (data.type !== undefined) updateValues.type = data.type;
+      if (data.specialtyId !== undefined) updateValues.specialtyId = data.specialtyId || null;
+      if (data.procedureId !== undefined) updateValues.procedureId = data.procedureId || null;
+      if (data.procedureGroupId !== undefined) updateValues.procedureGroupId = data.procedureGroupId || null;
+      if (data.groupProcedures !== undefined || data.procedureIds !== undefined) {
+        const resolvedGroupProcedures = await this.resolveGroupProceduresPayload(
+          data.groupProcedures,
+          data.procedureIds,
+        );
+        updateValues.groupProcedures = resolvedGroupProcedures;
+        if (resolvedGroupProcedures.length > 0) {
+          const primaryProcedureId =
+            resolvedGroupProcedures.find((entry) => entry.procedureId)?.procedureId ||
+            data.procedureId ||
+            null;
+          updateValues.procedureId = primaryProcedureId;
+        }
+      }
+    }
+
+    if (allowedFields.has('PRIORITY') && data.priority !== undefined) {
+      updateValues.priority = data.priority;
+    }
+
+    if (allowedFields.has('CID10') && data.cid10 !== undefined) {
+      const trimmedCid = String(data.cid10).trim();
+      if (!trimmedCid) {
+        throw new BadRequestException('CID-10 é obrigatório');
+      }
+      updateValues.cid10 = trimmedCid;
+    }
+
+    if (allowedFields.has('CLINICAL_JUSTIFICATION') && data.clinicalJustification !== undefined) {
+      const trimmedJustification = String(data.clinicalJustification).trim();
+      if (trimmedJustification.length < 5) {
+        throw new BadRequestException('Justificativa clínica detalhada é obrigatória');
+      }
+      updateValues.clinicalJustification = trimmedJustification;
+    }
+
+    if (allowedFields.has('CLINICAL_HISTORY') && data.clinicalHistory !== undefined) {
+      updateValues.clinicalHistory = String(data.clinicalHistory).trim() || null;
+    }
 
     await this.db.update(schema.regulationRequests)
-      .set({
-        clinicalJustification: data.clinicalJustification ? data.clinicalJustification.trim() : existing.clinicalJustification,
-        clinicalHistory: data.clinicalHistory ? data.clinicalHistory.trim() : existing.clinicalHistory,
-        cid10: data.cid10 ? data.cid10.trim() : existing.cid10,
-        priority: data.priority || existing.priority,
-        specialtyId: data.specialtyId || existing.specialtyId,
-        procedureId: data.procedureId || existing.procedureId,
-        procedureGroupId: data.procedureGroupId || existing.procedureGroupId,
-        status: 'PENDENTE_REGULACAO',
-        updatedAt: now.toISOString(),
-      })
+      .set(updateValues)
       .where(eq(schema.regulationRequests.id, id));
+
+    if (allowedFields.has('ANAMNESIS') && data.anamnesis !== undefined) {
+      await this.syncPatientAnamnesisWithHistory(
+        existing.patientId,
+        data.anamnesis,
+        user,
+        'REGULATION_RESUBMIT',
+        now,
+      );
+    }
 
     // Grava histórico de auditoria
     await this.db.insert(schema.regulationStatusHistory).values({
@@ -357,22 +598,34 @@ export class RegulationService implements OnModuleInit {
       createdAt: now.toISOString(),
     });
 
-    // Anexa novos arquivos caso enviados
-    if (files && files.length > 0) {
-      const attachments = [];
-      for (const file of files) {
-        const fileId = await this.storageService.uploadFile(file, existing.patientId);
-        attachments.push({
-          id: crypto.randomUUID(),
-          requestId: id,
-          fileName: file.originalname,
-          fileType: file.mimetype,
-          fileUrl: `/storage/file/${fileId}`,
-          fileSize: file.size,
-          createdAt: now.toISOString(),
-        });
+    if (allowedFields.has('ATTACHMENTS')) {
+      if (removeAttachmentIds.length > 0) {
+        await this.db
+          .delete(schema.regulationRequestAttachments)
+          .where(
+            and(
+              eq(schema.regulationRequestAttachments.requestId, id),
+              inArray(schema.regulationRequestAttachments.id, removeAttachmentIds),
+            ),
+          );
       }
-      await this.db.insert(schema.regulationRequestAttachments).values(attachments);
+
+      if (files && files.length > 0) {
+        const attachments = [];
+        for (const file of files) {
+          const fileId = await this.storageService.uploadFile(file, existing.patientId);
+          attachments.push({
+            id: crypto.randomUUID(),
+            requestId: id,
+            fileName: file.originalname,
+            fileType: file.mimetype,
+            fileUrl: `/storage/file/${fileId}`,
+            fileSize: file.size,
+            createdAt: now.toISOString(),
+          });
+        }
+        await this.db.insert(schema.regulationRequestAttachments).values(attachments);
+      }
     }
 
     this.eventsGateway.server?.emit('regulation_updated', {
@@ -733,9 +986,20 @@ export class RegulationService implements OnModuleInit {
     adjustedPriority: any,
     user: any,
     activeHealthCenterId?: string,
+    rawReturnEditableFields?: unknown,
   ) {
     if (!justification || justification.trim().length < 5) {
       throw new BadRequestException('A justificativa da avaliação é estritamente obrigatória');
+    }
+
+    let editableFields: ReturnEditableField[] = [];
+    if (decision === 'DEVOLVER') {
+      editableFields = normalizeReturnEditableFields(rawReturnEditableFields);
+      if (editableFields.length === 0) {
+        throw new BadRequestException(
+          'Selecione pelo menos um campo/parte da solicitação que o solicitante deve corrigir.',
+        );
+      }
     }
 
     const existing = await this.findOne(id);
@@ -791,6 +1055,7 @@ export class RegulationService implements OnModuleInit {
       .set({
         status: newStatus,
         priority: finalPriority,
+        returnEditableFields: decision === 'DEVOLVER' ? editableFields : [],
         clinicalScore,
         scoreBreakdown,
         updatedAt: now.toISOString(),
@@ -803,6 +1068,7 @@ export class RegulationService implements OnModuleInit {
       previousStatus: 'PENDENTE_REGULACAO',
       newStatus,
       justification: justification.trim(),
+      editableFields: decision === 'DEVOLVER' ? editableFields : null,
       actionByUserId: user.id,
       createdAt: now.toISOString(),
     });
@@ -1242,6 +1508,7 @@ export class RegulationService implements OnModuleInit {
       with: {
         patient: {
           columns: { id: true, name: true, cpf: true, cns: true, birthDate: true, gender: true, address: true },
+          with: { patientAnamnesis: true },
         },
         requestingHealthCenter: { columns: { id: true, name: true, cnes: true } },
         requestingUser: { columns: { id: true, name: true, email: true } },
