@@ -7,6 +7,7 @@ import * as schema from '../database';
 import { eq, asc } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import * as nodemailer from 'nodemailer';
+import { extractLinkedHealthCenterIds } from './utils/role-scope.util';
 
 export interface ValidatedUser {
   id: string;
@@ -379,6 +380,7 @@ export class AuthService {
         phone: user.phone || undefined,
         avatar: user.avatar || undefined,
         healthCenterId: activeHealthCenter?.id || user.healthCenterId,
+        linkedHealthCenterIds: extractLinkedHealthCenterIds(user),
         isMunicipalRegulator: Boolean(user.isMunicipalRegulator),
         permissions,
       },
@@ -429,6 +431,7 @@ export class AuthService {
         phone: user.phone || undefined,
         avatar: user.avatar || undefined,
         healthCenterId: activeHealthCenter?.id || user.healthCenterId,
+        linkedHealthCenterIds: extractLinkedHealthCenterIds(user),
         isMunicipalRegulator: Boolean(user.isMunicipalRegulator),
         permissions,
       },
@@ -477,6 +480,7 @@ export class AuthService {
         phone: user.phone || undefined,
         avatar: user.avatar || undefined,
         healthCenterId: chosenCenter.id,
+        linkedHealthCenterIds: extractLinkedHealthCenterIds(user),
         isMunicipalRegulator: Boolean(user.isMunicipalRegulator),
         permissions,
       },
@@ -519,6 +523,7 @@ export class AuthService {
       profileId: activeProfile?.id || user.profileId,
       profileName: activeProfile?.name || user.profile?.name,
       healthCenterId: activeHealthCenter?.id || user.healthCenterId,
+      linkedHealthCenterIds: extractLinkedHealthCenterIds(user),
       isMunicipalRegulator: Boolean(user.isMunicipalRegulator),
       activeProfile,
       availableProfiles,

@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { UsersService } from '../../users/users.service';
 import { AuthService } from '../auth.service';
+import { extractLinkedHealthCenterIds } from '../utils/role-scope.util';
 
 interface JwtPayload {
   sub: string;
@@ -36,17 +37,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       payload.activeProfileId,
     );
 
+    const linkedHealthCenterIds = extractLinkedHealthCenterIds(user);
     const effectiveHealthCenterId = payload.activeHealthCenterId || user.healthCenterId;
 
     return {
       id: user.id,
       email: user.email,
       name: user.name,
+      phone: user.phone ?? null,
       profileId: activeProfile?.id || user.profileId,
       activeProfileId: activeProfile?.id || user.profileId,
       activeProfileName: activeProfile?.name || user.profile?.name,
       healthCenterId: effectiveHealthCenterId,
       activeHealthCenterId: effectiveHealthCenterId,
+      linkedHealthCenterIds,
       isMunicipalRegulator: Boolean(user.isMunicipalRegulator),
       userHealthCenters: user.userHealthCenters,
       permissions,
