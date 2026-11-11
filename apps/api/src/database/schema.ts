@@ -1048,6 +1048,7 @@ export const regulationRequests = pgTable("regulation_requests", {
     name: "regulation_requests_executing_health_center_id_fkey"
   }).onUpdate("cascade").onDelete("set null"),
   index("regulation_requests_status_score_idx").on(table.status, table.clinicalScore.desc(), table.createdAt.asc()),
+  index("idx_reg_requests_status_priority_created").on(table.status, table.priority, table.createdAt.asc()),
 ]);
 
 export const regulationRequestAttachments = pgTable("regulation_request_attachments", {

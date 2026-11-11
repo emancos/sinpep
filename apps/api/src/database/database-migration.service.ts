@@ -468,6 +468,9 @@ export class DatabaseMigrationService implements OnModuleInit {
 
         CREATE INDEX IF NOT EXISTS idx_patient_edit_history_patient_created
           ON patient_edit_history (patient_id, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_reg_requests_status_priority_created
+          ON regulation_requests (status, priority, created_at ASC);
       `);
 
       this.logger.log('Database migrations for procedures, quotas, auto-scheduling, user health centers & esus import applied successfully.');
