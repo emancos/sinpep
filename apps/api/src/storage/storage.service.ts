@@ -50,9 +50,11 @@ export class StorageService {
     const identifier = patient.cpf || patient.cns || patient.id.split('-')[0];
     const folderName = `${patient.name} - ${identifier}`;
 
+    const escapedFolderName = folderName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
     // Buscar pasta existente
     const res = await this.drive.files.list({
-      q: `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and '${rootFolderId}' in parents and trashed=false`,
+      q: `mimeType='application/vnd.google-apps.folder' and name='${escapedFolderName}' and '${rootFolderId}' in parents and trashed=false`,
       fields: 'files(id, name)',
     });
 

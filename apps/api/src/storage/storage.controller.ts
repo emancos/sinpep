@@ -41,12 +41,15 @@ export class StorageController {
   @Get('file/:id')
   async getFile(@Param('id') id: string, @Res() res: Response) {
     const { stream, mimeType, name } = await this.storageService.getFileStream(id);
-    
+
+    const safeName = (name || 'arquivo').replace(/[\r\n"]/g, '_');
+    const asciiFallback = safeName.replace(/[^\x20-\x7E]/g, '_') || 'arquivo';
+
     res.set({
-      'Content-Type': mimeType,
-      'Content-Disposition': `inline; filename="${name}"`,
+      'Content-Type': mimeType || 'application/octet-stream',
+      'Content-Disposition': `inline; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(safeName)}`,
     });
-    
+
     stream.pipe(res);
   }
 }
