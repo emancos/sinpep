@@ -22,3 +22,9 @@ dist/
 .claude/
 .windsurf/
 /generated/prisma
+
+# Local uploaded files (preserve directory placeholders)
+uploads/**
+!uploads/
+!uploads/*/
+!uploads/**/.gitkeep
