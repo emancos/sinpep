@@ -1,49 +1,54 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
+import { fetchAuthenticatedFileBlob, resolveStorageFileUrl } from '../utils/storageUrl';
 
-export function useSecureBlobUrl(url: string | null) {
+export function useSecureBlobUrl(url: string | null | undefined) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const token = useAuthStore(state => state.token);
+  const token = useAuthStore((state) => state.token);
 
   useEffect(() => {
-    if (!url) {
+    const resolvedUrl = resolveStorageFileUrl(url);
+    if (!resolvedUrl) {
       setBlobUrl(null);
       setError(null);
       setIsLoading(false);
       return;
     }
 
+    if (resolvedUrl.startsWith('data:') || resolvedUrl.startsWith('blob:')) {
+      setBlobUrl(resolvedUrl);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
     let isMounted = true;
+    let activeObjectUrl: string | null = null;
     setIsLoading(true);
     setError(null);
-    
-    axios.get(url, {
-      responseType: 'blob',
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
-      .then((response: any) => {
+
+    fetchAuthenticatedFileBlob(resolvedUrl, token)
+      .then((blob) => {
         if (!isMounted) return;
-        const objectUrl = URL.createObjectURL(response.data);
-        setBlobUrl(objectUrl);
+        activeObjectUrl = URL.createObjectURL(blob);
+        setBlobUrl(activeObjectUrl);
         setIsLoading(false);
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         if (!isMounted) return;
-        console.error('Failed to load secure blob:', err);
-        setError(err);
+        const normalizedErr = err instanceof Error ? err : new Error('Falha ao carregar arquivo');
+        console.error('Failed to load secure blob:', normalizedErr);
+        setError(normalizedErr);
         setBlobUrl(null);
         setIsLoading(false);
       });
 
     return () => {
       isMounted = false;
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
+      if (activeObjectUrl) {
+        URL.revokeObjectURL(activeObjectUrl);
       }
     };
   }, [url, token]);
