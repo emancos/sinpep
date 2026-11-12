@@ -169,24 +169,21 @@ describe('CreateRegulationRequest (grupos de exames)', () => {
     // Seleciona Exame Diagnóstico e Grupo Tomografia Geral
     await user.click(screen.getByRole('button', { name: /Exame Diagnóstico/i }));
 
-    const selects = await screen.findAllByRole('combobox');
-    await user.selectOptions(selects[0], 'grp-tc');
+    const groupSelect = await screen.findByRole('combobox', {
+      name: /Grupo de Exame Diagnóstico/i,
+    });
+    await user.selectOptions(groupSelect, 'grp-tc');
 
-    // Aguarda carregar os 2 exames do grupo e adiciona ambos à lista
-    await waitFor(() => {
-      expect(
-        screen.getByRole('option', {
-          name: /TOMOGRAFIA COMPUTADORIZADA DO TORAX SEM CONTRASTE/i,
-        }),
-      ).toBeInTheDocument();
+    // Aguarda carregar os 2 exames no Catálogo do Grupo e adiciona ambos com 1 clique cada
+    const firstExamBtn = await screen.findByRole('button', {
+      name: /TOMOGRAFIA COMPUTADORIZADA DO TORAX SEM CONTRASTE/i,
+    });
+    const secondExamBtn = screen.getByRole('button', {
+      name: /TOMOGRAFIA COMPUTADORIZADA DE COLUNA TORACICA/i,
     });
 
-    const examSelect = screen.getAllByRole('combobox')[1];
-    await user.selectOptions(examSelect, 'proc-tc-1');
-    await user.click(screen.getByRole('button', { name: /Adicionar/i }));
-
-    await user.selectOptions(examSelect, 'proc-tc-2');
-    await user.click(screen.getByRole('button', { name: /Adicionar/i }));
+    await user.click(firstExamBtn);
+    await user.click(secondExamBtn);
 
     expect(screen.getByText(/Exames Selecionados \(2\)/i)).toBeInTheDocument();
 
@@ -238,6 +235,67 @@ describe('CreateRegulationRequest (grupos de exames)', () => {
     expect(await screen.findByText('#SOL-202611-9393')).toBeInTheDocument();
     expect(screen.getByText(/1\. TOMOGRAFIA COMPUTADORIZADA DO TORAX SEM CONTRASTE/i)).toBeInTheDocument();
     expect(screen.getByText(/2\. TOMOGRAFIA COMPUTADORIZADA DE COLUNA TORACICA/i)).toBeInTheDocument();
+  });
+
+  it('permite buscar e selecionar consulta com 1 clique e alternar itens no painel duplo de exames', async () => {
+    const user = userEvent.setup();
+
+    const patientState = {
+      id: 'pat-1',
+      name: 'CARLOS ALBERTO LUCENA PONCIANO',
+      cpf: '21628734434',
+      cns: '707308020952070',
+      birthDate: '1975-05-10',
+      gender: 'M',
+      healthCenter: { id: 'hc-1', name: 'UBS Centro' },
+    };
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: '/regulation/create',
+            state: { defaultPatient: patientState },
+          },
+        ]}
+      >
+        <Routes>
+          <Route path="/regulation/create" element={<CreateRegulationRequest />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: /Avançar para Tipo & Prioridade/i }));
+
+    // Testa lista unificada de Consulta Médica
+    const consultaSearch = screen.getByPlaceholderText(/Buscar especialidade ou código SIGTAP/i);
+    await user.type(consultaSearch, 'Cardiologia');
+    const cardioBtn = await screen.findByRole('button', { name: /Consulta em Cardiologia/i });
+    await user.click(cardioBtn);
+    expect(screen.getByText('Selecionada:')).toBeInTheDocument();
+
+    // Troca para Exame Diagnóstico e testa filtro + toggle/remoção no painel duplo
+    await user.click(screen.getByRole('button', { name: /Exame Diagnóstico/i }));
+    const groupSelect = await screen.findByRole('combobox', {
+      name: /Grupo de Exame Diagnóstico/i,
+    });
+    await user.selectOptions(groupSelect, 'grp-tc');
+
+    const examSearch = await screen.findByPlaceholderText(/Filtrar exame por nome ou código SIGTAP/i);
+    await user.type(examSearch, 'COLUNA TORACICA');
+
+    const colunaBtn = await screen.findByRole('button', {
+      name: /TOMOGRAFIA COMPUTADORIZADA DE COLUNA TORACICA/i,
+    });
+    expect(
+      screen.queryByRole('button', { name: /TOMOGRAFIA COMPUTADORIZADA DO TORAX SEM CONTRASTE/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(colunaBtn);
+    expect(screen.getByText(/Exames Selecionados \(1\)/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Remover TOMOGRAFIA COMPUTADORIZADA DE COLUNA TORACICA/i }));
+    expect(screen.getByText(/Exames Selecionados \(0\)/i)).toBeInTheDocument();
   });
 });
 

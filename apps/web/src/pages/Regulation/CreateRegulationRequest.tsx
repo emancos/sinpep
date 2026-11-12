@@ -213,9 +213,10 @@ export const CreateRegulationRequest: React.FC = () => {
   const [procedureGroupId, setProcedureGroupId] = useState('');
   const [procedureId, setProcedureId] = useState(''); // Usado para Consulta Médica
   const [selectedProcedures, setSelectedProcedures] = useState<any[]>([]); // Múltiplos exames/procedimentos do mesmo grupo
-  const [currentProcedureId, setCurrentProcedureId] = useState(''); // Item selecionado no dropdown para adicionar
   const [priority, setPriority] = useState<'ELETIVO' | 'PRIORITARIO' | 'URGENCIA'>('ELETIVO');
   const [consultaFilterTerm, setConsultaFilterTerm] = useState('');
+  const [groupFilterTerm, setGroupFilterTerm] = useState('');
+  const [groupChangeNotice, setGroupChangeNotice] = useState('');
 
   // Busca de consultas médicas (procedimentos da tabela SIGTAP de consulta especializada)
   const { data: consultationsData, isLoading: isLoadingConsultations } = useProcedures({
@@ -237,7 +238,6 @@ export const CreateRegulationRequest: React.FC = () => {
     if (!procedureGroupId) {
       setProceduresInGroup([]);
       setProcedureId('');
-      setCurrentProcedureId('');
       setProcedureFilterTerm('');
       return;
     }
@@ -270,35 +270,47 @@ export const CreateRegulationRequest: React.FC = () => {
       });
   }, [procedureGroupId, requestType, token]);
 
+  // Altera a modalidade e reinicia os campos de procedimento relacionados
+  const handleModalityChange = (nextType: 'CONSULTA' | 'EXAME' | 'PROCEDIMENTO') => {
+    if (nextType === requestType) return;
+    if (selectedProcedures.length > 0) {
+      toast.info('Modalidade alterada. Os itens selecionados anteriormente foram reiniciados.');
+    }
+    setRequestType(nextType);
+    setProcedureId('');
+    setProcedureGroupId('');
+    setSelectedProcedures([]);
+    setConsultaFilterTerm('');
+    setGroupFilterTerm('');
+    setProcedureFilterTerm('');
+    setGroupChangeNotice('');
+  };
+
   // Altera o grupo de procedimento e reinicia os itens selecionados caso o grupo mude
   const handleGroupChange = (newGroupId: string) => {
-    if (selectedProcedures.length > 0 && newGroupId !== procedureGroupId) {
+    const hadItems = selectedProcedures.length > 0 && newGroupId !== procedureGroupId;
+    if (hadItems) {
       setSelectedProcedures([]);
-      toast.info('Grupo alterado. Os itens selecionados do grupo anterior foram reiniciados.');
+      const msg = 'Grupo alterado. Os itens selecionados do grupo anterior foram reiniciados.';
+      setGroupChangeNotice(msg);
+      toast.info(msg);
+    } else {
+      setGroupChangeNotice('');
     }
     setProcedureGroupId(newGroupId);
-    setCurrentProcedureId('');
     setProcedureId('');
     setProcedureFilterTerm('');
   };
 
-  // Adiciona um procedimento/exame do grupo à lista da solicitação
-  const handleAddProcedure = () => {
-    if (!currentProcedureId) {
-      toast.warning(`Selecione um ${requestType === 'EXAME' ? 'exame' : 'procedimento'} para adicionar.`);
-      return;
-    }
-    const item = proceduresInGroup.find((p: any) => p.id === currentProcedureId);
+  // Alterna (adiciona ou remove com 1 clique) um procedimento/exame do grupo na lista da solicitação
+  const handleToggleProcedure = (item: any) => {
     if (!item) return;
-
-    if (selectedProcedures.some((p: any) => p.id === item.id)) {
-      toast.warning(`Este ${requestType === 'EXAME' ? 'exame' : 'procedimento'} já foi adicionado.`);
-      return;
-    }
-
-    setSelectedProcedures((prev) => [...prev, item]);
-    setCurrentProcedureId('');
-    toast.success(`${requestType === 'EXAME' ? 'Exame' : 'Procedimento'} adicionado com sucesso.`);
+    setGroupChangeNotice('');
+    setSelectedProcedures((prev) =>
+      prev.some((p: any) => p.id === item.id)
+        ? prev.filter((p: any) => p.id !== item.id)
+        : [...prev, item],
+    );
   };
 
   // Remove um procedimento/exame da lista
@@ -389,18 +401,7 @@ export const CreateRegulationRequest: React.FC = () => {
           return false;
         }
 
-        // Se o usuário selecionou um item no dropdown mas não clicou em "Adicionar", inclui automaticamente
-        let effectiveItems = selectedProcedures;
-        if (effectiveItems.length === 0 && currentProcedureId) {
-          const autoItem = proceduresInGroup.find((p: any) => p.id === currentProcedureId);
-          if (autoItem) {
-            effectiveItems = [autoItem];
-            setSelectedProcedures([autoItem]);
-            setCurrentProcedureId('');
-          }
-        }
-
-        if (effectiveItems.length === 0) {
+        if (selectedProcedures.length === 0) {
           toast.warning(`Adicione pelo menos um ${requestType === 'EXAME' ? 'exame' : 'procedimento'} na Etapa 2.`);
           return false;
         }
@@ -457,11 +458,7 @@ export const CreateRegulationRequest: React.FC = () => {
     formData.append('clinicalJustification', clinicalJustification.trim());
     if (clinicalHistory) formData.append('clinicalHistory', clinicalHistory.trim());
 
-    let effectiveItems = selectedProcedures;
-    if (requestType !== 'CONSULTA' && effectiveItems.length === 0 && currentProcedureId) {
-      const autoItem = proceduresInGroup.find((p: any) => p.id === currentProcedureId);
-      if (autoItem) effectiveItems = [autoItem];
-    }
+    const effectiveItems = selectedProcedures;
 
     if (requestType === 'CONSULTA') {
       if (procedureId) formData.append('procedureId', procedureId);
@@ -639,27 +636,26 @@ export const CreateRegulationRequest: React.FC = () => {
     return list;
   }, [consultationProcedures, consultaFilterTerm, procedureId, selectedProcedureObj]);
 
+  const visibleProcedureGroups = useMemo(() => {
+    const term = groupFilterTerm.trim().toLowerCase();
+    if (!term) return filteredProcedureGroups;
+    return filteredProcedureGroups.filter(
+      (grp: any) =>
+        grp.id === procedureGroupId ||
+        grp.displayName?.toLowerCase().includes(term) ||
+        grp.name?.toLowerCase().includes(term),
+    );
+  }, [filteredProcedureGroups, groupFilterTerm, procedureGroupId]);
+
   const filteredProceduresInGroup = useMemo(() => {
     const term = procedureFilterTerm.trim().toLowerCase();
-    let list = proceduresInGroup;
-    if (term) {
-      list = list.filter((p: any) =>
-        p.name?.toLowerCase().includes(term) || (p.code && p.code.includes(term))
-      );
-    }
-    // Remove os itens que já foram adicionados a selectedProcedures para evitar duplicações no dropdown
-    list = list.filter((p: any) => !selectedProcedures.some((sp: any) => sp.id === p.id));
-    return list;
-  }, [proceduresInGroup, procedureFilterTerm, selectedProcedures]);
+    if (!term) return proceduresInGroup;
+    return proceduresInGroup.filter(
+      (p: any) => p.name?.toLowerCase().includes(term) || (p.code && p.code.includes(term)),
+    );
+  }, [proceduresInGroup, procedureFilterTerm]);
 
-  const effectiveSelectedProcedures = useMemo(() => {
-    if (selectedProcedures.length > 0) return selectedProcedures;
-    if (currentProcedureId) {
-      const item = proceduresInGroup.find((p: any) => p.id === currentProcedureId);
-      if (item) return [item];
-    }
-    return [];
-  }, [selectedProcedures, currentProcedureId, proceduresInGroup]);
+  const effectiveSelectedProcedures = selectedProcedures;
 
   return (
     <div className="space-y-4 lg:space-y-6 max-w-5xl mx-auto pb-16">
@@ -1238,418 +1234,468 @@ export const CreateRegulationRequest: React.FC = () => {
       {/* ========================================================================= */}
       {currentStep === 2 && (
         <div className="space-y-4 lg:space-y-6 animate-in fade-in duration-200">
-          {/* Card 2: Tipo de Encaminhamento & Procedimento */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
-            <div className="px-4 py-3 bg-emerald-50/70 dark:bg-emerald-950/30 border-b border-emerald-100 dark:border-emerald-900/40 rounded-t-lg flex items-center justify-between">
+          {/* Card 2: Tipo de Encaminhamento & Procedimento (Proposta A - Painel Duplo) */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-4 lg:px-5 py-3.5 bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <div className="p-1.5 bg-emerald-600 text-white rounded-md">
+                <div className="p-2 bg-slate-800 dark:bg-slate-700 text-white rounded-lg shrink-0">
                   <Activity className="w-4 h-4" />
                 </div>
-                <h2 className="text-sm font-bold text-emerald-950 dark:text-emerald-100 uppercase tracking-wide">
-                  2. Tipo de Solicitação e Procedimento Desejado <span className="text-red-500">*</span>
-                </h2>
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                    2. Tipo de Solicitação e Procedimento Desejado <span className="text-red-500">*</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Defina a modalidade e selecione os itens do encaminhamento
+                  </p>
+                </div>
               </div>
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200">
-                {requestType}
+              <span
+                className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                  requestType === 'CONSULTA'
+                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200'
+                    : requestType === 'EXAME'
+                    ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200'
+                    : 'bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200'
+                }`}
+              >
+                {requestType === 'CONSULTA'
+                  ? 'Consulta Médica'
+                  : requestType === 'EXAME'
+                  ? 'Exame Diagnóstico'
+                  : 'Procedimento'}
               </span>
             </div>
 
             <div className="p-4 lg:p-6 space-y-5">
-              {/* Seletor de Tipo em 3 Cards Clicáveis */}
+              {/* Seletor Segmentado de Modalidade */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Selecione a Modalidade do Encaminhamento:
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {/* 1. Consulta */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRequestType('CONSULTA');
-                      setProcedureId('');
-                      setProcedureGroupId('');
-                      setSelectedProcedures([]);
-                      setCurrentProcedureId('');
-                      setConsultaFilterTerm('');
-                      setProcedureFilterTerm('');
-                    }}
-                    className={`p-3.5 rounded-md border text-left transition flex items-center gap-3 cursor-pointer ${
-                      requestType === 'CONSULTA'
-                        ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-900/30 ring-1 ring-blue-500'
-                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                    }`}
-                  >
-                    <div
-                      className={`p-2 rounded-md shrink-0 ${
-                        requestType === 'CONSULTA'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
-                      }`}
-                    >
-                      <Stethoscope className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-xs lg:text-sm text-slate-800 dark:text-slate-100">
-                        Consulta Médica
-                      </h3>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Médico Especialista (Cardio, Orto, etc.)
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* 2. Exame */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRequestType('EXAME');
-                      setProcedureGroupId('');
-                      setProcedureId('');
-                      setSelectedProcedures([]);
-                      setCurrentProcedureId('');
-                      setConsultaFilterTerm('');
-                      setProcedureFilterTerm('');
-                    }}
-                    className={`p-3.5 rounded-md border text-left transition flex items-center gap-3 cursor-pointer ${
-                      requestType === 'EXAME'
-                        ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-900/30 ring-1 ring-emerald-500'
-                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                    }`}
-                  >
-                    <div
-                      className={`p-2 rounded-md shrink-0 ${
-                        requestType === 'EXAME'
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
-                      }`}
-                    >
-                      <Activity className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-xs lg:text-sm text-slate-800 dark:text-slate-100">
-                        Exame Diagnóstico
-                      </h3>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Ultrassom, RX, Tomografia, Sangue
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* 3. Procedimento */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRequestType('PROCEDIMENTO');
-                      setProcedureGroupId('');
-                      setProcedureId('');
-                      setSelectedProcedures([]);
-                      setCurrentProcedureId('');
-                      setConsultaFilterTerm('');
-                      setProcedureFilterTerm('');
-                    }}
-                    className={`p-3.5 rounded-md border text-left transition flex items-center gap-3 cursor-pointer ${
-                      requestType === 'PROCEDIMENTO'
-                        ? 'border-purple-500 bg-purple-50/70 dark:bg-purple-900/30 ring-1 ring-purple-500'
-                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                    }`}
-                  >
-                    <div
-                      className={`p-2 rounded-md shrink-0 ${
-                        requestType === 'PROCEDIMENTO'
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300'
-                      }`}
-                    >
-                      <Building2 className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-xs lg:text-sm text-slate-800 dark:text-slate-100">
-                        Procedimento
-                      </h3>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Pequenas cirurgias, biópsias, etc.
-                      </p>
-                    </div>
-                  </button>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Modalidade do encaminhamento
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {requestType === 'CONSULTA'
+                      ? '1 especialidade por solicitação'
+                      : requestType === 'EXAME'
+                      ? 'Múltiplos exames do mesmo grupo'
+                      : 'Múltiplos procedimentos do mesmo grupo'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 p-1 rounded-lg bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 gap-1">
+                  {(
+                    [
+                      {
+                        key: 'CONSULTA',
+                        label: 'Consulta Médica',
+                        icon: Stethoscope,
+                        dotClass: 'bg-blue-600',
+                      },
+                      {
+                        key: 'EXAME',
+                        label: 'Exame Diagnóstico',
+                        icon: Activity,
+                        dotClass: 'bg-emerald-600',
+                      },
+                      {
+                        key: 'PROCEDIMENTO',
+                        label: 'Procedimento',
+                        icon: Building2,
+                        dotClass: 'bg-purple-600',
+                      },
+                    ] as const
+                  ).map((item) => {
+                    const active = requestType === item.key;
+                    const IconComponent = item.icon;
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => handleModalityChange(item.key)}
+                        className={`px-3 py-2.5 rounded-md text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer ${
+                          active
+                            ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm border border-slate-200 dark:border-slate-700'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
+                        }`}
+                      >
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${
+                            active ? item.dotClass : 'bg-slate-300 dark:bg-slate-700'
+                          }`}
+                        />
+                        <IconComponent className="w-4 h-4 shrink-0" />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Se Consulta Médica: Select de Consultas Médicas */}
+              {/* Fluxo CONSULTA: Busca e seleção integradas */}
               {requestType === 'CONSULTA' ? (
-                <div className="space-y-3 p-4 bg-blue-50/40 dark:bg-slate-900/40 border border-blue-200/80 dark:border-slate-800 rounded-md">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        Consulta Médica Especializada <span className="text-red-500">*</span>
-                      </label>
-                      {consultationProcedures.length > 0 && (
-                        <span className="text-[11px] text-slate-500">
-                          {filteredConsultations.length} de {consultationProcedures.length} disponíveis
-                        </span>
-                      )}
-                    </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Especialidade / Consulta Médica <span className="text-red-500">*</span>
+                    </label>
+                    {consultationProcedures.length > 0 && (
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {filteredConsultations.length} de {consultationProcedures.length} disponíveis
+                      </span>
+                    )}
+                  </div>
 
-                    {/* Input de filtro rápido */}
-                    <div className="relative mb-2">
-                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden bg-slate-50/40 dark:bg-slate-950/60">
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                      <Search className="w-4 h-4 text-slate-400 shrink-0" />
                       <input
                         type="text"
                         value={consultaFilterTerm}
                         onChange={(e) => setConsultaFilterTerm(e.target.value)}
-                        placeholder="Filtrar por nome ou código (ex: Cardiologia, Pediatria, Ortopedia...)"
-                        className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Buscar especialidade ou código SIGTAP (ex: Cardiologia, Pediatria, Ortopedia...)"
+                        className="w-full bg-transparent text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none"
                       />
+                      {consultaFilterTerm && (
+                        <button
+                          type="button"
+                          onClick={() => setConsultaFilterTerm('')}
+                          aria-label="Limpar busca de consulta"
+                          className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
 
-                    <select
-                      value={procedureId}
-                      onChange={(e) => {
-                        const pId = e.target.value;
-                        setProcedureId(pId);
-                        const found = consultationProcedures.find((p: any) => p.id === pId);
-                        if (found) {
-                          setProcedureGroupId(found.procedureGroupId || '');
-                        }
-                      }}
-                      disabled={isLoadingConsultations}
-                      className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer disabled:opacity-50"
-                    >
-                      <option value="">
-                        {isLoadingConsultations
-                          ? 'Carregando consultas médicas...'
-                          : 'Selecione a consulta médica desejada...'}
-                      </option>
-                      {filteredConsultations.map((proc: any) => (
-                        <option key={proc.id} value={proc.id}>
-                          {proc.code ? `[${proc.code}] ` : ''}{proc.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="max-h-56 overflow-y-auto divide-y divide-slate-200/70 dark:divide-slate-800/80">
+                      {isLoadingConsultations ? (
+                        <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
+                          <Loader className="w-4 h-4 animate-spin" />
+                          <span>Carregando consultas médicas...</span>
+                        </div>
+                      ) : filteredConsultations.length === 0 ? (
+                        <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                          Nenhuma consulta encontrada para "{consultaFilterTerm}".
+                        </div>
+                      ) : (
+                        filteredConsultations.map((proc: any) => {
+                          const isSelected = procedureId === proc.id;
+                          return (
+                            <button
+                              key={proc.id}
+                              type="button"
+                              onClick={() => {
+                                setProcedureId(proc.id);
+                                setProcedureGroupId(proc.procedureGroupId || '');
+                              }}
+                              className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between gap-3 transition cursor-pointer ${
+                                isSelected
+                                  ? 'bg-blue-50/80 dark:bg-blue-950/40'
+                                  : 'bg-white dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 block leading-snug">
+                                  {proc.name}
+                                </span>
+                                <span className="text-xs font-mono text-slate-500 dark:text-slate-400 block mt-0.5">
+                                  SIGTAP {proc.code || 'N/A'}
+                                </span>
+                              </div>
+                              <span
+                                className={`text-xs font-semibold shrink-0 px-2.5 py-1 rounded-full ${
+                                  isSelected
+                                    ? 'bg-blue-600 text-white'
+                                    : 'border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900'
+                                }`}
+                              >
+                                {isSelected ? 'Selecionada' : 'Escolher'}
+                              </span>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
 
                   {selectedProcedureObj && (
-                    <div className="p-3 bg-white dark:bg-slate-950 border border-blue-200 dark:border-blue-900/50 rounded-md flex items-center justify-between text-xs shadow-sm">
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-1.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-md shrink-0">
-                          <Stethoscope className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <span className="font-bold text-slate-800 dark:text-slate-100 block">
-                            {selectedProcedureObj.name}
-                          </span>
-                          <span className="text-[11px] text-slate-500">
-                            Código SIGTAP/SUS: <strong className="text-slate-700 dark:text-slate-300">{selectedProcedureObj.code || 'N/A'}</strong>
-                          </span>
-                        </div>
+                    <div className="px-3.5 py-2.5 bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Stethoscope className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                        <span className="text-slate-600 dark:text-slate-300">Selecionada:</span>
+                        <strong className="text-slate-900 dark:text-slate-100">{selectedProcedureObj.name}</strong>
                       </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold shrink-0">
-                        Consulta Médica
+                      <span className="font-mono text-slate-600 dark:text-slate-300">
+                        SIGTAP {selectedProcedureObj.code || 'N/A'}
                       </span>
                     </div>
                   )}
                 </div>
               ) : (
-                /* Se Exame ou Procedimento: Grupo + Procedimento em Cascata Inteligente */
-                <div
-                  className={`space-y-4 p-4 rounded-md border ${
-                    requestType === 'EXAME'
-                      ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/50'
-                      : 'bg-purple-50/40 dark:bg-purple-950/20 border-purple-200/80 dark:border-purple-900/50'
-                  }`}
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Grupo de Procedimentos / Exames */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                          {requestType === 'EXAME' ? 'Grupo de Exame Diagnóstico (SUS)' : 'Grupo de Procedimento (SUS)'}{' '}
-                          <span className="text-red-500">*</span>
-                        </label>
-                        <span className="text-[11px] text-slate-500 font-medium">
-                          {filteredProcedureGroups.length} grupos
-                        </span>
-                      </div>
-                      <select
-                        value={procedureGroupId}
-                        onChange={(e) => handleGroupChange(e.target.value)}
-                        className={`w-full px-3 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 cursor-pointer ${
-                          requestType === 'EXAME'
-                            ? 'focus:ring-emerald-500 focus:border-emerald-500'
-                            : 'focus:ring-purple-500 focus:border-purple-500'
-                        }`}
-                      >
-                        <option value="">
-                          {requestType === 'EXAME'
-                            ? 'Selecione o grupo de exames (ex: Ultrassonografia, Tomografia, Laboratório...)'
-                            : 'Selecione o grupo de procedimentos (ex: Cirurgia Oftalmológica, Odontologia, Biópsias...)'}
-                        </option>
-                        {filteredProcedureGroups.map((grp: any) => (
-                          <option key={grp.id} value={grp.id}>
-                            {grp.displayName}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-[11px] text-slate-500 mt-1">
+                /* Fluxo EXAME / PROCEDIMENTO: Grupo com filtro + Painel Duplo (Catálogo x Selecionados) */
+                <div className="space-y-4">
+                  {/* Seleção de Grupo */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                         {requestType === 'EXAME'
-                          ? 'Grupos filtrados exclusivamente para diagnósticos, imagem e análises clínicas.'
-                          : 'Grupos filtrados exclusivamente para cirurgias, intervenções, odontologia e terapias.'}
-                      </p>
+                          ? 'Grupo de Exame Diagnóstico (SUS)'
+                          : 'Grupo de Procedimento (SUS)'}{' '}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                        {visibleProcedureGroups.length} grupos
+                      </span>
                     </div>
 
-                    {/* Procedimento / Exame Específico */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                          {requestType === 'EXAME' ? 'Selecionar Exame do Grupo' : 'Selecionar Procedimento do Grupo'}{' '}
-                          <span className="text-red-500">*</span>
-                        </label>
-                        {proceduresInGroup.length > 0 && (
-                          <span className="text-[11px] text-slate-500 font-medium">
-                            {filteredProceduresInGroup.length} de {proceduresInGroup.length} disponíveis
-                          </span>
-                        )}
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
+                      <div className="md:col-span-5 relative">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={groupFilterTerm}
+                          onChange={(e) => setGroupFilterTerm(e.target.value)}
+                          placeholder={`Filtrar grupo (${requestType === 'EXAME' ? 'ex: Tomografia, Ultrassom' : 'ex: Cirurgia, Biópsia'})...`}
+                          className="w-full pl-8 pr-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-lg text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500"
+                        />
+                      </div>
+                      <div className="md:col-span-7">
+                        <select
+                          aria-label={
+                            requestType === 'EXAME'
+                              ? 'Grupo de Exame Diagnóstico (SUS)'
+                              : 'Grupo de Procedimento (SUS)'
+                          }
+                          value={procedureGroupId}
+                          onChange={(e) => handleGroupChange(e.target.value)}
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-lg text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500 cursor-pointer"
+                        >
+                          <option value="">
+                            {requestType === 'EXAME'
+                              ? 'Selecione o grupo de exames (ex: Ultrassonografia, Tomografia, Laboratório...)'
+                              : 'Selecione o grupo de procedimentos (ex: Cirurgia Oftalmológica, Odontologia, Biópsias...)'}
+                          </option>
+                          {visibleProcedureGroups.map((grp: any) => (
+                            <option key={grp.id} value={grp.id}>
+                              {grp.displayName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {groupChangeNotice && (
+                      <div className="px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50/70 dark:bg-amber-950/30 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2">
+                        <span>{groupChangeNotice}</span>
+                        <button
+                          type="button"
+                          onClick={() => setGroupChangeNotice('')}
+                          aria-label="Dispensar aviso"
+                          className="text-amber-700 dark:text-amber-300 hover:opacity-75 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Painel Duplo: Catálogo do Grupo (esquerda) x Itens na Solicitação (direita) */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+                    {/* Esquerda: Catálogo do Grupo */}
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50/50 dark:bg-slate-950/50 flex flex-col overflow-hidden">
+                      <div className="px-3.5 py-2.5 bg-slate-100/80 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                          Catálogo do Grupo
+                        </span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                          {procedureGroupId
+                            ? `${filteredProceduresInGroup.length} de ${proceduresInGroup.length} disponíveis`
+                            : '0 disponíveis'}
+                        </span>
                       </div>
 
-                      {/* Input de filtro dentro do grupo se houver procedimentos */}
-                      {procedureGroupId && proceduresInGroup.length > 0 && (
-                        <div className="relative mb-2">
+                      <div className="p-2.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                        <div className="relative">
                           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                           <input
                             type="text"
                             value={procedureFilterTerm}
                             onChange={(e) => setProcedureFilterTerm(e.target.value)}
-                            placeholder={`Filtrar ${requestType === 'EXAME' ? 'exame' : 'procedimento'} por nome ou código...`}
-                            className={`w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 ${
-                              requestType === 'EXAME'
-                                ? 'focus:ring-emerald-500 focus:border-emerald-500'
-                                : 'focus:ring-purple-500 focus:border-purple-500'
-                            }`}
+                            disabled={!procedureGroupId || isLoadingProcedures}
+                            placeholder={`Filtrar ${requestType === 'EXAME' ? 'exame' : 'procedimento'} por nome ou código SIGTAP...`}
+                            className="w-full pl-8 pr-8 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500 disabled:opacity-50"
                           />
+                          {procedureFilterTerm && (
+                            <button
+                              type="button"
+                              onClick={() => setProcedureFilterTerm('')}
+                              aria-label="Limpar filtro de itens"
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
-                      )}
+                      </div>
 
-                      <div className="flex gap-2">
-                        <div className="relative flex-1 min-w-0">
-                          <select
-                            value={currentProcedureId}
-                            onChange={(e) => setCurrentProcedureId(e.target.value)}
-                            disabled={isLoadingProcedures || !procedureGroupId}
-                            className={`w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-md text-xs lg:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 disabled:opacity-50 cursor-pointer ${
-                              requestType === 'EXAME'
-                                ? 'focus:ring-emerald-500 focus:border-emerald-500'
-                                : 'focus:ring-purple-500 focus:border-purple-500'
-                            }`}
-                          >
-                            <option value="">
-                              {!procedureGroupId
-                                ? '← Selecione o grupo primeiro'
-                                : isLoadingProcedures
-                                ? `Carregando ${requestType === 'EXAME' ? 'exames' : 'procedimentos'}...`
-                                : `Selecione o ${requestType === 'EXAME' ? 'exame' : 'procedimento'}...`}
-                            </option>
-                            {filteredProceduresInGroup.map((proc: any) => (
-                              <option key={proc.id} value={proc.id}>
-                                {proc.code ? `[${proc.code}] ` : ''}
-                                {proc.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleAddProcedure}
-                          disabled={!currentProcedureId}
-                          className={`px-3.5 py-2 rounded-md font-bold text-xs flex items-center gap-1.5 transition shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-                            requestType === 'EXAME'
-                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
-                              : 'bg-purple-600 hover:bg-purple-700 text-white shadow-sm'
-                          }`}
-                          title={`Adicionar este ${requestType === 'EXAME' ? 'exame' : 'procedimento'} à lista do grupo`}
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span>Adicionar</span>
-                        </button>
+                      <div className="divide-y divide-slate-200/70 dark:divide-slate-800 max-h-72 overflow-y-auto flex-1">
+                        {!procedureGroupId ? (
+                          <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                            Selecione um grupo acima para listar os{' '}
+                            {requestType === 'EXAME' ? 'exames' : 'procedimentos'} disponíveis.
+                          </div>
+                        ) : isLoadingProcedures ? (
+                          <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
+                            <Loader className="w-4 h-4 animate-spin" />
+                            <span>Carregando {requestType === 'EXAME' ? 'exames' : 'procedimentos'}...</span>
+                          </div>
+                        ) : filteredProceduresInGroup.length === 0 ? (
+                          <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                            {procedureFilterTerm
+                              ? `Nenhum item encontrado para "${procedureFilterTerm}".`
+                              : `Nenhum ${requestType === 'EXAME' ? 'exame' : 'procedimento'} disponível neste grupo.`}
+                          </div>
+                        ) : (
+                          filteredProceduresInGroup.map((proc: any) => {
+                            const isAdded = selectedProcedures.some((sp: any) => sp.id === proc.id);
+                            return (
+                              <button
+                                key={proc.id}
+                                type="button"
+                                onClick={() => handleToggleProcedure(proc)}
+                                className={`w-full px-3.5 py-2.5 text-left flex items-start justify-between gap-3 transition cursor-pointer ${
+                                  isAdded
+                                    ? requestType === 'EXAME'
+                                      ? 'bg-emerald-50/70 dark:bg-emerald-950/30'
+                                      : 'bg-purple-50/70 dark:bg-purple-950/30'
+                                    : 'bg-white dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                                }`}
+                              >
+                                <div className="min-w-0">
+                                  <span className="text-xs font-medium text-slate-800 dark:text-slate-100 block leading-snug">
+                                    {proc.name}
+                                  </span>
+                                  <span className="text-xs font-mono text-slate-500 dark:text-slate-400 block mt-0.5">
+                                    SIGTAP {proc.code || 'N/A'}
+                                  </span>
+                                </div>
+                                <span
+                                  className={`text-xs font-semibold shrink-0 px-2.5 py-1 rounded-md inline-flex items-center gap-1 ${
+                                    isAdded
+                                      ? requestType === 'EXAME'
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'bg-purple-600 text-white'
+                                      : 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200'
+                                  }`}
+                                >
+                                  {isAdded ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5" />
+                                      <span>Adicionado</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Plus className="w-3.5 h-3.5" />
+                                      <span>Adicionar</span>
+                                    </>
+                                  )}
+                                </span>
+                              </button>
+                            );
+                          })
+                        )}
                       </div>
                     </div>
-                  </div>
 
-                  {/* Lista de Procedimentos / Exames Adicionados ao mesmo grupo */}
-                  <div className="mt-4 pt-3.5 border-t border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Activity className={`w-4 h-4 ${requestType === 'EXAME' ? 'text-emerald-600' : 'text-purple-600'}`} />
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wide">
-                          {requestType === 'EXAME' ? 'Exames Selecionados' : 'Procedimentos Selecionados'} ({selectedProcedures.length})
-                        </span>
-                        {selectedGroupName && (
-                          <span className="hidden sm:inline-block text-[11px] text-slate-500 dark:text-slate-400">
-                            (Grupo: <strong>{selectedGroupName}</strong>)
+                    {/* Direita: Itens Selecionados na Solicitação */}
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50/50 dark:bg-slate-950/50 flex flex-col overflow-hidden">
+                      <div className="px-3.5 py-2.5 bg-slate-100/80 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Activity
+                            className={`w-4 h-4 shrink-0 ${
+                              requestType === 'EXAME' ? 'text-emerald-600' : 'text-purple-600'
+                            }`}
+                          />
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                            {requestType === 'EXAME' ? 'Exames Selecionados' : 'Procedimentos Selecionados'} (
+                            {selectedProcedures.length})
+                          </span>
+                        </div>
+                        {selectedProcedures.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedProcedures([])}
+                            className="text-xs font-medium text-red-600 dark:text-red-400 hover:underline cursor-pointer shrink-0"
+                          >
+                            Limpar lista
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">
+                            Obrigatório ≥ 1
                           </span>
                         )}
                       </div>
-                      {selectedProcedures.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedProcedures([])}
-                          className="text-[11px] text-red-500 hover:text-red-700 dark:hover:text-red-400 hover:underline cursor-pointer"
-                        >
-                          Limpar todos
-                        </button>
-                      )}
-                    </div>
 
-                    {selectedProcedures.length === 0 ? (
-                      <div className="p-4 rounded-md border border-dashed border-slate-300 dark:border-slate-800 bg-white/50 dark:bg-slate-900/40 text-center">
-                        <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                          Nenhum {requestType === 'EXAME' ? 'exame' : 'procedimento'} adicionado ainda.
-                        </p>
-                        <p className="text-[11px] text-slate-400 mt-1">
-                          Você pode adicionar múltiplos {requestType === 'EXAME' ? 'exames' : 'procedimentos'} pertencentes a este mesmo grupo na mesma solicitação. Selecione acima e clique em <strong>"+ Adicionar"</strong>.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {selectedProcedures.map((proc: any, idx: number) => (
-                          <div
-                            key={proc.id}
-                            className={`flex items-center justify-between p-2.5 bg-white dark:bg-slate-950 rounded-md shadow-sm border ${
-                              requestType === 'EXAME'
-                                ? 'border-emerald-200/90 dark:border-emerald-900/40'
-                                : 'border-purple-200/90 dark:border-purple-900/40'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span
-                                className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                  requestType === 'EXAME'
-                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
-                                    : 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300'
-                                }`}
-                              >
-                                {idx + 1}
-                              </span>
-                              <div className="min-w-0">
-                                <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 block truncate">
-                                  {proc.name}
-                                </span>
-                                <span className="text-[10px] text-slate-500 block">
-                                  Código SIGTAP: <strong className="text-slate-700 dark:text-slate-300">{proc.code || 'N/A'}</strong>
-                                  {selectedGroupName && <span> • {selectedGroupName}</span>}
-                                </span>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveProcedure(proc.id)}
-                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded transition cursor-pointer shrink-0 ml-2"
-                              title="Remover este item da solicitação"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                      {selectedGroupName && (
+                        <div className="px-3.5 py-2 border-b border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-600 dark:text-slate-300">
+                          Grupo: <strong className="text-slate-800 dark:text-slate-100">{selectedGroupName}</strong>
+                        </div>
+                      )}
+
+                      <div className="p-2.5 space-y-2 max-h-72 overflow-y-auto flex-1">
+                        {selectedProcedures.length === 0 ? (
+                          <div className="min-h-[180px] h-full flex flex-col items-center justify-center text-center px-4">
+                            <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                              Nenhum {requestType === 'EXAME' ? 'exame' : 'procedimento'} selecionado ainda.
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                              Clique nos itens do catálogo ao lado para incluí-los nesta única solicitação.
+                            </p>
                           </div>
-                        ))}
+                        ) : (
+                          selectedProcedures.map((proc: any, idx: number) => (
+                            <div
+                              key={proc.id}
+                              className={`flex items-start justify-between gap-2.5 p-2.5 bg-white dark:bg-slate-900 rounded-lg border shadow-sm ${
+                                requestType === 'EXAME'
+                                  ? 'border-emerald-200/90 dark:border-emerald-900/50'
+                                  : 'border-purple-200/90 dark:border-purple-900/50'
+                              }`}
+                            >
+                              <div className="flex items-start gap-2.5 min-w-0">
+                                <span
+                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
+                                    requestType === 'EXAME'
+                                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                                      : 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300'
+                                  }`}
+                                >
+                                  {idx + 1}
+                                </span>
+                                <div className="min-w-0">
+                                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 block leading-snug">
+                                    {proc.name}
+                                  </span>
+                                  <span className="text-xs font-mono text-slate-500 dark:text-slate-400 block mt-0.5">
+                                    SIGTAP {proc.code || 'N/A'}
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveProcedure(proc.id)}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-md transition cursor-pointer shrink-0"
+                                title="Remover este item da solicitação"
+                                aria-label={`Remover ${proc.name}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               )}
