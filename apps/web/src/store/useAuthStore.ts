@@ -38,6 +38,7 @@ interface AuthState {
     activeHealthCenter: ActiveHealthCenter | null;
     availableHealthCenters: ActiveHealthCenter[];
     isAuthenticated: boolean;
+    isSwitchingProfile: boolean;
     login: (
         token: string,
         user: User,
@@ -49,6 +50,7 @@ interface AuthState {
     ) => void;
     selectProfile: (activeProfile: ActiveProfile, permissions: string[], token?: string) => void;
     selectHealthCenter: (healthCenter: ActiveHealthCenter, token?: string) => void;
+    setSwitchingProfile: (isSwitching: boolean) => void;
     logout: () => void;
     updateUser: (user: Partial<User>) => void;
     syncSession: (
@@ -160,6 +162,7 @@ export const useAuthStore = create<AuthState>((set) => {
         activeHealthCenter: parsedActiveHealthCenter,
         availableHealthCenters: parsedAvailableHealthCenters,
         isAuthenticated: !!validToken,
+        isSwitchingProfile: false,
 
         login: (token, user, permissions, activeProfile, availableProfiles, activeHealthCenter, availableHealthCenters) => {
             try {
@@ -238,6 +241,10 @@ export const useAuthStore = create<AuthState>((set) => {
             }));
         },
 
+        setSwitchingProfile: (isSwitching) => {
+            set({ isSwitchingProfile: isSwitching });
+        },
+
         logout: () => {
             try {
                 localStorage.removeItem('app_base_token');
@@ -261,6 +268,7 @@ export const useAuthStore = create<AuthState>((set) => {
                 activeHealthCenter: null,
                 availableHealthCenters: [],
                 isAuthenticated: false,
+                isSwitchingProfile: false,
             });
         },
 

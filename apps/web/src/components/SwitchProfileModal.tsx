@@ -113,6 +113,7 @@ export const SwitchProfileModal: React.FC<SwitchProfileModalProps> = ({ isOpen, 
     }
 
     setSwitchingId(profile.id);
+    useAuthStore.getState().setSwitchingProfile(true);
     try {
       const response = await api.post('/auth/select-profile', { profileId: profile.id });
       const {
@@ -123,23 +124,8 @@ export const SwitchProfileModal: React.FC<SwitchProfileModalProps> = ({ isOpen, 
         availableProfiles: newAvailableProfiles,
       } = response.data;
 
-      // 1. Redireciona inteligentemente de acordo com a função do novo perfil ANTES
-      // para evitar que guardas de rotas antigas exibam 'Acesso negado' indevido
-      const targetRoute = getTargetRouteForProfile(newActiveProfile.name, permissions, location.pathname);
-      if (targetRoute !== location.pathname) {
-        navigate(targetRoute, { replace: true });
-      }
-
-      // 2. Atualiza imediatamente o Zustand store com o novo token, activeProfile e permissões
-      selectProfileInStore(newActiveProfile, permissions, accessToken);
-      if (response.data.activeHealthCenter) {
-        useAuthStore.getState().selectHealthCenter(response.data.activeHealthCenter, accessToken);
-      }
-
-      // 3. Limpa o cache do React Query de sessões ou queries anteriores
+      // 1. Limpa o cache anterior e pré-popula auth-me vinculado ao novo token ANTES de navegar
       queryClient.clear();
-
-      // 4. Pré-popula a query auth-me vinculada ao novo token para navegação instantânea
       queryClient.setQueryData(['auth-me', accessToken], {
         id: user?.id,
         name: user?.name,
@@ -147,20 +133,36 @@ export const SwitchProfileModal: React.FC<SwitchProfileModalProps> = ({ isOpen, 
         phone: user?.phone,
         avatar: user?.avatar,
         profileId: newActiveProfile.id,
-        profileName: newActiveProfile.name,
+        profileName: user?.profileName ?? newActiveProfile.name,
         healthCenterId: user?.healthCenterId,
         activeProfile: newActiveProfile,
         availableProfiles: newAvailableProfiles || availableProfiles,
         permissions,
       });
 
+      // 2. Atualiza imediatamente o Zustand store com o novo token, activeProfile e permissões
+      selectProfileInStore(newActiveProfile, permissions, accessToken);
+      if (response.data.activeHealthCenter) {
+        useAuthStore.getState().selectHealthCenter(response.data.activeHealthCenter, accessToken);
+      }
+
+      // 3. Redireciona inteligentemente de acordo com a função do novo perfil já sincronizado
+      const targetRoute = getTargetRouteForProfile(newActiveProfile.name, permissions, location.pathname);
+      if (targetRoute !== location.pathname) {
+        navigate(targetRoute, { replace: true });
+      }
+
       toast.success(`Perfil alternado para "${profile.name}" com sucesso!`);
       onClose();
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Erro ao alternar perfil';
       toast.error(msg);
+      useAuthStore.getState().setSwitchingProfile(false);
     } finally {
       setSwitchingId(null);
+      setTimeout(() => {
+        useAuthStore.getState().setSwitchingProfile(false);
+      }, 50);
     }
   };
 

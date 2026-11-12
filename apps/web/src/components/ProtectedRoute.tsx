@@ -14,7 +14,16 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ requiredPermission }: ProtectedRouteProps) => {
-  const { token, isAuthenticated, permissions, activeProfile, syncSession } = useAuthStore();
+  const {
+    token,
+    isAuthenticated,
+    permissions,
+    activeProfile,
+    availableProfiles,
+    user,
+    isSwitchingProfile,
+    syncSession,
+  } = useAuthStore();
   const location = useLocation();
 
   // Ativa o monitoramento contínuo de sessão (retomada de foco e timer periódico)
@@ -45,6 +54,35 @@ export const ProtectedRoute = ({ requiredPermission }: ProtectedRouteProps) => {
       syncSession(profile, profile.permissions, profile.activeProfile, profile.availableProfiles);
     }
   }, [isValidSession, profile, activeProfile?.id, syncSession]);
+
+  // 3. Verificação de permissões da rota
+  // Se o profile do backend pertencer ao perfil ativo atual, utilizamos suas permissões;
+  // Caso contrário, utilizamos imediatamente as permissões consolidadas do useAuthStore.
+  const isProfileSynchronized = Boolean(
+    profile && (!activeProfile?.id || profile.activeProfile?.id === activeProfile?.id),
+  );
+  const effectivePermissions = isProfileSynchronized ? (profile.permissions ?? []) : permissions;
+  const isMasterAdmin =
+    user?.profileName === 'Administrador' ||
+    profile?.profileName === 'Administrador' ||
+    availableProfiles.some((p) => p.name === 'Administrador') ||
+    effectivePermissions.includes('admin:access');
+
+  const isDenied = Boolean(
+    isValidSession &&
+      !isError &&
+      !isLoading &&
+      !isSwitchingProfile &&
+      requiredPermission &&
+      !isMasterAdmin &&
+      !effectivePermissions.includes(requiredPermission),
+  );
+
+  useEffect(() => {
+    if (isDenied) {
+      toast.error('Acesso negado. Você não possui permissão para acessar esta página.');
+    }
+  }, [isDenied, location.pathname]);
 
   // Se a sessão for inválida (logout, sem token ou expirado), redireciona imediatamente para login
   if (!isValidSession) {
@@ -79,18 +117,11 @@ export const ProtectedRoute = ({ requiredPermission }: ProtectedRouteProps) => {
     );
   }
 
-  // 3. Verificação de permissões da rota
-  // Se o profile do backend pertencer ao perfil ativo atual, utilizamos suas permissões;
-  // Caso contrário, utilizamos imediatamente as permissões consolidadas do useAuthStore.
-  const isProfileSynchronized = profile && (!activeProfile?.id || profile.activeProfile?.id === activeProfile?.id);
-  const effectivePermissions = isProfileSynchronized ? profile.permissions : permissions;
+  if (isSwitchingProfile) {
+    return <Outlet />;
+  }
 
-  if (
-    requiredPermission &&
-    !effectivePermissions.includes(requiredPermission) &&
-    !effectivePermissions.includes('admin:access')
-  ) {
-    toast.error('Acesso negado. Você não possui permissão para acessar esta página.');
+  if (isDenied) {
     return <Navigate to="/" replace />;
   }
 
