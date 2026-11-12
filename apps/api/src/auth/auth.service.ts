@@ -254,7 +254,11 @@ export class AuthService {
       ],
     };
 
-    const defaultPerms = roleDefaults[targetProfile.name] || [];
+    const isUserAdmin =
+      user.profile?.name === 'Administrador' ||
+      availableProfiles.some((p) => p.name === 'Administrador');
+
+    const defaultPerms = this.resolveDefaultPermissions(roleDefaults, targetProfile.name);
     for (const p of defaultPerms) {
       permissionMap.set(p, true);
     }
@@ -276,11 +280,34 @@ export class AuthService {
       }
     }
 
+    // Preserva acesso administrativo caso o usuário possua perfil Administrador master,
+    // permitindo operar em qualquer persona sem bloqueios indevidos de rota.
+    if (isUserAdmin) {
+      permissionMap.set('admin:access', true);
+    }
+
     const permissions = Array.from(permissionMap.entries())
       .filter((entry) => entry[1])
       .map((entry) => entry[0]);
 
     return { permissions, activeProfile: targetProfile };
+  }
+
+  private resolveDefaultPermissions(roleDefaults: Record<string, string[]>, profileName: string): string[] {
+    if (roleDefaults[profileName]) {
+      return roleDefaults[profileName];
+    }
+    const normalize = (value: string) =>
+      value
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    const normalizedTarget = normalize(profileName);
+    const matchedKey = Object.keys(roleDefaults).find((key) => {
+      const prefix = normalize(key.split(' ')[0]);
+      return normalizedTarget.includes(prefix);
+    });
+    return matchedKey ? roleDefaults[matchedKey] : [];
   }
 
   consolidatePermissions(user: any): string[] {
