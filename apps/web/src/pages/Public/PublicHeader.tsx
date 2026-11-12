@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { FontSizeControls } from '../../components/FontSizeControls';
 
 export const PublicHeader = () => {
   const location = useLocation();
@@ -53,8 +54,9 @@ export const PublicHeader = () => {
           })}
         </nav>
 
-        {/* Controles de Direita: Botão de Login */}
+        {/* Controles de Direita: Acessibilidade + Botão de Login */}
         <div className="flex items-center gap-2.5">
+          <FontSizeControls variant="surface" />
           <Link
             to="/login"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 transition cursor-pointer"

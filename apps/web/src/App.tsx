@@ -10,6 +10,7 @@ import { CreateOrEditUser } from './pages/Users/Create';
 import { Toaster } from 'sonner';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { FontSizeProvider } from './contexts/FontSizeContext';
 import { Dashboard } from './pages/Dashboard';
 import { HealthCentersList } from './pages/HealthCenters';
 import { CreateOrEditHealthCenter } from './pages/HealthCenters/Create';
@@ -54,7 +55,8 @@ import './App.css';
 function App() {
   return (
     <ThemeProvider>
-      <ConfirmProvider>
+      <FontSizeProvider>
+        <ConfirmProvider>
         <SocketProvider>
           <BrowserRouter>
             <Routes>
@@ -180,7 +182,8 @@ function App() {
           </BrowserRouter>
         </SocketProvider>
         <Toaster position="top-right" richColors />
-      </ConfirmProvider>
+        </ConfirmProvider>
+      </FontSizeProvider>
     </ThemeProvider>
   );
 }

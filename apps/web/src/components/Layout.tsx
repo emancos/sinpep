@@ -28,6 +28,7 @@ import { useState } from 'react';
 import { Breadcrumb } from './Breadcrumb';
 import { NotificationBell } from './NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
+import { FontSizeControls } from './FontSizeControls';
 import { CachedAvatar } from './CachedAvatar';
 import { useCurrentDoctor } from '../hooks/useDoctors';
 import { SwitchProfileModal } from './SwitchProfileModal';
@@ -377,6 +378,7 @@ export const Layout = () => {
               </button>
             )}
 
+            <FontSizeControls variant="header" />
             <ThemeToggle />
             <NotificationBell />
 

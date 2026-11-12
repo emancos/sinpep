@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore, type ActiveProfile, type User } from '../store/useAuthStore';
 import { useTheme } from '../contexts/ThemeContext';
+import { FontSizeControls } from '../components/FontSizeControls';
 import { isTokenExpired } from '../utils/token';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -231,12 +232,13 @@ export const Login: React.FC = () => {
 
     return (
         <div className="min-h-screen flex flex-col lg:flex-row bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans relative">
-            {/* Theme Toggle */}
-            <div className="absolute top-4 right-4 z-30">
+            {/* Controles de Acessibilidade e Tema */}
+            <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+                <FontSizeControls variant="surface" />
                 <button
                     type="button"
                     onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                    className="p-2 rounded-md bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-all backdrop-blur-md cursor-pointer flex items-center justify-center shadow-sm"
+                    className="h-8 w-8 rounded-md bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-all backdrop-blur-md cursor-pointer flex items-center justify-center shadow-sm"
                     title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
                 >
                     {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
