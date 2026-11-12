@@ -97,13 +97,13 @@ export const UserProfile: React.FC = () => {
             sisregUsername: sisregUsername || '',
             sisregPassword: sisregPassword || undefined,
         }, {
-            onSuccess: () => {
+            onSuccess: (updatedData) => {
                 toast.success('Perfil atualizado com sucesso!');
                 setPassword('');
                 setConfirmPassword('');
                 setSisregPassword('');
                 setAvatarFile(null);
-                setAvatarPreview(getAvatarUrl(user?.avatar));
+                setAvatarPreview(getAvatarUrl(updatedData?.avatar ?? user?.avatar));
             },
             onError: (err: any) => {
                 const errMsg = err?.response?.data?.message || 'Ocorreu um erro ao atualizar o perfil.';
@@ -133,7 +133,12 @@ export const UserProfile: React.FC = () => {
                         <div className="relative group mt-4 mb-4">
                             <div className="w-24 h-24 rounded-full border-2 border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 flex items-center justify-center overflow-hidden shadow-xl shadow-black/40">
                                 {avatarPreview ? (
-                                    <img src={avatarPreview} alt={user?.name} className="w-full h-full object-cover" />
+                                    <img
+                                        src={avatarPreview}
+                                        alt={user?.name}
+                                        onError={() => setAvatarPreview(null)}
+                                        className="w-full h-full object-cover"
+                                    />
                                 ) : (
                                     <UserIcon className="w-12 h-12 text-slate-655" />
                                 )}
@@ -205,7 +210,12 @@ export const UserProfile: React.FC = () => {
                         <div className="flex flex-col sm:flex-row items-center gap-4 p-4 bg-white dark:bg-slate-950/40 rounded-md border border-slate-200 dark:border-slate-850">
                             <div className="w-16 h-16 rounded-full border border-slate-750 bg-white dark:bg-slate-950 flex items-center justify-center overflow-hidden shrink-0">
                                 {avatarPreview ? (
-                                    <img src={avatarPreview} alt="Preview" className="w-full h-full object-cover" />
+                                    <img
+                                        src={avatarPreview}
+                                        alt="Preview"
+                                        onError={() => setAvatarPreview(null)}
+                                        className="w-full h-full object-cover"
+                                    />
                                 ) : (
                                     <UserIcon className="w-8 h-8 text-slate-655" />
                                 )}

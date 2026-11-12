@@ -2,14 +2,13 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { toast } from 'sonner';
-import { getAvatarUrl } from '../../utils/avatar';
+import { CachedAvatar } from '../../components/CachedAvatar';
 import { useUsersQuery, useDeleteUser, useToggleUserActive } from '../../hooks/useUsers';
 import {
     Search,
     Plus,
     Loader2,
     AlertCircle,
-    User as UserIcon,
     ShieldAlert,
     Trash2,
     Edit,
@@ -175,11 +174,12 @@ export const UsersList = () => {
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className={`w-8 h-8 rounded-full ${user.isActive ? 'bg-blue-500/20' : 'bg-slate-200 dark:bg-slate-800/50'} border border-slate-300 dark:border-slate-800 flex items-center justify-center overflow-hidden`}>
-                                                        {user.avatar ? (
-                                                            <img src={getAvatarUrl(user.avatar) || ''} alt={user.name} className={`w-full h-full object-cover ${!user.isActive && 'grayscale opacity-50'}`} />
-                                                        ) : (
-                                                            <UserIcon className={`w-4 h-4 ${user.isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500'}`} />
-                                                        )}
+                                                        <CachedAvatar
+                                                            src={user.avatar}
+                                                            alt={user.name}
+                                                            className={`w-full h-full object-cover ${!user.isActive ? 'grayscale opacity-50' : ''}`}
+                                                            iconClassName={`w-4 h-4 ${user.isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500'}`}
+                                                        />
                                                     </div>
                                                     <div>
                                                         <div className={`font-medium transition-colors duration-200 ${user.isActive ? 'text-slate-900 dark:text-white group-hover:text-blue-400' : 'text-slate-500 line-through'}`}>
@@ -323,11 +323,12 @@ export const UsersList = () => {
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="flex items-start gap-2.5 min-w-0 flex-1">
                                             <div className={`w-9 h-9 rounded-full ${user.isActive ? 'bg-blue-500/20' : 'bg-slate-200 dark:bg-slate-800/50'} border border-slate-300 dark:border-slate-800 flex items-center justify-center overflow-hidden shrink-0 mt-0.5`}>
-                                                {user.avatar ? (
-                                                    <img src={getAvatarUrl(user.avatar) || ''} alt={user.name} className={`w-full h-full object-cover ${!user.isActive && 'grayscale opacity-50'}`} />
-                                                ) : (
-                                                    <UserIcon className={`w-4 h-4 ${user.isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500'}`} />
-                                                )}
+                                                <CachedAvatar
+                                                    src={user.avatar}
+                                                    alt={user.name}
+                                                    className={`w-full h-full object-cover ${!user.isActive ? 'grayscale opacity-50' : ''}`}
+                                                    iconClassName={`w-4 h-4 ${user.isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500'}`}
+                                                />
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <h4 className={`font-bold text-sm leading-snug break-words ${user.isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 line-through'}`}>

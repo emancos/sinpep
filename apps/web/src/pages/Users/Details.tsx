@@ -1,7 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, User, Mail, CheckCircle2, ShieldAlert, Building2, KeyRound, MapPin, Hash } from 'lucide-react';
+import { ArrowLeft, Edit, Mail, CheckCircle2, ShieldAlert, Building2, KeyRound, MapPin, Hash } from 'lucide-react';
 import { useUser } from '../../hooks/useUsers';
 import { useAuthStore } from '../../store/useAuthStore';
+import { CachedAvatar } from '../../components/CachedAvatar';
 
 export const UserDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -48,8 +49,8 @@ export const UserDetails = () => {
           </button>
           
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-purple-100 to-fuchsia-100 dark:from-purple-900/40 dark:to-fuchsia-900/40 text-purple-600 dark:text-purple-400 rounded-md flex items-center justify-center shadow-inner">
-              <User className="w-7 h-7" />
+            <div className="w-14 h-14 bg-gradient-to-br from-purple-100 to-fuchsia-100 dark:from-purple-900/40 dark:to-fuchsia-900/40 text-purple-600 dark:text-purple-400 rounded-md flex items-center justify-center shadow-inner overflow-hidden">
+              <CachedAvatar src={user.avatar} alt={user.name} className="w-full h-full object-cover" iconClassName="w-7 h-7" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
