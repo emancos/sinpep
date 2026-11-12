@@ -192,7 +192,7 @@ export class UsersService {
     updateData: {
       name?: string;
       phone?: string;
-      avatar?: string;
+      avatar?: string | null;
       password?: string;
       profileId?: string;
       profileIds?: string[];

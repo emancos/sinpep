@@ -3,6 +3,8 @@ import {
   Get,
   Param,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
   Put,
   Post,
   Delete,
@@ -11,7 +13,13 @@ import {
   Query,
   Patch,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
+import {
+  buildAvatarMulterOptions,
+  buildAvatarPublicUrl,
+  removeLocalAvatarIfExists,
+} from './avatar-upload.util';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -55,6 +63,10 @@ export class UpdateProfileDto {
   @IsOptional()
   @MinLength(6, { message: 'A senha deve ter pelo menos 6 caracteres' })
   password?: string;
+
+  @IsString()
+  @IsOptional()
+  removeAvatar?: string;
 }
 
 export class CreateUserDto {
@@ -106,6 +118,10 @@ export class CreateUserDto {
   @ValidateNested({ each: true })
   @Type(() => CustomPermissionDto)
   customPermissions?: CustomPermissionDto[];
+
+  @IsString()
+  @IsOptional()
+  removeAvatar?: string;
 }
 
 export class UpdateUserAdminDto {
@@ -155,6 +171,10 @@ export class UpdateUserAdminDto {
   @ValidateNested({ each: true })
   @Type(() => CustomPermissionDto)
   customPermissions?: CustomPermissionDto[];
+
+  @IsString()
+  @IsOptional()
+  removeAvatar?: string;
 }
 
 @Controller('users')
@@ -164,6 +184,38 @@ export class UsersController {
     private readonly usersService: UsersService,
   ) {}
 
+  private async handleAvatarAwareUpdate(
+    userId: string,
+    payload: Parameters<UsersService['update']>[1],
+    removeAvatar: boolean,
+    avatarFile?: Express.Multer.File,
+  ) {
+    const nextAvatar = avatarFile
+      ? buildAvatarPublicUrl(avatarFile.filename)
+      : removeAvatar
+      ? null
+      : undefined;
+
+    let previousAvatar: string | null | undefined;
+    if (nextAvatar !== undefined) {
+      const existing = await this.usersService.findById(userId);
+      previousAvatar = existing?.avatar;
+    }
+
+    const updatedUser = await this.usersService.update(userId, {
+      ...payload,
+      ...(nextAvatar !== undefined ? { avatar: nextAvatar } : {}),
+    });
+
+    if (nextAvatar !== undefined && previousAvatar && previousAvatar !== nextAvatar) {
+      await removeLocalAvatarIfExists(previousAvatar).catch(() => undefined);
+    }
+
+    const result = { ...updatedUser } as any;
+    delete result.passwordHash;
+    return result;
+  }
+
   @Get()
   @Permissions('users:read')
   async findAll(@Query('includeInactive') includeInactive?: string) {
@@ -172,21 +224,22 @@ export class UsersController {
   }
 
   @Put('profile')
+  @UseInterceptors(FileInterceptor('avatar', buildAvatarMulterOptions()))
   async updateProfile(
     @Request() req: AuthenticatedRequest,
     @Body() body: UpdateProfileDto,
+    @UploadedFile() avatarFile?: Express.Multer.File,
   ) {
-    const userId = req.user.id;
-
-    const updatedUser = await this.usersService.update(userId, {
-      name: body.name,
-      phone: body.phone,
-      password: body.password,
-    });
-
-    const result = { ...updatedUser } as any;
-    delete result.passwordHash;
-    return result;
+    return this.handleAvatarAwareUpdate(
+      req.user.id,
+      {
+        name: body.name,
+        phone: body.phone,
+        password: body.password,
+      },
+      body.removeAvatar === 'true',
+      avatarFile,
+    );
   }
 
   @Get(':id')
@@ -212,26 +265,30 @@ export class UsersController {
 
   @Put(':id')
   @Permissions('admin:access')
+  @UseInterceptors(FileInterceptor('avatar', buildAvatarMulterOptions()))
   async updateAsAdmin(
     @Param('id') id: string,
     @Body() body: UpdateUserAdminDto,
+    @UploadedFile() avatarFile?: Express.Multer.File,
   ) {
-    const updatedUser = await this.usersService.update(id, {
-      name: body.name,
-      phone: body.phone,
-      password: body.password,
-      profileId: body.profileId,
-      profileIds: body.profileIds,
-      defaultProfileId: body.defaultProfileId,
-      healthCenterId: body.healthCenterId,
-      healthCenterIds: body.healthCenterIds,
-      defaultHealthCenterId: body.defaultHealthCenterId,
-      isMunicipalRegulator: body.isMunicipalRegulator,
-      customPermissions: body.customPermissions,
-    });
-    const result = { ...updatedUser } as any;
-    delete result.passwordHash;
-    return result;
+    return this.handleAvatarAwareUpdate(
+      id,
+      {
+        name: body.name,
+        phone: body.phone,
+        password: body.password,
+        profileId: body.profileId,
+        profileIds: body.profileIds,
+        defaultProfileId: body.defaultProfileId,
+        healthCenterId: body.healthCenterId,
+        healthCenterIds: body.healthCenterIds,
+        defaultHealthCenterId: body.defaultHealthCenterId,
+        isMunicipalRegulator: body.isMunicipalRegulator,
+        customPermissions: body.customPermissions,
+      },
+      body.removeAvatar === 'true',
+      avatarFile,
+    );
   }
 
   @Delete(':id')

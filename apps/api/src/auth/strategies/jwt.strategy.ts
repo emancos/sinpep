@@ -45,6 +45,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: user.email,
       name: user.name,
       phone: user.phone ?? null,
+      avatar: user.avatar ?? null,
       profileId: activeProfile?.id || user.profileId,
       activeProfileId: activeProfile?.id || user.profileId,
       activeProfileName: activeProfile?.name || user.profile?.name,
