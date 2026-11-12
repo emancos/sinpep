@@ -222,13 +222,94 @@ export class RegulationService implements OnModuleInit {
     return resolved;
   }
 
+  private async insertRegulationRequestRecord(params: {
+    id: string;
+    protocolNumber: string;
+    data: any;
+    normalizedType: 'CONSULTA' | 'EXAME' | 'PROCEDIMENTO';
+    healthCenterId: string;
+    userId: string;
+    procedureId: string | null;
+    procedureGroupId: string | null;
+    groupProcedures: Array<{ procedureId?: string; code: string; sigtapCode?: string; name: string }>;
+    historyJustification: string;
+    uploadedAttachments: Array<{
+      fileName: string;
+      fileType: string;
+      fileUrl: string;
+      fileSize: number;
+    }>;
+    nowIso: string;
+  }) {
+    const [created] = await this.db
+      .insert(schema.regulationRequests)
+      .values({
+        id: params.id,
+        protocolNumber: params.protocolNumber,
+        patientId: params.data.patientId,
+        requestingHealthCenterId: params.healthCenterId,
+        requestingUserId: params.userId,
+        attendingDoctorId: params.data.attendingDoctorId || null,
+
+        type: params.normalizedType,
+        specialtyId: params.data.specialtyId || null,
+        procedureId: params.procedureId,
+        procedureGroupId: params.procedureGroupId,
+        groupProcedures: params.groupProcedures,
+
+        cid10: params.data.cid10.trim(),
+        clinicalJustification: params.data.clinicalJustification.trim(),
+        clinicalHistory: params.data.clinicalHistory ? params.data.clinicalHistory.trim() : null,
+        priority: params.data.priority || 'ELETIVO',
+        status: 'PENDENTE_REGULACAO',
+
+        createdAt: params.nowIso,
+        updatedAt: params.nowIso,
+      })
+      .returning();
+
+    await this.db.insert(schema.regulationStatusHistory).values({
+      id: crypto.randomUUID(),
+      requestId: params.id,
+      previousStatus: null,
+      newStatus: 'PENDENTE_REGULACAO',
+      justification: params.historyJustification,
+      actionByUserId: params.userId,
+      createdAt: params.nowIso,
+    });
+
+    if (params.uploadedAttachments.length > 0) {
+      const attachments = params.uploadedAttachments.map((att) => ({
+        id: crypto.randomUUID(),
+        requestId: params.id,
+        ...att,
+        createdAt: params.nowIso,
+      }));
+      await this.db.insert(schema.regulationRequestAttachments).values(attachments);
+    }
+
+    this.eventsGateway.server?.emit('regulation_updated', {
+      type: 'REQUEST_CREATED',
+      requestId: params.id,
+      protocolNumber: params.protocolNumber,
+      patientId: params.data.patientId,
+      healthCenterId: params.healthCenterId,
+    });
+
+    return created;
+  }
+
   // =========================================================================
   // MÓDULO SOLICITANTE (UBS)
   // =========================================================================
 
   async createRequest(data: any, files: Express.Multer.File[], user: any) {
     if (!data.patientId) throw new BadRequestException('Paciente é obrigatório');
-    if (!data.type) throw new BadRequestException('Tipo de solicitação é obrigatório (CONSULTA, EXAME, PROCEDIMENTO)');
+    const rawType = String(data.type || '').trim().toUpperCase();
+    if (rawType !== 'CONSULTA' && rawType !== 'EXAME' && rawType !== 'PROCEDIMENTO') {
+      throw new BadRequestException('Tipo de solicitação é obrigatório (CONSULTA, EXAME, PROCEDIMENTO)');
+    }
+    const normalizedType: 'CONSULTA' | 'EXAME' | 'PROCEDIMENTO' = rawType;
     if (!data.cid10) throw new BadRequestException('CID-10 é obrigatório');
     if (!data.clinicalJustification || data.clinicalJustification.trim().length < 5) {
       throw new BadRequestException('Justificativa clínica detalhada é obrigatória');
@@ -248,6 +329,7 @@ export class RegulationService implements OnModuleInit {
 
     const requestId = crypto.randomUUID();
     const now = new Date();
+    const nowIso = now.toISOString();
     const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
     const randomSuffix = crypto.randomInt(1000, 9999);
     const protocolNumber = `SOL-${yearMonth}-${randomSuffix}`;
@@ -281,24 +363,15 @@ export class RegulationService implements OnModuleInit {
       }
     }
 
-    // Parsing dos procedimentos enviados (suporte a múltiplos exames/procedimentos do mesmo grupo)
-    let procedureIds: string[] = [];
-    if (data.procedureIds) {
-      try {
-        const parsed = typeof data.procedureIds === 'string' ? JSON.parse(data.procedureIds) : data.procedureIds;
-        if (Array.isArray(parsed)) {
-          procedureIds = parsed.filter(Boolean);
-        }
-      } catch (e) {
-        procedureIds = [];
-      }
-    }
-    if (procedureIds.length === 0 && data.procedureId) {
-      procedureIds = [data.procedureId];
+    const procedureIds = this.parseIdList(data.procedureIds);
+    if (procedureIds.length === 0 && typeof data.procedureId === 'string' && data.procedureId.trim()) {
+      procedureIds.push(data.procedureId.trim());
     }
 
-    // Se múltiplos procedimentos foram selecionados para o mesmo grupo
-    if (procedureIds.length > 1) {
+    const isConsultation = normalizedType === 'CONSULTA';
+
+    // Apenas consultas múltiplas são criadas individualmente; exames/procedimentos em grupo geram uma única solicitação com lista
+    if (isConsultation && procedureIds.length > 1) {
       const createdRequests: any[] = [];
 
       for (let i = 0; i < procedureIds.length; i++) {
@@ -306,58 +379,19 @@ export class RegulationService implements OnModuleInit {
         const currentReqId = crypto.randomUUID();
         const itemProtocol = `${protocolNumber}/${String(i + 1).padStart(2, '0')}`;
 
-        const [created] = await this.db.insert(schema.regulationRequests).values({
+        const created = await this.insertRegulationRequestRecord({
           id: currentReqId,
           protocolNumber: itemProtocol,
-          patientId: data.patientId,
-          requestingHealthCenterId: healthCenterId,
-          requestingUserId: user.id,
-          attendingDoctorId: data.attendingDoctorId || null,
-
-          type: data.type,
-          specialtyId: data.specialtyId || null,
+          data,
+          normalizedType,
+          healthCenterId,
+          userId: user.id,
           procedureId: currentProcId,
           procedureGroupId: data.procedureGroupId || null,
-
-          cid10: data.cid10.trim(),
-          clinicalJustification: data.clinicalJustification.trim(),
-          clinicalHistory: data.clinicalHistory ? data.clinicalHistory.trim() : null,
-          priority: data.priority || 'ELETIVO',
-          status: 'PENDENTE_REGULACAO',
-
-          createdAt: now.toISOString(),
-          updatedAt: now.toISOString(),
-        }).returning();
-
-        // Registra histórico inicial
-        await this.db.insert(schema.regulationStatusHistory).values({
-          id: crypto.randomUUID(),
-          requestId: currentReqId,
-          previousStatus: null,
-          newStatus: 'PENDENTE_REGULACAO',
-          justification: `Solicitação emitida na Atenção Primária (${i + 1}/${procedureIds.length} do protocolo ${protocolNumber})`,
-          actionByUserId: user.id,
-          createdAt: now.toISOString(),
-        });
-
-        // Associa os anexos pré-armazenados
-        if (uploadedAttachments.length > 0) {
-          const attachments = uploadedAttachments.map((att) => ({
-            id: crypto.randomUUID(),
-            requestId: currentReqId,
-            ...att,
-            createdAt: now.toISOString(),
-          }));
-          await this.db.insert(schema.regulationRequestAttachments).values(attachments);
-        }
-
-        // Evento WebSocket por solicitação
-        this.eventsGateway.server?.emit('regulation_updated', {
-          type: 'REQUEST_CREATED',
-          requestId: currentReqId,
-          protocolNumber: itemProtocol,
-          patientId: data.patientId,
-          healthCenterId,
+          groupProcedures: [],
+          historyJustification: `Solicitação emitida na Atenção Primária (${i + 1}/${procedureIds.length} do protocolo ${protocolNumber})`,
+          uploadedAttachments,
+          nowIso,
         });
 
         createdRequests.push(created);
@@ -366,61 +400,36 @@ export class RegulationService implements OnModuleInit {
       return this.findOne(createdRequests[0].id);
     }
 
-    // Caso de procedimento único ou consulta médica
-    const singleProcedureId = procedureIds.length === 1 ? procedureIds[0] : (data.procedureId || null);
+    const resolvedGroupProcedures = !isConsultation
+      ? await this.resolveGroupProceduresPayload(
+          data.groupProcedures,
+          procedureIds.length > 0 ? procedureIds : undefined,
+        )
+      : [];
 
-    const [newRequest] = await this.db.insert(schema.regulationRequests).values({
+    const hasGroupList =
+      !isConsultation && (Boolean(data.procedureGroupId) || resolvedGroupProcedures.length > 1);
+    const groupProceduresToSave = hasGroupList ? resolvedGroupProcedures : [];
+
+    const singleProcedureId =
+      (!isConsultation ? resolvedGroupProcedures.find((entry) => entry.procedureId)?.procedureId : undefined) ||
+      procedureIds[0] ||
+      data.procedureId ||
+      null;
+
+    await this.insertRegulationRequestRecord({
       id: requestId,
       protocolNumber,
-      patientId: data.patientId,
-      requestingHealthCenterId: healthCenterId,
-      requestingUserId: user.id,
-      attendingDoctorId: data.attendingDoctorId || null,
-
-      type: data.type,
-      specialtyId: data.specialtyId || null,
+      data,
+      normalizedType,
+      healthCenterId,
+      userId: user.id,
       procedureId: singleProcedureId,
       procedureGroupId: data.procedureGroupId || null,
-
-      cid10: data.cid10.trim(),
-      clinicalJustification: data.clinicalJustification.trim(),
-      clinicalHistory: data.clinicalHistory ? data.clinicalHistory.trim() : null,
-      priority: data.priority || 'ELETIVO',
-      status: 'PENDENTE_REGULACAO',
-
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
-    }).returning();
-
-    // Registra evento inicial no histórico de auditoria
-    await this.db.insert(schema.regulationStatusHistory).values({
-      id: crypto.randomUUID(),
-      requestId,
-      previousStatus: null,
-      newStatus: 'PENDENTE_REGULACAO',
-      justification: 'Solicitação emitida na Unidade de Saúde da Atenção Primária',
-      actionByUserId: user.id,
-      createdAt: now.toISOString(),
-    });
-
-    // Salva anexos clínicos caso existam
-    if (uploadedAttachments.length > 0) {
-      const attachments = uploadedAttachments.map((att) => ({
-        id: crypto.randomUUID(),
-        requestId,
-        ...att,
-        createdAt: now.toISOString(),
-      }));
-      await this.db.insert(schema.regulationRequestAttachments).values(attachments);
-    }
-
-    // Notificação em tempo real via WebSocket
-    this.eventsGateway.server?.emit('regulation_updated', {
-      type: 'REQUEST_CREATED',
-      requestId,
-      protocolNumber,
-      patientId: data.patientId,
-      healthCenterId,
+      groupProcedures: groupProceduresToSave,
+      historyJustification: 'Solicitação emitida na Unidade de Saúde da Atenção Primária',
+      uploadedAttachments,
+      nowIso,
     });
 
     return this.findOne(requestId);

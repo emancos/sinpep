@@ -531,5 +531,82 @@ describe('RegulationService (Devolução granular & Anamnese cross-unit)', () =>
         }),
       );
     });
+
+    it('cria UMA única solicitação com groupProcedures quando EXAME possui múltiplos exames no grupo', async () => {
+      await service.createRequest(
+        {
+          patientId: 'patient-1',
+          type: 'EXAME',
+          priority: 'PRIORITARIO',
+          procedureGroupId: 'grp-tc',
+          procedureId: 'proc-tc-1',
+          procedureIds: JSON.stringify(['proc-tc-1', 'proc-tc-2']),
+          cid10: 'R07.4 - Dor torácica',
+          clinicalJustification: 'Investigação de coluna torácica e tórax sem contraste.',
+        },
+        [],
+        solicitorUser,
+      );
+
+      expect(mockDb.__insertedRequests).toHaveLength(1);
+      const created = mockDb.__insertedRequests[0];
+      expect(created.protocolNumber).toMatch(/^SOL-\d{6}-\d{4}$/);
+      expect(created.protocolNumber).not.toContain('/');
+      expect(created.type).toBe('EXAME');
+      expect(created.procedureGroupId).toBe('grp-tc');
+      expect(created.procedureId).toBe('proc-tc-1');
+      expect(created.groupProcedures).toEqual([
+        { procedureId: 'proc-tc-1', code: '0206010079', name: 'Tomografia de Crânio' },
+        { procedureId: 'proc-tc-2', code: '0206020031', name: 'Tomografia de Tórax' },
+      ]);
+      expect(mockDb.__insertedStatusHistory).toHaveLength(1);
+      expect(mockEventsGateway.server.emit).toHaveBeenCalledTimes(1);
+    });
+
+    it('cria UMA única solicitação com groupProcedures para PROCEDIMENTO com múltiplos itens', async () => {
+      await service.createRequest(
+        {
+          patientId: 'patient-1',
+          type: 'PROCEDIMENTO',
+          priority: 'ELETIVO',
+          procedureGroupId: 'grp-proc',
+          procedureIds: ['proc-tc-1', 'proc-tc-2', 'proc-tc-3'],
+          cid10: 'M54.5',
+          clinicalJustification: 'Múltiplos procedimentos do mesmo grupo.',
+        },
+        [],
+        solicitorUser,
+      );
+
+      expect(mockDb.__insertedRequests).toHaveLength(1);
+      expect(mockDb.__insertedRequests[0].protocolNumber).toMatch(/^SOL-\d{6}-\d{4}$/);
+      expect(mockDb.__insertedRequests[0].groupProcedures).toHaveLength(3);
+      expect(mockEventsGateway.server.emit).toHaveBeenCalledTimes(1);
+    });
+
+    it('cria solicitações individuais (/01, /02) apenas quando CONSULTA possui múltiplos itens', async () => {
+      await service.createRequest(
+        {
+          patientId: 'patient-1',
+          type: 'CONSULTA',
+          priority: 'ELETIVO',
+          procedureIds: JSON.stringify(['proc-cons-1', 'proc-cons-2']),
+          cid10: 'I10',
+          clinicalJustification: 'Encaminhamento para duas especialidades distintas.',
+        },
+        [],
+        solicitorUser,
+      );
+
+      expect(mockDb.__insertedRequests).toHaveLength(2);
+      expect(mockDb.__insertedRequests[0].protocolNumber).toMatch(/^SOL-\d{6}-\d{4}\/01$/);
+      expect(mockDb.__insertedRequests[1].protocolNumber).toMatch(/^SOL-\d{6}-\d{4}\/02$/);
+      expect(mockDb.__insertedRequests[0].procedureId).toBe('proc-cons-1');
+      expect(mockDb.__insertedRequests[1].procedureId).toBe('proc-cons-2');
+      expect(mockDb.__insertedRequests[0].groupProcedures).toEqual([]);
+      expect(mockDb.__insertedRequests[1].groupProcedures).toEqual([]);
+      expect(mockDb.__insertedStatusHistory).toHaveLength(2);
+      expect(mockEventsGateway.server.emit).toHaveBeenCalledTimes(2);
+    });
   });
 });
