@@ -10,7 +10,6 @@ import {
   XCircle,
   RotateCcw,
   Key,
-  Download,
   Paperclip,
   Activity,
   History,
@@ -22,10 +21,11 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import type { RegulationRequest } from '../../services/regulation';
-import { apiUrl } from '../../services/api';
 import { useAuthStore } from '../../store/useAuthStore';
 import { BookSlotModal } from './BookSlotModal';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
+import { AttachmentViewer } from '../MedicalRecords/AttachmentViewer';
+import { RegulationAttachmentRow } from './components/RegulationAttachmentPreview';
 import { useAvailableSlots } from '../../hooks/useSchedules';
 import { useRegulationRequest } from '../../hooks/useRegulation';
 import {
@@ -51,6 +51,7 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
   const [copiedToken, setCopiedToken] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [previewAttachment, setPreviewAttachment] = useState<{ url: string; type: string; name: string } | null>(null);
 
   const permissions = useAuthStore((state) => state.permissions);
   const activeProfile = useAuthStore((state) => state.activeProfile);
@@ -365,19 +366,17 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {request.attachments.map((att) => (
-                  <a
+                  <RegulationAttachmentRow
                     key={att.id}
-                    href={`${apiUrl}${att.fileUrl}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-md text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20 transition group"
-                  >
-                    <div className="flex items-center space-x-2 truncate">
-                      <Paperclip className="w-4 h-4 text-slate-400 group-hover:text-blue-500" />
-                      <span className="font-medium text-slate-800 dark:text-slate-200 truncate">{att.fileName}</span>
-                    </div>
-                    <Download className="w-4 h-4 text-slate-400 group-hover:text-blue-500 flex-shrink-0" />
-                  </a>
+                    attachment={att}
+                    onPreview={(a) =>
+                      setPreviewAttachment({
+                        url: a.fileUrl,
+                        type: a.fileType || '',
+                        name: a.fileName,
+                      })
+                    }
+                  />
                 ))}
               </div>
             </div>
@@ -502,6 +501,14 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ isOpen
           isOpen={printModalOpen}
           onClose={() => setPrintModalOpen(false)}
           request={request}
+        />
+      )}
+
+      {/* Visualizador autenticado de anexos */}
+      {previewAttachment && (
+        <AttachmentViewer
+          file={previewAttachment}
+          onClose={() => setPreviewAttachment(null)}
         />
       )}
     </div>

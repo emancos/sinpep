@@ -19,6 +19,7 @@ import {
   Building2,
   Stethoscope,
   ExternalLink,
+  Eye,
   AlertTriangle,
   Loader2,
   ZoomIn,
@@ -35,13 +36,20 @@ import { useRegulationRequest, useResubmitRegulationRequest } from '../../hooks/
 import { useAvailableSlots } from '../../hooks/useSchedules';
 import { useProcedureGroups, useProcedures } from '../../hooks/useProcedures';
 import { useAuthStore } from '../../store/useAuthStore';
-import { apiUrl } from '../../services/api';
 import type {
+  RegulationAttachment,
   RegulationRequestPriority,
   RegulationRequestType,
 } from '../../services/regulation';
 import { BookSlotModal } from './BookSlotModal';
 import { RegulationRequestPrintModal } from './RegulationRequestPrintModal';
+import { AttachmentViewer } from '../MedicalRecords/AttachmentViewer';
+import {
+  AuthenticatedAttachmentImage,
+  isRegulationAttachmentImage,
+  isRegulationAttachmentPdf,
+} from './components/RegulationAttachmentPreview';
+import { openAuthenticatedAttachment } from '../../utils/storageUrl';
 import { Cid10SelectorInput } from './components/Cid10SelectorInput';
 import {
   EMPTY_ANAMNESIS_FORM,
@@ -103,7 +111,7 @@ export const RequestDetailsPage: React.FC = () => {
   const [copiedToken, setCopiedToken] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [printModalOpen, setPrintModalOpen] = useState(false);
-  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<{ url: string; type: string; name: string } | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
 
   // Estados de correção inline para solicitação devolvida
@@ -122,6 +130,7 @@ export const RequestDetailsPage: React.FC = () => {
   const [resubmitJustification, setResubmitJustification] = useState('');
 
   const user = useAuthStore((state) => state.user);
+  const token = useAuthStore((state) => state.token);
   const permissions = useAuthStore((state) => state.permissions);
   const activeProfile = useAuthStore((state) => state.activeProfile);
 
@@ -508,23 +517,15 @@ export const RequestDetailsPage: React.FC = () => {
     }
   };
 
-  const isImageFile = (att: { fileName: string; fileType?: string }) => {
-    const type = (att.fileType || '').toLowerCase();
-    const name = att.fileName.toLowerCase();
-    return (
-      type.startsWith('image/') ||
-      name.endsWith('.png') ||
-      name.endsWith('.jpg') ||
-      name.endsWith('.jpeg') ||
-      name.endsWith('.webp') ||
-      name.endsWith('.gif')
-    );
-  };
-
-  const isPdfFile = (att: { fileName: string; fileType?: string }) => {
-    const type = (att.fileType || '').toLowerCase();
-    const name = att.fileName.toLowerCase();
-    return type.includes('pdf') || name.endsWith('.pdf');
+  const handleAttachmentAction = async (
+    att: RegulationAttachment,
+    mode: 'view' | 'download',
+  ) => {
+    try {
+      await openAuthenticatedAttachment(att.fileUrl, token, att.fileName, mode);
+    } catch {
+      toast.error('Não foi possível abrir ou baixar o anexo.');
+    }
   };
 
   const patientAge = calculateAge(request.patient?.birthDate);
@@ -1088,9 +1089,8 @@ export const RequestDetailsPage: React.FC = () => {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {request.attachments.map((att) => {
-                  const fullUrl = `${apiUrl}${att.fileUrl}`;
-                  const isImg = isImageFile(att);
-                  const isPdf = isPdfFile(att);
+                  const isImg = isRegulationAttachmentImage(att);
+                  const isPdf = isRegulationAttachmentPdf(att);
                   const markedForRemoval = removeAttachmentIds.includes(att.id);
 
                   return (
@@ -1104,30 +1104,30 @@ export const RequestDetailsPage: React.FC = () => {
                     >
                       {isImg ? (
                         <div className="relative group bg-slate-100 dark:bg-slate-950 flex items-center justify-center h-44 overflow-hidden">
-                          <img
-                            src={fullUrl}
-                            alt={att.fileName}
-                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
+                          <AuthenticatedAttachmentImage fileUrl={att.fileUrl} alt={att.fileName} />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                             <button
                               type="button"
-                              onClick={() => setPreviewImage({ url: fullUrl, name: att.fileName })}
+                              onClick={() =>
+                                setPreviewAttachment({
+                                  url: att.fileUrl,
+                                  type: att.fileType || 'image/*',
+                                  name: att.fileName,
+                                })
+                              }
                               className="px-3 py-1.5 bg-white/90 hover:bg-white text-slate-900 rounded-md text-xs font-bold flex items-center gap-1 shadow-md cursor-pointer transition active:scale-95"
                             >
                               <ZoomIn className="w-3.5 h-3.5" />
                               <span>Ampliar</span>
                             </button>
-                            <a
-                              href={fullUrl}
-                              download={att.fileName}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              type="button"
+                              onClick={() => handleAttachmentAction(att, 'download')}
                               className="p-1.5 bg-white/90 hover:bg-white text-slate-900 rounded-md shadow-md cursor-pointer transition active:scale-95"
                               title="Baixar imagem"
                             >
                               <Download className="w-4 h-4" />
-                            </a>
+                            </button>
                           </div>
                         </div>
                       ) : isPdf ? (
@@ -1178,23 +1178,38 @@ export const RequestDetailsPage: React.FC = () => {
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0">
-                          <a
-                            href={fullUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition"
+                          {(isImg || isPdf) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewAttachment({
+                                  url: att.fileUrl,
+                                  type: att.fileType || (isPdf ? 'application/pdf' : 'image/*'),
+                                  name: att.fileName,
+                                })
+                              }
+                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition cursor-pointer"
+                              title="Visualizar anexo"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleAttachmentAction(att, 'view')}
+                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition cursor-pointer"
                             title="Visualizar em nova aba"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-                          <a
-                            href={fullUrl}
-                            download={att.fileName}
-                            className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition"
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAttachmentAction(att, 'download')}
+                            className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition cursor-pointer"
                             title="Baixar arquivo"
                           >
                             <Download className="w-3.5 h-3.5" />
-                          </a>
+                          </button>
                           {canEditField('ATTACHMENTS') && (
                             <button
                               type="button"
@@ -1471,47 +1486,12 @@ export const RequestDetailsPage: React.FC = () => {
         </div>
       </form>
 
-      {/* Modal Lightbox para Pré-visualização de Imagens Ampliadas */}
-      {previewImage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200"
-          onClick={() => setPreviewImage(null)}
-        >
-          <div
-            className="relative max-w-4xl max-h-[90vh] bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow-2xl p-2"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-2 border-b border-slate-200 dark:border-slate-800">
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-md">
-                {previewImage.name}
-              </span>
-              <div className="flex items-center gap-2">
-                <a
-                  href={previewImage.url}
-                  download={previewImage.name}
-                  className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 rounded transition"
-                  title="Baixar imagem"
-                >
-                  <Download className="w-4 h-4" />
-                </a>
-                <button
-                  onClick={() => setPreviewImage(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded transition cursor-pointer"
-                  title="Fechar"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            <div className="p-2 flex items-center justify-center max-h-[80vh] overflow-auto">
-              <img
-                src={previewImage.url}
-                alt={previewImage.name}
-                className="max-h-[75vh] w-auto object-contain rounded-md"
-              />
-            </div>
-          </div>
-        </div>
+      {/* Visualizador autenticado para imagens ampliadas e documentos PDF */}
+      {previewAttachment && (
+        <AttachmentViewer
+          file={previewAttachment}
+          onClose={() => setPreviewAttachment(null)}
+        />
       )}
 
       {/* Modal de Agendamento em Vagas da Escala */}

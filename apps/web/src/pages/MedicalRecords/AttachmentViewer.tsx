@@ -9,7 +9,9 @@ interface Props {
 }
 
 export const AttachmentViewer: React.FC<Props> = ({ file, onClose }) => {
-  const isImage = file.type.includes('image');
+  const isImage =
+    file.type.toLowerCase().includes('image') ||
+    /\.(png|jpe?g|webp|gif)$/i.test(file.name);
   const { blobUrl, isLoading, error } = useSecureBlobUrl(file.url);
 
   return (
