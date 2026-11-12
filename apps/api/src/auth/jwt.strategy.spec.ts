@@ -38,7 +38,11 @@ describe('JwtStrategy & role-scope utils', () => {
       expect(
         isSolicitorRestrictedUser({
           activeProfileName: 'Solicitante (UBS)',
-          permissions: ['patients:read', 'patients:write', 'regulation-solicitor:write'],
+          permissions: [
+            'patients:read',
+            'patients:write',
+            'regulation-solicitor:write',
+          ],
         }),
       ).toBe(true);
     });
@@ -83,12 +87,19 @@ describe('JwtStrategy & role-scope utils', () => {
 
       const mockAuthService = {
         consolidatePermissionsForProfile: jest.fn().mockResolvedValue({
-          permissions: ['patients:read', 'patients:write', 'regulation-solicitor:write'],
+          permissions: [
+            'patients:read',
+            'patients:write',
+            'regulation-solicitor:write',
+          ],
           activeProfile: { id: 'prof-sol', name: 'Solicitante (UBS)' },
         }),
       };
 
-      const strategy = new JwtStrategy(mockUsersService as any, mockAuthService as any);
+      const strategy = new JwtStrategy(
+        mockUsersService as any,
+        mockAuthService as any,
+      );
 
       const validated = await strategy.validate({
         sub: 'user-dual-1',
@@ -98,7 +109,9 @@ describe('JwtStrategy & role-scope utils', () => {
       });
 
       expect(mockUsersService.findById).toHaveBeenCalledWith('user-dual-1');
-      expect(mockAuthService.consolidatePermissionsForProfile).toHaveBeenCalledWith(
+      expect(
+        mockAuthService.consolidatePermissionsForProfile,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'user-dual-1' }),
         'prof-sol',
       );
@@ -138,7 +151,10 @@ describe('JwtStrategy & role-scope utils', () => {
         }),
       };
 
-      const strategy = new JwtStrategy(mockUsersService as any, mockAuthService as any);
+      const strategy = new JwtStrategy(
+        mockUsersService as any,
+        mockAuthService as any,
+      );
       const validated = await strategy.validate({
         sub: 'user-2',
         email: 'semfone@saobento.pb.gov.br',
@@ -149,4 +165,3 @@ describe('JwtStrategy & role-scope utils', () => {
     });
   });
 });
-

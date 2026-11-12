@@ -21,11 +21,16 @@ describe('ProcedureGroupsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProcedureGroupsController],
       providers: [
-        { provide: ProcedureGroupsService, useValue: mockProcedureGroupsService },
+        {
+          provide: ProcedureGroupsService,
+          useValue: mockProcedureGroupsService,
+        },
       ],
     }).compile();
 
-    controller = module.get<ProcedureGroupsController>(ProcedureGroupsController);
+    controller = module.get<ProcedureGroupsController>(
+      ProcedureGroupsController,
+    );
   });
 
   it('should be defined', () => {

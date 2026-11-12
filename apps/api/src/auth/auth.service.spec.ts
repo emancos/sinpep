@@ -89,9 +89,11 @@ describe('AuthService', () => {
           ]),
         },
         healthCenters: {
-          findMany: jest.fn().mockResolvedValue([
-            { id: 'hc-1', name: 'UBS Centro', cnes: '1234567' },
-          ]),
+          findMany: jest
+            .fn()
+            .mockResolvedValue([
+              { id: 'hc-1', name: 'UBS Centro', cnes: '1234567' },
+            ]),
         },
       },
     };
@@ -210,7 +212,12 @@ describe('AuthService', () => {
       mockDb.query.profiles.findFirst.mockResolvedValue({
         ...regulatorProfile,
         profilePermissions: [
-          { permission: { id: 'perm-reg-read', name: 'regulation-operator:read' } },
+          {
+            permission: {
+              id: 'perm-reg-read',
+              name: 'regulation-operator:read',
+            },
+          },
         ],
       });
 
