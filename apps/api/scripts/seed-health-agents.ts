@@ -65,7 +65,7 @@ export const HEALTH_UNITS_DATA: UnitData[] = [
     ],
   },
   {
-    name: 'PSF FRANCISCO JUNQUEIRA DOS SANTOS (MANOEL ELIAS ALVES)',
+    name: 'PSF FRANCISCO JUNQUEIRA DOS SANTOS',
     searchKeywords: ['FRANCISCO', 'JUNQUEIRA'],
     neighborhood: 'COMUNIDADE BARRA DE CIMA',
     nurse: 'NADILZA ALVES DE OLIVEIRA',
@@ -77,7 +77,7 @@ export const HEALTH_UNITS_DATA: UnitData[] = [
     ],
   },
   {
-    name: 'PSF DR. JOSÉ MAIA DA CRUZ',
+    name: 'PSF DR. JOSE MAIA DA CRUZ',
     searchKeywords: ['MAIA', 'CRUZ'],
     neighborhood: 'BAIRRO CENTRO',
     nurse: 'JANAINA SOARES DE ARAUJO',
@@ -90,7 +90,7 @@ export const HEALTH_UNITS_DATA: UnitData[] = [
     ],
   },
   {
-    name: 'PSF JOSÉ BORGES DA SILVA',
+    name: 'PSF JOSE BORGES DA SILVA',
     searchKeywords: ['BORGES'],
     neighborhood: 'BAIRRO HERCULANO',
     nurse: 'RITA DE CÁSSIA PATRICIO.',
@@ -120,8 +120,8 @@ export const HEALTH_UNITS_DATA: UnitData[] = [
     ],
   },
   {
-    name: 'PSF EULÂMPIO CÂNDIDO DA SILVA',
-    searchKeywords: ['EULAMPIO', 'EULÂMPIO'],
+    name: 'PSF EULAMPIO CANDIDO DA SILVA',
+    searchKeywords: ['EULAMPIO'],
     neighborhood: 'BAIRRO CENTRO',
     nurse: 'THEREZA EDITE.',
     agents: [
@@ -173,7 +173,7 @@ export const HEALTH_UNITS_DATA: UnitData[] = [
     ],
   },
   {
-    name: 'PSF JOSÉ MIGUEL DE ARAÚJO',
+    name: 'PSF JOSE MIGUEL DE ARAUJO',
     searchKeywords: ['MIGUEL'],
     neighborhood: 'COMUNIDADE XIQUE-XIQUE / ANCORA (VARZEA GRANDE) FRANCIMAR MEDEIROS DE ARAUJO',
     nurse: 'KATARINA ALVES DE ARAUJO',
@@ -185,7 +185,7 @@ export const HEALTH_UNITS_DATA: UnitData[] = [
     ],
   },
   {
-    name: 'PSF MANOEL CÍCERO DANTAS',
+    name: 'PSF MANOEL CICERO DANTAS',
     searchKeywords: ['MANOEL', 'CICERO', 'CÍCERO'],
     neighborhood: 'COMUNIDADE SÃO BENTINHO 2 / ANCORA (SARAIVA)',
     nurse: 'MARIA SILVA RODRIGUES',
@@ -213,7 +213,7 @@ export const HEALTH_UNITS_DATA: UnitData[] = [
     ],
   },
   {
-    name: 'PSF JOÃO CRUZ NETO',
+    name: 'PSF JOAO CRUZ NETO',
     searchKeywords: ['JOAO', 'JOÃO', 'CRUZ', 'NETO'],
     neighborhood: 'COMUNIDADE SÃO JOSÉ',
     nurse: 'JESSICA MAYARA ALMEIDA SILVA',
