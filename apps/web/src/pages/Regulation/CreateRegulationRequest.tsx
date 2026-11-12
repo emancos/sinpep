@@ -457,20 +457,26 @@ export const CreateRegulationRequest: React.FC = () => {
     formData.append('clinicalJustification', clinicalJustification.trim());
     if (clinicalHistory) formData.append('clinicalHistory', clinicalHistory.trim());
 
+    let effectiveItems = selectedProcedures;
+    if (requestType !== 'CONSULTA' && effectiveItems.length === 0 && currentProcedureId) {
+      const autoItem = proceduresInGroup.find((p: any) => p.id === currentProcedureId);
+      if (autoItem) effectiveItems = [autoItem];
+    }
+
     if (requestType === 'CONSULTA') {
       if (procedureId) formData.append('procedureId', procedureId);
       if (procedureGroupId) formData.append('procedureGroupId', procedureGroupId);
     } else {
       if (procedureGroupId) formData.append('procedureGroupId', procedureGroupId);
 
-      let effectiveItems = selectedProcedures;
-      if (effectiveItems.length === 0 && currentProcedureId) {
-        const autoItem = proceduresInGroup.find((p: any) => p.id === currentProcedureId);
-        if (autoItem) effectiveItems = [autoItem];
-      }
-
       const pIds = effectiveItems.map((p: any) => p.id);
+      const groupProceduresPayload = effectiveItems.map((p: any) => ({
+        procedureId: p.id,
+        code: p.code || '',
+        name: p.name || '',
+      }));
       formData.append('procedureIds', JSON.stringify(pIds));
+      formData.append('groupProcedures', JSON.stringify(groupProceduresPayload));
       if (pIds.length > 0) {
         formData.append('procedureId', pIds[0]);
       }
@@ -496,12 +502,17 @@ export const CreateRegulationRequest: React.FC = () => {
         activeProfile?.name?.includes('Solicitante') ||
         permissions.includes('regulation-solicitor:read');
 
-      const requiresRegulation = selectedProcedureObj?.requiresRegulation ?? true;
+      const requiresRegulation =
+        requestType === 'CONSULTA'
+          ? selectedProcedureObj?.requiresRegulation ?? true
+          : effectiveItems.length > 0
+            ? effectiveItems.some((p: any) => p.requiresRegulation !== false)
+            : true;
       const canScheduleDirectly =
         isAdmin || isRegulator || isCoordinator || (!requiresRegulation && isSolicitor);
 
       // Verifica se existem escalas/vagas abertas disponíveis para o procedimento solicitado
-      const targetProcId = created?.procedureId || selectedProcedures[0];
+      const targetProcId = created?.procedureId || effectiveItems[0]?.id || undefined;
       const targetGroupId = created?.procedureGroupId || procedureGroupId || undefined;
       let hasAvailableSlots = false;
 
@@ -2410,14 +2421,35 @@ export const CreateRegulationRequest: React.FC = () => {
                   {completedRequest.patient?.name}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500 font-semibold">Procedimento:</span>
-                <span className="font-semibold text-blue-600 dark:text-blue-400 truncate max-w-[240px]">
-                  {completedRequest.procedure
-                    ? `${completedRequest.procedure.code} - ${completedRequest.procedure.name}`
-                    : completedRequest.specialty?.name}
-                </span>
-              </div>
+              {completedRequest.groupProcedures && completedRequest.groupProcedures.length > 0 ? (
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-slate-500 font-semibold">Grupo / Procedimentos:</span>
+                    {completedRequest.procedureGroup && (
+                      <span className="font-semibold text-blue-600 dark:text-blue-400 truncate max-w-[240px]">
+                        {completedRequest.procedureGroup.name}
+                      </span>
+                    )}
+                  </div>
+                  <div className="pl-2.5 border-l-2 border-blue-500 space-y-0.5 max-h-28 overflow-y-auto">
+                    {completedRequest.groupProcedures.map((gp, idx) => (
+                      <div key={idx} className="text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                        {idx + 1}. {gp.name}{' '}
+                        {gp.sigtapCode || gp.code ? `(${gp.sigtapCode || gp.code})` : ''}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-semibold">Procedimento:</span>
+                  <span className="font-semibold text-blue-600 dark:text-blue-400 truncate max-w-[240px]">
+                    {completedRequest.procedure
+                      ? `${completedRequest.procedure.code} - ${completedRequest.procedure.name}`
+                      : completedRequest.specialty?.name}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between items-center pt-1 border-t border-slate-200 dark:border-slate-700">
                 <span className="text-slate-500 font-semibold">Situação:</span>
                 <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">

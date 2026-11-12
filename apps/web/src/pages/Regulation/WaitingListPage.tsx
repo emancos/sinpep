@@ -461,11 +461,13 @@ export const WaitingListPage: React.FC = () => {
 
                       {/* Procedimento */}
                       <td className="px-4 py-3">
-                        {req.procedureGroup ? (
+                        {req.procedureGroup || (req.groupProcedures && req.groupProcedures.length > 0) ? (
                           <div>
-                            <div className="font-semibold text-slate-900 dark:text-white">
-                              {req.procedureGroup.name}
-                            </div>
+                            {req.procedureGroup && (
+                              <div className="font-semibold text-slate-900 dark:text-white">
+                                {req.procedureGroup.name}
+                              </div>
+                            )}
                             {(() => {
                               const groupProcs: Array<{ name: string; code?: string; sigtapCode?: string }> =
                                 req.groupProcedures && req.groupProcedures.length > 0

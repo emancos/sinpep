@@ -907,11 +907,13 @@ export const RequestDetailsPage: React.FC = () => {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      {request.procedureGroup ? (
+                      {request.procedureGroup || (request.groupProcedures && request.groupProcedures.length > 0) ? (
                         <div>
-                          <span className="text-sm font-bold text-blue-600 dark:text-blue-400 block mt-0.5">
-                            {request.procedureGroup.name}
-                          </span>
+                          {request.procedureGroup && (
+                            <span className="text-sm font-bold text-blue-600 dark:text-blue-400 block mt-0.5">
+                              {request.procedureGroup.name}
+                            </span>
+                          )}
                           {request.groupProcedures && request.groupProcedures.length > 0 ? (
                             <div className="mt-2 space-y-1 pl-2.5 border-l-2 border-blue-500">
                               <span className="text-[11px] font-semibold text-slate-500 block">

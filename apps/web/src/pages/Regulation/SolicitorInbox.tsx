@@ -545,11 +545,13 @@ export const SolicitorInbox: React.FC = () => {
                     CNS: {formatCNS(req.patient?.cns)}
                   </div>
                   <div className="pt-1">
-                    {req.procedureGroup ? (
+                    {req.procedureGroup || (req.groupProcedures && req.groupProcedures.length > 0) ? (
                       <div>
-                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400 block">
-                          {req.procedureGroup.name}
-                        </span>
+                        {req.procedureGroup && (
+                          <span className="text-xs font-bold text-blue-600 dark:text-blue-400 block">
+                            {req.procedureGroup.name}
+                          </span>
+                        )}
                         {(() => {
                           const groupProcs: Array<{ name: string; code?: string; sigtapCode?: string }> =
                             req.groupProcedures && req.groupProcedures.length > 0
@@ -724,11 +726,13 @@ export const SolicitorInbox: React.FC = () => {
                         </td>
 
                         <td className="px-2 py-1.5 lg:px-3 lg:py-2.5">
-                          {req.procedureGroup ? (
+                          {req.procedureGroup || (req.groupProcedures && req.groupProcedures.length > 0) ? (
                             <div>
-                              <div className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-500 transition-colors">
-                                {req.procedureGroup.name}
-                              </div>
+                              {req.procedureGroup && (
+                                <div className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-500 transition-colors">
+                                  {req.procedureGroup.name}
+                                </div>
+                              )}
                               {(() => {
                                 const groupProcs: Array<{ name: string; code?: string; sigtapCode?: string }> =
                                   req.groupProcedures && req.groupProcedures.length > 0
