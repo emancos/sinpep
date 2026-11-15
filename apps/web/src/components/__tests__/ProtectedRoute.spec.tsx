@@ -39,7 +39,7 @@ const createValidJwt = (sub = 'user-1') => {
   return `${header}.${payload}.signature`;
 };
 
-describe('ProtectedRoute & SwitchProfileModal (transição de perfis)', () => {
+describe('ProtectedRoute & SwitchProfileModal (transição e isolamento de perfis)', () => {
   const solicitanteProfile = {
     id: 'prof-solicitante',
     name: 'Solicitante (UBS)',
@@ -92,13 +92,16 @@ describe('ProtectedRoute & SwitchProfileModal (transição de perfis)', () => {
             <Route element={<ProtectedRoute requiredPermission="regulation-operator:read" />}>
               <Route path="/regulation/inbox" element={<div>Central de Regulação</div>} />
             </Route>
+            <Route element={<ProtectedRoute requiredPermission="admin:access" />}>
+              <Route path="/admin/users" element={<div>Gestão de Utilizadores</div>} />
+            </Route>
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>,
     );
   };
 
-  it('alterna do perfil Solicitante para Regulador sem exibir "Acesso negado"', async () => {
+  it('alterna do perfil Solicitante para Regulador recebendo estritamente permissões de regulador e sem erro', async () => {
     const user = userEvent.setup();
     const initialToken = createValidJwt('d7734add-74bf-42c6-86f9-bf55654bcb5c');
     const nextToken = createValidJwt('d7734add-74bf-42c6-86f9-bf55654bcb5c');
@@ -135,7 +138,7 @@ describe('ProtectedRoute & SwitchProfileModal (transição de perfis)', () => {
         accessToken: nextToken,
         activeProfile: reguladorProfile,
         availableProfiles: [adminProfile, solicitanteProfile, reguladorProfile],
-        permissions: ['regulation-operator:read', 'admin:access'],
+        permissions: ['regulation-operator:read'], // estritamente regulador, sem admin:access
         user: {
           id: 'd7734add-74bf-42c6-86f9-bf55654bcb5c',
           name: 'Admin Teste',
@@ -164,9 +167,10 @@ describe('ProtectedRoute & SwitchProfileModal (transição de perfis)', () => {
       'Perfil alternado para "Regulador (Central de Regulação)" com sucesso!',
     );
     expect(toast.error).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().permissions).toEqual(['regulation-operator:read']);
   });
 
-  it('permite administrador master acessar rota de regulação mesmo antes de sincronizar permissão específica', async () => {
+  it('bloqueia rota administrativa quando o usuário estiver operando sob perfil Regulador mesmo possuindo perfil Administrador vinculado', async () => {
     const token = createValidJwt('d7734add-74bf-42c6-86f9-bf55654bcb5c');
 
     useAuthStore.getState().login(
@@ -177,7 +181,7 @@ describe('ProtectedRoute & SwitchProfileModal (transição de perfis)', () => {
         email: 'admin@sinpep.local',
         profileName: 'Administrador',
       },
-      [],
+      ['regulation-operator:read'], // operando como regulador
       reguladorProfile,
       [adminProfile, reguladorProfile],
     );
@@ -190,55 +194,53 @@ describe('ProtectedRoute & SwitchProfileModal (transição de perfis)', () => {
         profileName: 'Administrador',
         activeProfile: reguladorProfile,
         availableProfiles: [adminProfile, reguladorProfile],
-        permissions: [],
+        permissions: ['regulation-operator:read'],
       },
     });
 
-    renderApp('/regulation/inbox');
-
-    await waitFor(() => {
-      expect(screen.getByText('Central de Regulação')).toBeInTheDocument();
-    });
-    expect(toast.error).not.toHaveBeenCalled();
-  });
-
-  it('bloqueia usuário não-administrador sem permissão e exibe toast de acesso negado', async () => {
-    const token = createValidJwt('user-regular');
-
-    useAuthStore.getState().login(
-      token,
-      {
-        id: 'user-regular',
-        name: 'Solicitante Comum',
-        email: 'solicitante@sinpep.local',
-        profileName: 'Solicitante (UBS)',
-      },
-      ['regulation-solicitor:read'],
-      solicitanteProfile,
-      [solicitanteProfile],
-    );
-
-    vi.spyOn(axios, 'get').mockResolvedValue({
-      data: {
-        id: 'user-regular',
-        name: 'Solicitante Comum',
-        email: 'solicitante@sinpep.local',
-        profileName: 'Solicitante (UBS)',
-        activeProfile: solicitanteProfile,
-        availableProfiles: [solicitanteProfile],
-        permissions: ['regulation-solicitor:read'],
-      },
-    });
-
-    renderApp('/regulation/inbox');
+    renderApp('/admin/users');
 
     await waitFor(() => {
       expect(screen.getByText('Página Inicial')).toBeInTheDocument();
     });
-
     expect(toast.error).toHaveBeenCalledWith(
       'Acesso negado. Você não possui permissão para acessar esta página.',
     );
   });
-});
 
+  it('permite acesso a qualquer rota quando o perfil ativo for Administrador', async () => {
+    const token = createValidJwt('d7734add-74bf-42c6-86f9-bf55654bcb5c');
+
+    useAuthStore.getState().login(
+      token,
+      {
+        id: 'd7734add-74bf-42c6-86f9-bf55654bcb5c',
+        name: 'Admin Teste',
+        email: 'admin@sinpep.local',
+        profileName: 'Administrador',
+      },
+      ['admin:access'],
+      adminProfile,
+      [adminProfile, reguladorProfile],
+    );
+
+    vi.spyOn(axios, 'get').mockResolvedValue({
+      data: {
+        id: 'd7734add-74bf-42c6-86f9-bf55654bcb5c',
+        name: 'Admin Teste',
+        email: 'admin@sinpep.local',
+        profileName: 'Administrador',
+        activeProfile: adminProfile,
+        availableProfiles: [adminProfile, reguladorProfile],
+        permissions: ['admin:access'],
+      },
+    });
+
+    renderApp('/admin/users');
+
+    await waitFor(() => {
+      expect(screen.getByText('Gestão de Utilizadores')).toBeInTheDocument();
+    });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+});

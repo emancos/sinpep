@@ -179,7 +179,7 @@ describe('AuthService', () => {
   });
 
   describe('selectProfile', () => {
-    it('preserves admin:access when master administrator switches to Regulador', async () => {
+    it('limits permissions strictly to the active profile (without admin:access) when master administrator switches to Regulador', async () => {
       const adminProfile = {
         id: 'prof-admin',
         name: 'Administrador',
@@ -228,7 +228,48 @@ describe('AuthService', () => {
 
       expect(result.activeProfile?.id).toBe(regulatorProfile.id);
       expect(result.permissions).toContain('regulation-operator:read');
+      expect(result.permissions).not.toContain('admin:access');
+    });
+
+    it('grants admin:access and full system permissions when selecting Administrador profile', async () => {
+      const adminProfile = {
+        id: 'prof-admin',
+        name: 'Administrador',
+        description: 'Acesso total',
+      };
+      const regulatorProfile = {
+        id: 'prof-reg',
+        name: 'Regulador (Central de Regulação)',
+        description: 'Regulação',
+      };
+
+      const adminUser = {
+        ...mockUser,
+        id: 'd7734add-74bf-42c6-86f9-bf55654bcb5c',
+        profileId: adminProfile.id,
+        profile: adminProfile,
+        userProfiles: [{ isDefault: false, profile: regulatorProfile }],
+      };
+
+      (usersService.findById as jest.Mock).mockResolvedValue(adminUser as any);
+      mockDb.query.profiles.findMany.mockResolvedValue([
+        adminProfile,
+        regulatorProfile,
+      ]);
+      mockDb.query.permissions.findMany.mockResolvedValue([
+        { id: 'perm-1', name: 'patients:read' },
+        { id: 'perm-2', name: 'regulation-operator:read' },
+      ]);
+
+      const result = await service.selectProfile(
+        adminUser.id,
+        adminProfile.id,
+      );
+
+      expect(result.activeProfile?.id).toBe(adminProfile.id);
       expect(result.permissions).toContain('admin:access');
+      expect(result.permissions).toContain('patients:read');
+      expect(result.permissions).toContain('regulation-operator:read');
     });
   });
 });

@@ -19,8 +19,6 @@ export const ProtectedRoute = ({ requiredPermission }: ProtectedRouteProps) => {
     isAuthenticated,
     permissions,
     activeProfile,
-    availableProfiles,
-    user,
     isSwitchingProfile,
     syncSession,
   } = useAuthStore();
@@ -62,20 +60,21 @@ export const ProtectedRoute = ({ requiredPermission }: ProtectedRouteProps) => {
     profile && (!activeProfile?.id || profile.activeProfile?.id === activeProfile?.id),
   );
   const effectivePermissions = isProfileSynchronized ? (profile.permissions ?? []) : permissions;
-  const isMasterAdmin =
-    user?.profileName === 'Administrador' ||
-    profile?.profileName === 'Administrador' ||
-    availableProfiles.some((p) => p.name === 'Administrador') ||
+  const isProfileAdmin =
+    activeProfile?.name === 'Administrador' ||
     effectivePermissions.includes('admin:access');
+
+  const hasAccess =
+    !requiredPermission ||
+    effectivePermissions.includes(requiredPermission) ||
+    isProfileAdmin;
 
   const isDenied = Boolean(
     isValidSession &&
       !isError &&
       !isLoading &&
       !isSwitchingProfile &&
-      requiredPermission &&
-      !isMasterAdmin &&
-      !effectivePermissions.includes(requiredPermission),
+      !hasAccess,
   );
 
   useEffect(() => {

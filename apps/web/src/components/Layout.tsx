@@ -47,7 +47,7 @@ export const Layout = () => {
   } = useAuthStore();
   const { t } = useTranslation();
   const location = useLocation();
-  const isAdmin = permissions.includes('admin:access');
+  const isAdmin = activeProfile?.name === 'Administrador' || permissions.includes('admin:access');
   const isCoordinator = activeProfile?.name === 'Coordenador de Unidade';
   const { data: currentDoctor } = useCurrentDoctor();
   const isDoctor = !isAdmin && Boolean(currentDoctor?.id);
@@ -151,7 +151,7 @@ export const Layout = () => {
     ] : []),
   ];
 
-  if (adminSubItems.length > 0) {
+  if (isAdmin && adminSubItems.length > 0) {
     menuItems.push({
       name: 'Administração',
       path: '/admin',

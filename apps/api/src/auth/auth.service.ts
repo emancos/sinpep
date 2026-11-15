@@ -212,7 +212,6 @@ export class AuthService {
         'regulation:write',
         'patients:read',
         'specialties:read',
-        'specialties:write',
         'health-centers:read',
         'schedules:read',
         'schedules:write',
@@ -254,10 +253,6 @@ export class AuthService {
       ],
     };
 
-    const isUserAdmin =
-      user.profile?.name === 'Administrador' ||
-      availableProfiles.some((p) => p.name === 'Administrador');
-
     const defaultPerms = this.resolveDefaultPermissions(roleDefaults, targetProfile.name);
     for (const p of defaultPerms) {
       permissionMap.set(p, true);
@@ -278,12 +273,6 @@ export class AuthService {
           permissionMap.set(cp.permission.name, cp.isAllowed);
         }
       }
-    }
-
-    // Preserva acesso administrativo caso o usuário possua perfil Administrador master,
-    // permitindo operar em qualquer persona sem bloqueios indevidos de rota.
-    if (isUserAdmin) {
-      permissionMap.set('admin:access', true);
     }
 
     const permissions = Array.from(permissionMap.entries())
