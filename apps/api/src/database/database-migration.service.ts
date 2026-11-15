@@ -3,6 +3,7 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DATABASE_CONNECTION } from './database.constants';
 import * as schema from './schema';
 import { sql } from 'drizzle-orm';
+import { MEDICAL_SPECIALTIES_SEED } from './specialties-seed.data';
 
 @Injectable()
 export class DatabaseMigrationService implements OnModuleInit {
@@ -471,6 +472,38 @@ export class DatabaseMigrationService implements OnModuleInit {
 
         CREATE INDEX IF NOT EXISTS idx_reg_requests_status_priority_created
           ON regulation_requests (status, priority, created_at ASC);
+      `);
+
+      // Seed das 62 Especialidades Médicas e CBOs Oficiais
+      await this.db.execute(sql`
+        DO $$
+        DECLARE
+          r RECORD;
+          v_id UUID;
+        BEGIN
+          FOR r IN SELECT * FROM (VALUES
+            ${sql.join(
+              MEDICAL_SPECIALTIES_SEED.map(
+                (s) => sql`(${s.cbo}, ${s.name})`
+              ),
+              sql`, `
+            )}
+          ) AS t(cbo, name)
+          LOOP
+            SELECT id INTO v_id FROM specialties WHERE cbo = r.cbo LIMIT 1;
+            IF v_id IS NOT NULL THEN
+              UPDATE specialties SET name = r.name, is_active = true, updated_at = CURRENT_TIMESTAMP WHERE id = v_id;
+            ELSE
+              SELECT id INTO v_id FROM specialties WHERE UPPER(name) = UPPER(r.name) LIMIT 1;
+              IF v_id IS NOT NULL THEN
+                UPDATE specialties SET cbo = r.cbo, name = r.name, is_active = true, updated_at = CURRENT_TIMESTAMP WHERE id = v_id;
+              ELSE
+                INSERT INTO specialties (id, name, cbo, is_active, created_at, updated_at)
+                VALUES (gen_random_uuid(), r.name, r.cbo, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+              END IF;
+            END IF;
+          END LOOP;
+        END $$;
       `);
 
       this.logger.log('Database migrations for procedures, quotas, auto-scheduling, user health centers & esus import applied successfully.');
