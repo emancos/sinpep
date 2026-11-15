@@ -42,6 +42,7 @@ export const SpecialtiesPage: React.FC = () => {
     const [modalType, setModalType] = useState<'create' | 'edit'>('create');
     const [selectedId, setSelectedId] = useState('');
     const [nameVal, setNameVal] = useState('');
+    const [cboVal, setCboVal] = useState('');
     const [descVal, setDescVal] = useState('');
 
     // Queries & Mutations
@@ -54,14 +55,16 @@ export const SpecialtiesPage: React.FC = () => {
     const handleOpenCreate = () => {
         setSelectedId('');
         setNameVal('');
+        setCboVal('');
         setDescVal('');
         setModalType('create');
         setIsModalOpen(true);
     };
 
-    const handleOpenEdit = (spec: { id: string; name: string; description?: string | null }) => {
+    const handleOpenEdit = (spec: Specialty) => {
         setSelectedId(spec.id);
         setNameVal(spec.name);
+        setCboVal(spec.cbo || '');
         setDescVal(spec.description || '');
         setModalType('edit');
         setIsModalOpen(true);
@@ -75,26 +78,43 @@ export const SpecialtiesPage: React.FC = () => {
             return;
         }
 
+        const cleanCbo = cboVal.trim() || undefined;
+
         if (modalType === 'create') {
             createSpecialty.mutate(
-                { name: name.toUpperCase(), description: descVal.trim() || undefined },
+                {
+                    name: name.toUpperCase(),
+                    cbo: cleanCbo,
+                    description: descVal.trim() || undefined,
+                },
                 {
                     onSuccess: () => {
                         toast.success('Especialidade criada com sucesso!');
                         setIsModalOpen(false);
                     },
-                    onError: () => toast.error('Erro ao criar especialidade.')
+                    onError: (error: any) => {
+                        const message = error.response?.data?.message || 'Erro ao criar especialidade.';
+                        toast.error(Array.isArray(message) ? message.join(', ') : message);
+                    }
                 }
             );
         } else {
             updateSpecialty.mutate(
-                { id: selectedId, name: name.toUpperCase(), description: descVal.trim() || undefined },
+                {
+                    id: selectedId,
+                    name: name.toUpperCase(),
+                    cbo: cleanCbo,
+                    description: descVal.trim() || undefined,
+                },
                 {
                     onSuccess: () => {
                         toast.success('Especialidade atualizada com sucesso!');
                         setIsModalOpen(false);
                     },
-                    onError: () => toast.error('Erro ao atualizar especialidade.')
+                    onError: (error: any) => {
+                        const message = error.response?.data?.message || 'Erro ao atualizar especialidade.';
+                        toast.error(Array.isArray(message) ? message.join(', ') : message);
+                    }
                 }
             );
         }
@@ -404,6 +424,23 @@ export const SpecialtiesPage: React.FC = () => {
                                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 uppercase"
                                     autoFocus
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                                    Código CBO (Opcional)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={cboVal}
+                                    onChange={(e) => setCboVal(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                    placeholder="Ex: 225120 (6 dígitos)"
+                                    maxLength={6}
+                                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono"
+                                />
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
+                                    Código CBO oficial (6 dígitos numéricos, ex: 225125 para Clínico Geral).
+                                </span>
                             </div>
 
                             <div>

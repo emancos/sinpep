@@ -1,11 +1,11 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { DATABASE_CONNECTION } from '../database/database.module';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database/schema';
 import { CreateSpecialtyDto } from './dto/create-specialty.dto';
 import { UpdateSpecialtyDto } from './dto/update-specialty.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { eq, ilike, or, and, asc, desc } from 'drizzle-orm';
+import { eq, ilike, or, and, asc, desc, sql } from 'drizzle-orm';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -16,11 +16,42 @@ export class SpecialtiesService {
   ) {}
 
   async create(createSpecialtyDto: CreateSpecialtyDto) {
+    const trimmedName = createSpecialtyDto.name?.trim();
+    if (!trimmedName) {
+      throw new BadRequestException('O nome da especialidade é obrigatório.');
+    }
+
+    const cleanCbo = createSpecialtyDto.cbo?.trim() ? createSpecialtyDto.cbo.trim() : null;
+
+    // Verifica unicidade do nome
+    const [existingByName] = await this.db
+      .select({ id: schema.specialties.id })
+      .from(schema.specialties)
+      .where(ilike(schema.specialties.name, trimmedName))
+      .limit(1);
+
+    if (existingByName) {
+      throw new BadRequestException(`Já existe uma especialidade com o nome "${trimmedName}".`);
+    }
+
+    // Verifica unicidade do CBO se informado
+    if (cleanCbo) {
+      const [existingByCbo] = await this.db
+        .select({ id: schema.specialties.id })
+        .from(schema.specialties)
+        .where(eq(schema.specialties.cbo, cleanCbo))
+        .limit(1);
+
+      if (existingByCbo) {
+        throw new BadRequestException(`Já existe uma especialidade com o CBO "${cleanCbo}".`);
+      }
+    }
+
     const [newSpecialty] = await this.db.insert(schema.specialties).values({
       id: crypto.randomUUID(),
-      name: createSpecialtyDto.name,
-      description: createSpecialtyDto.description ?? null,
-      cbo: createSpecialtyDto.cbo ?? null,
+      name: trimmedName,
+      description: createSpecialtyDto.description?.trim() ?? null,
+      cbo: cleanCbo,
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -80,10 +111,47 @@ export class SpecialtiesService {
   async update(id: string, updateSpecialtyDto: UpdateSpecialtyDto) {
     await this.findOne(id);
     
-    const dataToUpdate: any = { ...updateSpecialtyDto, updatedAt: new Date().toISOString() };
-    if (dataToUpdate.active !== undefined) {
-      dataToUpdate.isActive = dataToUpdate.active;
-      delete dataToUpdate.active;
+    const dataToUpdate: any = { updatedAt: new Date().toISOString() };
+
+    if (updateSpecialtyDto.name !== undefined) {
+      const trimmedName = updateSpecialtyDto.name.trim();
+      if (!trimmedName) {
+        throw new BadRequestException('O nome da especialidade não pode ser vazio.');
+      }
+      const [existingByName] = await this.db
+        .select({ id: schema.specialties.id })
+        .from(schema.specialties)
+        .where(and(ilike(schema.specialties.name, trimmedName), sql`${schema.specialties.id} != ${id}`))
+        .limit(1);
+
+      if (existingByName) {
+        throw new BadRequestException(`Já existe outra especialidade com o nome "${trimmedName}".`);
+      }
+      dataToUpdate.name = trimmedName;
+    }
+
+    if (updateSpecialtyDto.cbo !== undefined) {
+      const cleanCbo = updateSpecialtyDto.cbo?.trim() ? updateSpecialtyDto.cbo.trim() : null;
+      if (cleanCbo) {
+        const [existingByCbo] = await this.db
+          .select({ id: schema.specialties.id })
+          .from(schema.specialties)
+          .where(and(eq(schema.specialties.cbo, cleanCbo), sql`${schema.specialties.id} != ${id}`))
+          .limit(1);
+
+        if (existingByCbo) {
+          throw new BadRequestException(`Já existe outra especialidade com o CBO "${cleanCbo}".`);
+        }
+      }
+      dataToUpdate.cbo = cleanCbo;
+    }
+
+    if (updateSpecialtyDto.description !== undefined) {
+      dataToUpdate.description = updateSpecialtyDto.description?.trim() ?? null;
+    }
+
+    if (updateSpecialtyDto.active !== undefined) {
+      dataToUpdate.isActive = updateSpecialtyDto.active;
     }
 
     const [updated] = await this.db.update(schema.specialties)

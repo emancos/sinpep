@@ -1,12 +1,12 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 
 export class CreateSpecialtyDto {
   @IsString()
-  @IsNotEmpty()
-  cbo: string;
+  @IsOptional()
+  cbo?: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'O nome da especialidade é obrigatório.' })
   name: string;
 
   @IsString()
