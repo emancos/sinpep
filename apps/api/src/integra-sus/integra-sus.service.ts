@@ -260,4 +260,97 @@ export class IntegraSusService {
       return [];
     }
   }
+
+  // 7. Busca profissional no CNES por CNS
+  async getProfessionalByCns(cns: string) {
+    const cleanCns = String(cns || '').replace(/\D/g, '');
+    if (!cleanCns || cleanCns.length < 10) return null;
+
+    const { apiUrl } = this.getCredentials();
+    const headers = await this.getHeaders();
+    try {
+      const { data } = await axios.get(`${apiUrl}/cnes/profissionais/cns/${cleanCns}`, {
+        headers,
+        timeout: 8000,
+      });
+      return data || null;
+    } catch (err: any) {
+      if (err?.response?.status !== 404) {
+        this.logger.warn(`CNES lookup by CNS failed (${cleanCns}):`, err?.message);
+      }
+      return null;
+    }
+  }
+
+  // 8. Busca profissional no CNES por CPF
+  async getProfessionalByCpf(cpf: string) {
+    const cleanCpf = String(cpf || '').replace(/\D/g, '');
+    if (!cleanCpf || cleanCpf.length !== 11) return null;
+
+    const { apiUrl } = this.getCredentials();
+    const headers = await this.getHeaders();
+    try {
+      const { data } = await axios.get(`${apiUrl}/cnes/profissionais/cpf/${cleanCpf}`, {
+        headers,
+        timeout: 8000,
+      });
+      return data || null;
+    } catch (err: any) {
+      if (err?.response?.status !== 404) {
+        this.logger.warn(`CNES lookup by CPF failed (${cleanCpf}):`, err?.message);
+      }
+      return null;
+    }
+  }
+
+  // 9. Busca textual/filtros de profissionais no CNES
+  async searchProfessionals(query: { nome?: string; cnes?: string; cpf?: string; cns?: string; profissao?: string }) {
+    const { apiUrl } = this.getCredentials();
+    const headers = await this.getHeaders();
+    try {
+      const { data } = await axios.get(`${apiUrl}/cnes/profissionais`, {
+        params: query,
+        headers,
+        timeout: 8000,
+      });
+      return data || null;
+    } catch (err: any) {
+      this.logger.warn('CNES search professionals failed:', err?.message);
+      return null;
+    }
+  }
+
+  // 10. Helper unificado para localizar profissional no CNES
+  async findProfessionalInCnes(params: { cpf?: string; cns?: string; nome?: string; cnes?: string }): Promise<any | null> {
+    const cleanCns = String(params.cns || '').replace(/\D/g, '');
+    if (cleanCns && cleanCns.length >= 10) {
+      const prof = await this.getProfessionalByCns(cleanCns);
+      if (prof && (prof.cns || prof.nome)) return prof;
+    }
+
+    const cleanCpf = String(params.cpf || '').replace(/\D/g, '');
+    if (cleanCpf && cleanCpf.length === 11) {
+      const prof = await this.getProfessionalByCpf(cleanCpf);
+      if (prof && (prof.cns || prof.cpf || prof.nome)) return prof;
+    }
+
+    const cleanNome = (params.nome || '').trim();
+    if (cleanNome && cleanNome.length >= 3) {
+      const res = await this.searchProfessionals({
+        nome: cleanNome,
+        cnes: params.cnes,
+        profissao: 'MEDICO',
+      });
+      const items = res?.data || (Array.isArray(res) ? res : []);
+      if (items.length > 0) {
+        const match = items.find((p: any) =>
+          p.nome && (p.nome.trim().toUpperCase() === cleanNome.toUpperCase() ||
+          cleanNome.toUpperCase().includes(p.nome.trim().toUpperCase()))
+        );
+        return match || items[0];
+      }
+    }
+
+    return null;
+  }
 }

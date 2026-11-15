@@ -8,9 +8,10 @@ import { EsusImportController } from './esus-import.controller';
 import { DatabaseModule } from '../database/database.module';
 import { StorageModule } from '../storage/storage.module';
 import { EventsModule } from '../events/events.module';
+import { IntegraSusModule } from '../integra-sus/integra-sus.module';
 
 @Module({
-  imports: [DatabaseModule, StorageModule, EventsModule],
+  imports: [DatabaseModule, StorageModule, EventsModule, IntegraSusModule],
   controllers: [RegulationController, AutoSchedulingController, EsusImportController],
   providers: [RegulationService, AutoSchedulingService, EsusImportService],
   exports: [RegulationService, AutoSchedulingService, EsusImportService],

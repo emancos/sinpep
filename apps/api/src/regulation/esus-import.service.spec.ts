@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EsusImportService } from './esus-import.service';
+import { IntegraSusService } from '../integra-sus/integra-sus.service';
 
 describe('EsusImportService - Specialty and Doctor Import', () => {
   let service: EsusImportService;
+  let integraSusService: jest.Mocked<Partial<IntegraSusService>>;
 
   const mockDb = {
     query: {
@@ -17,10 +19,18 @@ describe('EsusImportService - Specialty and Doctor Import', () => {
   };
 
   beforeEach(async () => {
+    integraSusService = {
+      findProfessionalInCnes: jest.fn(),
+      getProfessionalByCns: jest.fn(),
+      getProfessionalByCpf: jest.fn(),
+      searchProfessionals: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EsusImportService,
         { provide: 'DATABASE_CONNECTION', useValue: mockDb },
+        { provide: IntegraSusService, useValue: integraSusService },
       ],
     }).compile();
 
@@ -78,11 +88,68 @@ describe('EsusImportService - Specialty and Doctor Import', () => {
     });
   });
 
+  describe('resolveDoctorCnesInfo', () => {
+    it('should prioritize executing unit (Policlinica 2606712) and return its specialty CBO', async () => {
+      (integraSusService.findProfessionalInCnes as jest.Mock).mockResolvedValue({
+        cns: '700005530602201',
+        nome: 'CAMILA KARLA PESSOA FRAZAO DIAS',
+        unidades: [
+          {
+            codigo: '2606720',
+            nome: 'PSF SEVERINO PEDRO DE SOUZA',
+            cbo: { codigo: '225142', nome: 'MEDICO DA ESTRATEGIA DE SAUDE DA FAMILIA' },
+          },
+          {
+            codigo: '2606712',
+            nome: 'POLICLINICA ROBERVAL MEDEIROS DE ARAUJO',
+            cbo: { codigo: '225250', nome: 'MEDICO GINECOLOGISTA E OBSTETRA' },
+          },
+        ],
+      });
+
+      const mockTx = {
+        select: jest.fn().mockReturnValue({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockImplementation(() => {
+                return Promise.resolve([{ id: 'spec-gineco-id' }]);
+              }),
+            }),
+          }),
+        }),
+      };
+
+      const healthCenterCache = new Map<string, string>([
+        ['2606712', 'policlinica-hc-id'],
+        ['2606720', 'psf-hc-id'],
+      ]);
+      const specialtyCache = new Map<string, string>();
+      const cnesDoctorCache = new Map<string, { healthCenterId?: string; specialtyIds: string[] }>();
+
+      const result = await service.resolveDoctorCnesInfo(
+        mockTx,
+        {
+          name: 'CAMILA KARLA PESSOA FRAZAO DIAS',
+          cns: '700005530602201',
+          targetCnes: '2606712',
+          defaultHealthCenterId: 'default-hc-id',
+        },
+        cnesDoctorCache,
+        healthCenterCache,
+        specialtyCache,
+      );
+
+      expect(result.healthCenterId).toBe('policlinica-hc-id');
+      expect(result.specialtyIds).toEqual(['spec-gineco-id']);
+    });
+  });
+
   describe('autoRegisterDoctorInBatch', () => {
     it('should auto-register a new doctor with specialty and health center relations', async () => {
       const insertedUsers: any[] = [];
       const insertedDoctors: any[] = [];
       const insertedSpecialties: any[] = [];
+      const deletedDoctorSpecialties: any[] = [];
 
       const mockTx = {
         select: jest.fn().mockReturnValue({
@@ -105,6 +172,12 @@ describe('EsusImportService - Specialty and Doctor Import', () => {
             where: jest.fn().mockResolvedValue([]),
           }),
         }),
+        delete: jest.fn().mockReturnValue({
+          where: jest.fn((cond: any) => {
+            deletedDoctorSpecialties.push(cond);
+            return Promise.resolve([]);
+          }),
+        }),
       };
 
       const doctorCache = new Map<string, string>();
@@ -119,6 +192,7 @@ describe('EsusImportService - Specialty and Doctor Import', () => {
           procedureId: 'proc-1',
           specialtyId: 'spec-cardio',
           nowTz: new Date().toISOString(),
+          isExecutingDoctor: true,
         },
         'profile-medico-id',
         doctorCache,
@@ -131,6 +205,7 @@ describe('EsusImportService - Specialty and Doctor Import', () => {
       expect(insertedDoctors[0].crm).toBe('12345');
       expect(insertedSpecialties.length).toBe(1);
       expect(insertedSpecialties[0].specialtyId).toBe('spec-cardio');
+      expect(deletedDoctorSpecialties.length).toBe(1);
     });
   });
 });

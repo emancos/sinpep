@@ -1,9 +1,10 @@
-import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database';
 import { DATABASE_CONNECTION } from '../database/database.constants';
-import { eq, desc, sql, and, ilike, or } from 'drizzle-orm';
+import { eq, desc, sql, and, ilike, or, inArray, notInArray } from 'drizzle-orm';
 import * as crypto from 'crypto';
+import { IntegraSusService } from '../integra-sus/integra-sus.service';
 
 export interface EsusDocSource {
   coSolicitacao: string;
@@ -204,6 +205,8 @@ export class EsusImportService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
+    @Optional()
+    private readonly integraSusService?: IntegraSusService,
   ) {}
 
   /**
@@ -355,6 +358,7 @@ export class EsusImportService {
     // Cache local de especialidades e médicos durante este lote
     const specialtyCache = new Map<string, string>();
     const doctorCache = new Map<string, string>();
+    const cnesDoctorCache = new Map<string, { healthCenterId?: string; specialtyIds: string[] }>();
 
     // Busca perfil de Médico
     let [medicoProfile] = await this.db
@@ -1106,47 +1110,37 @@ export class EsusImportService {
         }
 
         // ---------------------------------------------------------
-        // 8. MÉDICOS E ESPECIALIDADES: Registro e Vinculação Automática
+        // 8. MÉDICOS E ESPECIALIDADES: Registro e Vinculação Automática com CNES
         // ---------------------------------------------------------
         try {
-          const docSpecialtyId = await this.resolveSpecialtyId(tx, procName, undefined, specialtyCache);
-
-          // 8.1 Profissional Solicitante
-          const solName = src.noProfissionalSolicitante || (src as any).noProfissional || (src as any).nomeProfissionalSolicitante;
-          const solCpf = src.nuCpfProfissionalSolicitante || (src as any).nuCpfProfissional || (src as any).cpfProfissionalSolicitante;
-          const solCns = src.nuCnsProfissionalSolicitante || (src as any).nuCnsProfissional || (src as any).cnsProfissionalSolicitante;
-          const solCrm = src.nuCrmSolicitante || (src as any).nuCrm || (src as any).crmSolicitante;
-
-          if (solName || solCpf || solCns || solCrm) {
-            await this.autoRegisterDoctorInBatch(
-              tx,
-              {
-                name: solName,
-                cpf: solCpf,
-                cns: solCns,
-                crm: solCrm,
-                healthCenterId,
-                procedureId,
-                specialtyId: docSpecialtyId || undefined,
-                nowTz,
-              },
-              medicoProfileId,
-              doctorCache,
-            );
+          const execCnes = (src.coCnesEstabelecimentoExecutante || '').trim();
+          let execCenterId = healthCenterId;
+          if (execCnes && healthCenterCache.has(execCnes)) {
+            execCenterId = healthCenterCache.get(execCnes)!;
           }
 
-          // 8.2 Profissional Executante (se presente)
+          // 8.1 Profissional Executante (prioritário para vincular à unidade executante e sua especialidade)
           const execName = src.noProfissionalExecutante || (src as any).noExecutante || (src as any).nomeProfissionalExecutante;
           const execCpf = src.nuCpfProfissionalExecutante || (src as any).nuCpfExecutante || (src as any).cpfProfissionalExecutante;
           const execCns = src.nuCnsProfissionalExecutante || (src as any).nuCnsExecutante || (src as any).cnsProfissionalExecutante;
           const execCrm = src.nuCrmExecutante || (src as any).crmExecutante || (src as any).nuCrmProfissionalExecutante;
 
           if (execName || execCpf || execCns || execCrm) {
-            let execCenterId = healthCenterId;
-            const execCnes = (src.coCnesEstabelecimentoExecutante || '').trim();
-            if (execCnes && healthCenterCache.has(execCnes)) {
-              execCenterId = healthCenterCache.get(execCnes)!;
-            }
+            const cnesInfo = await this.resolveDoctorCnesInfo(
+              tx,
+              {
+                name: execName,
+                cpf: execCpf,
+                cns: execCns,
+                crm: execCrm,
+                targetCnes: execCnes || '2606712',
+                defaultHealthCenterId: execCenterId,
+              },
+              cnesDoctorCache,
+              healthCenterCache,
+              specialtyCache,
+            );
+
             await this.autoRegisterDoctorInBatch(
               tx,
               {
@@ -1154,10 +1148,51 @@ export class EsusImportService {
                 cpf: execCpf,
                 cns: execCns,
                 crm: execCrm,
-                healthCenterId: execCenterId,
+                healthCenterId: cnesInfo.healthCenterId || execCenterId,
                 procedureId,
-                specialtyId: docSpecialtyId || undefined,
+                specialtyIds: cnesInfo.specialtyIds,
                 nowTz,
+                isExecutingDoctor: true,
+              },
+              medicoProfileId,
+              doctorCache,
+            );
+          }
+
+          // 8.2 Profissional Solicitante
+          const solName = src.noProfissionalSolicitante || (src as any).noProfissional || (src as any).nomeProfissionalSolicitante;
+          const solCpf = src.nuCpfProfissionalSolicitante || (src as any).nuCpfProfissional || (src as any).cpfProfissionalSolicitante;
+          const solCns = src.nuCnsProfissionalSolicitante || (src as any).nuCnsProfissional || (src as any).cnsProfissionalSolicitante;
+          const solCrm = src.nuCrmSolicitante || (src as any).nuCrm || (src as any).crmSolicitante;
+
+          if (solName || solCpf || solCns || solCrm) {
+            const cnesInfo = await this.resolveDoctorCnesInfo(
+              tx,
+              {
+                name: solName,
+                cpf: solCpf,
+                cns: solCns,
+                crm: solCrm,
+                targetCnes: execCnes || '2606712',
+                defaultHealthCenterId: healthCenterId,
+              },
+              cnesDoctorCache,
+              healthCenterCache,
+              specialtyCache,
+            );
+
+            await this.autoRegisterDoctorInBatch(
+              tx,
+              {
+                name: solName,
+                cpf: solCpf,
+                cns: solCns,
+                crm: solCrm,
+                healthCenterId: cnesInfo.healthCenterId || healthCenterId,
+                procedureId,
+                specialtyIds: cnesInfo.specialtyIds,
+                nowTz,
+                isExecutingDoctor: false,
               },
               medicoProfileId,
               doctorCache,
@@ -1224,6 +1259,146 @@ export class EsusImportService {
       requestsUpdated,
       requestsSkippedStatus,
     };
+  }
+
+  /**
+   * Consulta o CNES via Integra-SUS para identificar a unidade executante e especialidade real do médico
+   */
+  async resolveDoctorCnesInfo(
+    tx: any,
+    doc: {
+      name?: string;
+      cpf?: string;
+      cns?: string;
+      crm?: string;
+      targetCnes?: string;
+      defaultHealthCenterId?: string;
+    },
+    cnesDoctorCache?: Map<string, { healthCenterId?: string; specialtyIds: string[] }>,
+    healthCenterCache?: Map<string, string>,
+    specialtyCache?: Map<string, string>,
+  ): Promise<{ healthCenterId?: string; specialtyIds: string[] }> {
+    const rawName = (doc.name || '').trim();
+    const cleanCns = String(doc.cns || '').replace(/\D/g, '');
+    const cleanCpf = String(doc.cpf || '').replace(/\D/g, '');
+
+    const cacheKey = (cleanCns || cleanCpf || rawName).toUpperCase();
+    if (cnesDoctorCache?.has(cacheKey)) {
+      return cnesDoctorCache.get(cacheKey)!;
+    }
+
+    let profData: any = null;
+    if (this.integraSusService) {
+      try {
+        profData = await this.integraSusService.findProfessionalInCnes({
+          cns: cleanCns,
+          cpf: cleanCpf,
+          nome: rawName,
+          cnes: doc.targetCnes,
+        });
+      } catch (err: any) {
+        this.logger.warn(`Falha na busca CNES para ${rawName}: ${err.message}`);
+      }
+    }
+
+    let resolvedHcId = doc.defaultHealthCenterId;
+    let resolvedSpecialtyIds: string[] = [];
+
+    if (profData && Array.isArray(profData.unidades) && profData.unidades.length > 0) {
+      const targetCnes = (doc.targetCnes || '2606712').trim();
+
+      // 1. Procura vínculo na unidade executante prioritária (ex: Policlínica 2606712 ou a indicada no pedido)
+      let matchedUnit = profData.unidades.find(
+        (u: any) => String(u.codigo || u.cnes || '').trim() === targetCnes
+      );
+
+      // 2. Se não achou na unidade executante indicada, procura em 2606712 (Policlínica Municipal)
+      if (!matchedUnit) {
+        matchedUnit = profData.unidades.find(
+          (u: any) => String(u.codigo || u.cnes || '').trim() === '2606712'
+        );
+      }
+
+      // 3. Se ainda não achou, procura em qualquer unidade executante do município no banco
+      if (!matchedUnit) {
+        const [execHc] = await tx
+          .select({ id: schema.healthCenters.id, cnes: schema.healthCenters.cnes })
+          .from(schema.healthCenters)
+          .where(and(
+            eq(schema.healthCenters.stExecutante, true),
+            inArray(schema.healthCenters.cnes, profData.unidades.map((u: any) => String(u.codigo || u.cnes || '').trim()))
+          ))
+          .limit(1);
+        if (execHc) {
+          matchedUnit = profData.unidades.find((u: any) => String(u.codigo || u.cnes || '').trim() === execHc.cnes);
+        }
+      }
+
+      // 4. Se não tem vínculo em executante, procura qualquer unidade municipal cadastrada
+      if (!matchedUnit) {
+        for (const u of profData.unidades) {
+          const uCnes = String(u.codigo || u.cnes || '').trim();
+          if (healthCenterCache?.has(uCnes)) {
+            matchedUnit = u;
+            break;
+          }
+        }
+      }
+
+      if (matchedUnit) {
+        const unitCnes = String(matchedUnit.codigo || matchedUnit.cnes || '').trim();
+        // Resolve health center id
+        if (healthCenterCache?.has(unitCnes)) {
+          resolvedHcId = healthCenterCache.get(unitCnes)!;
+        } else {
+          const [foundHc] = await tx
+            .select({ id: schema.healthCenters.id })
+            .from(schema.healthCenters)
+            .where(eq(schema.healthCenters.cnes, unitCnes))
+            .limit(1);
+          if (foundHc) {
+            resolvedHcId = foundHc.id;
+            healthCenterCache?.set(unitCnes, foundHc.id);
+          }
+        }
+
+        // Resolve CBO / Especialidade da unidade
+        const cboCodigo = matchedUnit.cbo?.codigo ? String(matchedUnit.cbo.codigo).trim() : null;
+        const cboNome = matchedUnit.cbo?.nome ? String(matchedUnit.cbo.nome).trim() : null;
+
+        if (cboCodigo) {
+          if (specialtyCache?.has(`cbo:${cboCodigo}`)) {
+            resolvedSpecialtyIds.push(specialtyCache.get(`cbo:${cboCodigo}`)!);
+          } else {
+            const [spec] = await tx
+              .select({ id: schema.specialties.id })
+              .from(schema.specialties)
+              .where(eq(schema.specialties.cbo, cboCodigo))
+              .limit(1);
+            if (spec) {
+              resolvedSpecialtyIds.push(spec.id);
+              specialtyCache?.set(`cbo:${cboCodigo}`, spec.id);
+            }
+          }
+        } else if (cboNome) {
+          const [spec] = await tx
+            .select({ id: schema.specialties.id })
+            .from(schema.specialties)
+            .where(ilike(schema.specialties.name, `%${cboNome}%`))
+            .limit(1);
+          if (spec) {
+            resolvedSpecialtyIds.push(spec.id);
+          }
+        }
+      }
+    }
+
+    const result = {
+      healthCenterId: resolvedHcId,
+      specialtyIds: resolvedSpecialtyIds,
+    };
+    cnesDoctorCache?.set(cacheKey, result);
+    return result;
   }
 
   /**
@@ -1357,7 +1532,9 @@ export class EsusImportService {
       healthCenterId: string;
       procedureId?: string | null;
       specialtyId?: string | null;
+      specialtyIds?: string[];
       nowTz: string;
+      isExecutingDoctor?: boolean;
     },
     medicoProfileId: string,
     doctorCache: Map<string, string>,
@@ -1378,10 +1555,14 @@ export class EsusImportService {
       return null;
     }
 
+    const targetSpecialtyIds: string[] = doctorData.specialtyIds && doctorData.specialtyIds.length > 0
+      ? doctorData.specialtyIds
+      : (doctorData.specialtyId ? [doctorData.specialtyId] : []);
+
     const cacheKey = cleanCpf || validCns || cleanCrm || rawName.toUpperCase();
     if (doctorCache.has(cacheKey)) {
       const existingDocId = doctorCache.get(cacheKey)!;
-      await this.ensureDoctorRelations(tx, existingDocId, doctorData.specialtyId, doctorData.procedureId, doctorData.nowTz);
+      await this.ensureDoctorRelations(tx, existingDocId, targetSpecialtyIds, doctorData.isExecutingDoctor ? doctorData.procedureId : undefined, doctorData.nowTz);
       return existingDocId;
     }
 
@@ -1443,8 +1624,13 @@ export class EsusImportService {
         await tx.update(schema.doctors).set(docUpdates).where(eq(schema.doctors.id, existingDoctor.id));
       }
 
-      // Garante unidade de saúde em user_health_centers
+      // Se o médico possui unidade executante identificada, atualiza vínculo principal
       if (doctorData.healthCenterId) {
+        await tx.update(schema.users).set({
+          healthCenterId: doctorData.healthCenterId,
+          updatedAt: doctorData.nowTz,
+        }).where(eq(schema.users.id, existingDoctor.userId));
+
         const [existingUhc] = await tx
           .select({ id: schema.userHealthCenters.id })
           .from(schema.userHealthCenters)
@@ -1458,14 +1644,19 @@ export class EsusImportService {
             id: crypto.randomUUID(),
             userId: existingDoctor.userId,
             healthCenterId: doctorData.healthCenterId,
-            isDefault: false,
+            isDefault: true,
             createdAt: doctorData.nowTz,
             updatedAt: doctorData.nowTz,
           });
+        } else {
+          await tx.update(schema.userHealthCenters).set({
+            isDefault: true,
+            updatedAt: doctorData.nowTz,
+          }).where(eq(schema.userHealthCenters.id, existingUhc.id));
         }
       }
 
-      await this.ensureDoctorRelations(tx, existingDoctor.id, doctorData.specialtyId, doctorData.procedureId, doctorData.nowTz);
+      await this.ensureDoctorRelations(tx, existingDoctor.id, targetSpecialtyIds, doctorData.isExecutingDoctor ? doctorData.procedureId : undefined, doctorData.nowTz);
       return existingDoctor.id;
     }
 
@@ -1538,35 +1729,50 @@ export class EsusImportService {
 
     doctorCache.set(cacheKey, newDoctorId);
 
-    await this.ensureDoctorRelations(tx, newDoctorId, doctorData.specialtyId, doctorData.procedureId, doctorData.nowTz);
+    await this.ensureDoctorRelations(tx, newDoctorId, targetSpecialtyIds, doctorData.isExecutingDoctor ? doctorData.procedureId : undefined, doctorData.nowTz);
     return newDoctorId;
   }
 
   /**
-   * Helper: Garante que especialidade e procedimento estejam vinculados ao médico
+   * Helper: Garante que especialidade e procedimento estejam vinculados ao médico conforme a unidade executante
    */
   private async ensureDoctorRelations(
     tx: any,
     doctorId: string,
-    specialtyId?: string | null,
+    specialtyIds?: string[] | string | null,
     procedureId?: string | null,
     nowTz: string = new Date().toISOString(),
   ) {
-    if (specialtyId) {
-      const [existingSpec] = await tx
-        .select({ doctorId: schema.doctorSpecialties.doctorId })
-        .from(schema.doctorSpecialties)
+    const specIds: string[] = Array.isArray(specialtyIds)
+      ? specialtyIds
+      : (specialtyIds ? [specialtyIds] : []);
+
+    if (specIds.length > 0) {
+      // Remove especialidades que não façam parte da lista vinculada à unidade executante
+      await tx
+        .delete(schema.doctorSpecialties)
         .where(and(
           eq(schema.doctorSpecialties.doctorId, doctorId),
-          eq(schema.doctorSpecialties.specialtyId, specialtyId)
-        ))
-        .limit(1);
-      if (!existingSpec) {
-        await tx.insert(schema.doctorSpecialties).values({
-          doctorId,
-          specialtyId,
-          createdAt: nowTz,
-        });
+          notInArray(schema.doctorSpecialties.specialtyId, specIds)
+        ));
+
+      // Insere as especialidades válidas da unidade executante
+      for (const sId of specIds) {
+        const [existingSpec] = await tx
+          .select({ doctorId: schema.doctorSpecialties.doctorId })
+          .from(schema.doctorSpecialties)
+          .where(and(
+            eq(schema.doctorSpecialties.doctorId, doctorId),
+            eq(schema.doctorSpecialties.specialtyId, sId)
+          ))
+          .limit(1);
+        if (!existingSpec) {
+          await tx.insert(schema.doctorSpecialties).values({
+            doctorId,
+            specialtyId: sId,
+            createdAt: nowTz,
+          });
+        }
       }
     }
 
