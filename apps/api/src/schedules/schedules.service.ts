@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, and, or, ilike, desc, asc, inArray, sql, not, gte } from 'drizzle-orm';
+import { eq, and, or, ilike, desc, asc, inArray, sql, not, gte, gt } from 'drizzle-orm';
 import * as schema from '../database';
 import { randomUUID } from 'crypto';
 import axios from 'axios';
@@ -174,11 +174,15 @@ export class SchedulesService {
       orderBy: [asc(schema.procedures.name)],
     });
 
-    // 1.4 Profissionais (Médicos com usuários ativos)
+    // 1.4 Profissionais (Médicos com usuários ativos e unidades vinculadas)
     const allDoctors = await this.db.query.doctors.findMany({
       where: eq(schema.doctors.isActive, true),
       with: {
-        user: true,
+        user: {
+          with: {
+            userHealthCenters: true,
+          },
+        },
         doctorSpecialties: {
           with: { specialty: true },
         },
@@ -189,54 +193,137 @@ export class SchedulesService {
       orderBy: [asc(schema.doctors.crm)],
     });
 
+    // Helper: Verifica se o médico pertence ao estabelecimento de saúde
+    const isDoctorInCenter = (d: any, centerId: string) => {
+      if (d.user?.healthCenterId === centerId) return true;
+      if (d.user?.userHealthCenters?.some((uhc: any) => uhc.healthCenterId === centerId)) return true;
+      return false;
+    };
+
     // 1.5 Especialidades com CBO
     const allSpecialties = await this.db.query.specialties.findMany({
       where: eq(schema.specialties.isActive, true),
       orderBy: [asc(schema.specialties.name)],
     });
 
-    // Filtra procedimentos e grupos baseado no tipo de escala (CONSULTA, EXAME, PROCEDIMENTO)
+    // 1.6 Consulta de Cotas Pactuadas/Configuradas para o Estabelecimento Executante
+    const quotaProcedureIds = new Set<string>();
+    const quotaGroupIds = new Set<string>();
+    const procedureQuotaMap = new Map<string, number>();
+    const groupQuotaMap = new Map<string, number>();
+
+    if (filters.healthCenterId) {
+      const [hcProcs, hcProcQuotas, hcGroups, hcGroupQuotas] = await Promise.all([
+        this.db.query.healthCenterProcedures.findMany({
+          where: and(
+            eq(schema.healthCenterProcedures.healthCenterId, filters.healthCenterId),
+            or(
+              eq(schema.healthCenterProcedures.isOffered, true),
+              gt(schema.healthCenterProcedures.monthlyQuantity, 0)
+            )
+          ),
+        }),
+        this.db.query.procedureSolicitorQuotas.findMany({
+          where: and(
+            eq(schema.procedureSolicitorQuotas.executingHealthCenterId, filters.healthCenterId),
+            gt(schema.procedureSolicitorQuotas.monthlyQuota, 0)
+          ),
+        }),
+        this.db.query.healthCenterProcedureGroups.findMany({
+          where: and(
+            eq(schema.healthCenterProcedureGroups.healthCenterId, filters.healthCenterId),
+            or(
+              eq(schema.healthCenterProcedureGroups.isOffered, true),
+              gt(schema.healthCenterProcedureGroups.monthlyQuantity, 0)
+            )
+          ),
+        }),
+        this.db.query.procedureGroupSolicitorQuotas.findMany({
+          where: and(
+            eq(schema.procedureGroupSolicitorQuotas.executingHealthCenterId, filters.healthCenterId),
+            gt(schema.procedureGroupSolicitorQuotas.monthlyQuota, 0)
+          ),
+        }),
+      ]);
+
+      hcProcs.forEach((p) => {
+        quotaProcedureIds.add(p.procedureId);
+        procedureQuotaMap.set(p.procedureId, (procedureQuotaMap.get(p.procedureId) || 0) + (p.monthlyQuantity || 0));
+      });
+      hcProcQuotas.forEach((q) => {
+        quotaProcedureIds.add(q.procedureId);
+        procedureQuotaMap.set(q.procedureId, (procedureQuotaMap.get(q.procedureId) || 0) + (q.monthlyQuota || 0));
+      });
+
+      hcGroups.forEach((g) => {
+        quotaGroupIds.add(g.procedureGroupId);
+        groupQuotaMap.set(g.procedureGroupId, (groupQuotaMap.get(g.procedureGroupId) || 0) + (g.monthlyQuantity || 0));
+      });
+      hcGroupQuotas.forEach((gq) => {
+        quotaGroupIds.add(gq.procedureGroupId);
+        groupQuotaMap.set(gq.procedureGroupId, (groupQuotaMap.get(gq.procedureGroupId) || 0) + (gq.monthlyQuota || 0));
+      });
+    }
+
+    // 1.7 Classificação robusta por scheduleType (CONSULTA, EXAME, PROCEDIMENTO)
+    const isConsultationProcedure = (p: typeof rawProcedures[0]) => {
+      const code = (p.code || '').replace(/\D/g, '');
+      if (code.startsWith('03') || code.startsWith('3')) return true;
+      const norm = p.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+      return norm.includes('CONSULTA') || norm.includes('ATENDIMENTO');
+    };
+
+    const isConsultationGroup = (g: typeof rawGroups[0]) => {
+      const code = (g.groupCode || '').replace(/\D/g, '');
+      if (code.startsWith('03') || code.startsWith('3')) return true;
+      const norm = g.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+      return norm.includes('CONSULTA') || norm.includes('ATENDIMENTO');
+    };
+
+    const isExamProcedure = (p: typeof rawProcedures[0]) => {
+      const code = (p.code || '').replace(/\D/g, '');
+      if (code.startsWith('02') || code.startsWith('2')) return true;
+      const norm = p.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+      const examKeywords = [
+        'EXAME', 'DIAGNOST', 'TOMOGRAF', 'ULTRASS', 'ULTRASON', 'RESSON', 'RAIO-X',
+        'RADIOL', 'RADIOGRAF', 'MAMOGRAF', 'ENDOSCOP', 'COLONOSCOP', 'HOLTER', 'MAPA',
+        'ECG', 'ELETROCARDIOG', 'EEG', 'ELETROENCEFAL', 'ECOCARDIOG', 'CITOPATOL',
+        'HISTOPATOL', 'BIOPSIA', 'LABORATOR', 'HEMOGRAMA', 'AUDIOMETR', 'ESPIROMETR',
+        'DENSITOMETR', 'CINTILOGRAF', 'TESTE',
+      ];
+      if (examKeywords.some((k) => norm.includes(k))) return true;
+      if (quotaProcedureIds.has(p.id) && !norm.includes('CONSULTA')) return true;
+      return false;
+    };
+
+    const isExamGroup = (g: typeof rawGroups[0]) => {
+      const code = (g.groupCode || '').replace(/\D/g, '');
+      if (code.startsWith('02') || code.startsWith('2')) return true;
+      const norm = g.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+      const examKeywords = [
+        'EXAME', 'DIAGNOST', 'TOMOGRAF', 'ULTRASS', 'ULTRASON', 'RESSON', 'RAIO-X',
+        'RADIOL', 'RADIOGRAF', 'MAMOGRAF', 'ENDOSCOP', 'COLONOSCOP', 'HOLTER', 'MAPA',
+        'ECG', 'ELETROCARDIOG', 'EEG', 'ELETROENCEFAL', 'ECOCARDIOG', 'CITOPATOL',
+        'HISTOPATOL', 'BIOPSIA', 'LABORATOR', 'HEMOGRAMA', 'AUDIOMETR', 'ESPIROMETR',
+        'DENSITOMETR', 'CINTILOGRAF', 'TESTE',
+      ];
+      if (examKeywords.some((k) => norm.includes(k))) return true;
+      if (quotaGroupIds.has(g.id) && !norm.includes('CONSULTA')) return true;
+      return false;
+    };
+
     let allProcedures = rawProcedures;
     let allGroups = rawGroups;
 
     if (scheduleType === 'CONSULTA') {
-      allProcedures = rawProcedures.filter(
-        (p) => p.code?.startsWith('03') || p.name.toUpperCase().startsWith('CONSULTA'),
-      );
-      allGroups = rawGroups.filter(
-        (g) => g.groupCode?.startsWith('03') || g.name.toUpperCase().includes('CONSULTA'),
-      );
+      allProcedures = rawProcedures.filter(isConsultationProcedure);
+      allGroups = rawGroups.filter(isConsultationGroup);
     } else if (scheduleType === 'EXAME') {
-      allProcedures = rawProcedures.filter(
-        (p) =>
-          p.code?.startsWith('02') ||
-          p.name.toUpperCase().includes('TOMOGRAFIA') ||
-          p.name.toUpperCase().includes('ULTRASSOM') ||
-          p.name.toUpperCase().includes('ULTRASONOGRAFIA') ||
-          p.name.toUpperCase().includes('RESSONANCIA') ||
-          p.name.toUpperCase().includes('RAIO-X') ||
-          p.name.toUpperCase().includes('EXAME'),
-      );
-      allGroups = rawGroups.filter(
-        (g) =>
-          g.groupCode?.startsWith('02') ||
-          g.name.toUpperCase().includes('EXAME') ||
-          g.name.toUpperCase().includes('TOMOGRAFIA') ||
-          g.name.toUpperCase().includes('ULTRASONOGRAFIA'),
-      );
+      allProcedures = rawProcedures.filter(isExamProcedure);
+      allGroups = rawGroups.filter(isExamGroup);
     } else if (scheduleType === 'PROCEDIMENTO') {
-      allProcedures = rawProcedures.filter(
-        (p) =>
-          !p.code?.startsWith('02') &&
-          !p.code?.startsWith('03') &&
-          !p.name.toUpperCase().startsWith('CONSULTA'),
-      );
-      allGroups = rawGroups.filter(
-        (g) =>
-          !g.groupCode?.startsWith('02') &&
-          !g.groupCode?.startsWith('03') &&
-          !g.name.toUpperCase().includes('CONSULTA'),
-      );
+      allProcedures = rawProcedures.filter((p) => !isExamProcedure(p) && !isConsultationProcedure(p));
+      allGroups = rawGroups.filter((g) => !isExamGroup(g) && !isConsultationGroup(g));
     }
 
     // Listas base para refinamento reativo
@@ -250,12 +337,10 @@ export class SchedulesService {
     // REGRA 1: Filtro por Estabelecimento Executante (healthCenterId)
     // =========================================================================
     if (filters.healthCenterId) {
-      // Médicos vinculados à unidade executante selecionada
-      filteredDoctors = filteredDoctors.filter(
-        (d) => d.user?.healthCenterId === filters.healthCenterId,
-      );
+      // 1. Médicos vinculados à unidade executante selecionada (direto ou via userHealthCenters)
+      filteredDoctors = filteredDoctors.filter((d) => isDoctorInCenter(d, filters.healthCenterId!));
 
-      // CBOs dos médicos vinculados a esta unidade
+      // 2. CBOs dos médicos vinculados a esta unidade
       const unitCbos = new Set<string>();
       const unitSpecialties: typeof allSpecialties = [];
       filteredDoctors.forEach((d) => {
@@ -269,25 +354,55 @@ export class SchedulesService {
 
       if (unitCbos.size > 0) {
         filteredCbos = filteredCbos.filter((s) => unitCbos.has(s.cbo!));
+      }
 
-        if (scheduleType === 'CONSULTA') {
-          // Procedimentos de consulta compatíveis com as especialidades dos médicos da unidade
+      // 3. Resolução de Procedimentos e Grupos com Cotas Configuradas na Unidade
+      const configuredProcs = allProcedures.filter(
+        (p) => quotaProcedureIds.has(p.id) || (p.procedureGroupId && quotaGroupIds.has(p.procedureGroupId)),
+      );
+      const configuredGroups = allGroups.filter(
+        (g) => quotaGroupIds.has(g.id) || (g.procedures || []).some((p) => quotaProcedureIds.has(p.id)),
+      );
+
+      const hasConfiguredQuotas = configuredProcs.length > 0 || configuredGroups.length > 0;
+
+      if (hasConfiguredQuotas) {
+        // Quando a unidade possui cotas configuradas para o tipo selecionado,
+        // exibe prioritariamente os procedimentos e grupos com cotas configuradas
+        filteredProcedures = configuredProcs;
+        filteredGroups = configuredGroups;
+
+        // Se for CONSULTA e houver especialidades dos médicos da unidade, inclui também consultas compatíveis
+        if (scheduleType === 'CONSULTA' && unitSpecialties.length > 0) {
+          const compatibleDoctorProcs = allProcedures.filter((proc) => {
+            const isExplicitDoctorProc = filteredDoctors.some((d) =>
+              d.doctorProcedures?.some((dp) => dp.procedureId === proc.id),
+            );
+            if (isExplicitDoctorProc) return true;
+            return unitSpecialties.some((spec) =>
+              this.isProcedureCompatibleWithSpecialty(proc.name, spec.name, spec.cbo),
+            );
+          });
+          const combined = new Map<string, typeof allProcedures[0]>();
+          filteredProcedures.forEach((p) => combined.set(p.id, p));
+          compatibleDoctorProcs.forEach((p) => combined.set(p.id, p));
+          filteredProcedures = Array.from(combined.values());
+        }
+      } else {
+        // Se a unidade ainda não configurou cotas para este tipo:
+        // Se for CONSULTA e houver médicos na unidade, filtra por compatibilidade
+        if (scheduleType === 'CONSULTA' && unitSpecialties.length > 0) {
           filteredProcedures = filteredProcedures.filter((proc) => {
             const isExplicitDoctorProc = filteredDoctors.some((d) =>
               d.doctorProcedures?.some((dp) => dp.procedureId === proc.id),
             );
             if (isExplicitDoctorProc) return true;
-
             return unitSpecialties.some((spec) =>
               this.isProcedureCompatibleWithSpecialty(proc.name, spec.name, spec.cbo),
             );
           });
         }
-      } else {
-        filteredCbos = [];
-        if (scheduleType === 'CONSULTA') {
-          filteredProcedures = [];
-        }
+        // Caso a unidade não tenha médicos vinculados ainda, mantém a lista de catálogo disponível para agendamento
       }
     }
 
@@ -308,8 +423,13 @@ export class SchedulesService {
       const selectedDoc = allDoctors.find((d) => d.id === filters.doctorId);
       if (selectedDoc) {
         // Estabelecimento executante do médico
-        if (selectedDoc.user?.healthCenterId) {
-          filteredCenters = filteredCenters.filter((c) => c.id === selectedDoc.user?.healthCenterId);
+        const docCenters = new Set<string>();
+        if (selectedDoc.user?.healthCenterId) docCenters.add(selectedDoc.user.healthCenterId);
+        selectedDoc.user?.userHealthCenters?.forEach((uhc: any) => {
+          if (uhc.healthCenterId) docCenters.add(uhc.healthCenterId);
+        });
+        if (docCenters.size > 0 && !filters.healthCenterId) {
+          filteredCenters = filteredCenters.filter((c) => docCenters.has(c.id));
         }
 
         // CBOs específicos do médico
@@ -347,7 +467,10 @@ export class SchedulesService {
 
       // Estabelecimentos que possuem médicos com esse CBO
       const centersWithDoctor = new Set(
-        filteredDoctors.map((d) => d.user?.healthCenterId).filter(Boolean),
+        filteredDoctors.flatMap((d) => [
+          d.user?.healthCenterId,
+          ...(d.user?.userHealthCenters?.map((uhc: any) => uhc.healthCenterId) || []),
+        ]).filter(Boolean),
       );
       if (centersWithDoctor.size > 0 && !filters.healthCenterId) {
         filteredCenters = filteredCenters.filter((c) => centersWithDoctor.has(c.id));
@@ -390,7 +513,10 @@ export class SchedulesService {
 
         // Estabelecimentos que possuem médicos compatíveis
         const centersWithDoc = new Set(
-          filteredDoctors.map((d) => d.user?.healthCenterId).filter(Boolean),
+          filteredDoctors.flatMap((d) => [
+            d.user?.healthCenterId,
+            ...(d.user?.userHealthCenters?.map((uhc: any) => uhc.healthCenterId) || []),
+          ]).filter(Boolean),
         );
         if (centersWithDoc.size > 0 && !filters.healthCenterId) {
           filteredCenters = filteredCenters.filter((c) => centersWithDoc.has(c.id));
@@ -398,7 +524,24 @@ export class SchedulesService {
       }
     }
 
-    // Formata retorno amigável
+    // Ordenação inteligente: procedimentos com cotas configuradas aparecem no topo
+    filteredProcedures.sort((a, b) => {
+      const aHasQuota = quotaProcedureIds.has(a.id) || (a.procedureGroupId ? quotaGroupIds.has(a.procedureGroupId) : false);
+      const bHasQuota = quotaProcedureIds.has(b.id) || (b.procedureGroupId ? quotaGroupIds.has(b.procedureGroupId) : false);
+      if (aHasQuota && !bHasQuota) return -1;
+      if (!aHasQuota && bHasQuota) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    filteredGroups.sort((a, b) => {
+      const aHasQuota = quotaGroupIds.has(a.id) || (a.procedures || []).some((p) => quotaProcedureIds.has(p.id));
+      const bHasQuota = quotaGroupIds.has(b.id) || (b.procedures || []).some((p) => quotaProcedureIds.has(p.id));
+      if (aHasQuota && !bHasQuota) return -1;
+      if (!aHasQuota && bHasQuota) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    // Formata retorno amigável com tags de cotas configuradas
     return {
       healthCenters: filteredCenters.map((c) => ({
         id: c.id,
@@ -406,25 +549,46 @@ export class SchedulesService {
         cnes: c.cnes,
         label: `${c.cnes ? c.cnes + ' - ' : ''}${c.name}`,
       })),
-      procedureGroups: filteredGroups.map((g) => ({
-        id: g.id,
-        name: g.name,
-        groupCode: g.groupCode,
-        label: `${g.groupCode ? `[${g.groupCode}] ` : ''}${g.name}`,
-        procedures: (g.procedures || []).map((p) => ({
+      procedureGroups: filteredGroups.map((g) => {
+        const quotaTotal = groupQuotaMap.get(g.id) || 0;
+        const hasQuota = quotaGroupIds.has(g.id) || quotaTotal > 0 || (g.procedures || []).some((p) => quotaProcedureIds.has(p.id));
+        const quotaTag = quotaTotal > 0 ? ` [Cota: ${quotaTotal}/mês]` : hasQuota ? ` [Cota Configurada]` : '';
+        return {
+          id: g.id,
+          name: g.name,
+          groupCode: g.groupCode,
+          hasQuota,
+          quotaTotal,
+          label: `${g.groupCode ? `[${g.groupCode}] ` : ''}${g.name}${quotaTag}`,
+          procedures: (g.procedures || []).map((p) => {
+            const pQuota = procedureQuotaMap.get(p.id) || 0;
+            const pHasQuota = quotaProcedureIds.has(p.id) || hasQuota || pQuota > 0;
+            const pTag = pQuota > 0 ? ` [Cota: ${pQuota}/mês]` : pHasQuota ? ` [Cota Configurada]` : '';
+            return {
+              id: p.id,
+              code: p.code,
+              name: p.name,
+              hasQuota: pHasQuota,
+              quotaTotal: pQuota,
+              label: `${p.code ? p.code + ' - ' : ''}${p.name}${pTag}`,
+            };
+          }),
+        };
+      }),
+      procedures: filteredProcedures.map((p) => {
+        const pQuota = procedureQuotaMap.get(p.id) || 0;
+        const hasQuota = quotaProcedureIds.has(p.id) || (p.procedureGroupId ? quotaGroupIds.has(p.procedureGroupId) : false) || pQuota > 0;
+        const pTag = pQuota > 0 ? ` [Cota: ${pQuota}/mês]` : hasQuota ? ` [Cota Configurada]` : '';
+        return {
           id: p.id,
           code: p.code,
           name: p.name,
-          label: `${p.code ? p.code + ' - ' : ''}${p.name}`,
-        })),
-      })),
-      procedures: filteredProcedures.map((p) => ({
-        id: p.id,
-        code: p.code,
-        name: p.name,
-        procedureGroupId: p.procedureGroupId,
-        label: `${p.code ? p.code + ' - ' : ''}${p.name}`,
-      })),
+          procedureGroupId: p.procedureGroupId,
+          hasQuota,
+          quotaTotal: pQuota,
+          label: `${p.code ? p.code + ' - ' : ''}${p.name}${pTag}`,
+        };
+      }),
       doctors: filteredDoctors.map((d) => ({
         id: d.id,
         name: d.user?.name || `Dr. CRM ${d.crm}`,
