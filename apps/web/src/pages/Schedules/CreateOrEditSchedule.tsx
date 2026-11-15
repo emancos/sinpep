@@ -600,11 +600,12 @@ export const CreateOrEditSchedule: React.FC = () => {
 
               {/* Procedimento / Grupo */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="procedureSelect" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   {scheduleType === 'CONSULTA' ? 'Procedimento *' : 'Procedimento / Grupo *'}
                 </label>
                 <div className="relative">
                   <select
+                    id="procedureSelect"
                     required
                     value={currentProcedureValue}
                     onChange={(e) => handleProcedureSelectChange(e.target.value)}
@@ -647,6 +648,12 @@ export const CreateOrEditSchedule: React.FC = () => {
                     </button>
                   )}
                 </div>
+                {healthCenterId && (deps?.procedures?.some((p) => p.hasQuota) || deps?.procedureGroups?.some((g) => g.hasQuota)) && (
+                  <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    Exibindo procedimentos com cotas pactuadas nesta unidade executante.
+                  </p>
+                )}
               </div>
 
               {/* Profissional */}

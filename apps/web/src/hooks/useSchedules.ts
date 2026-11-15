@@ -9,13 +9,15 @@ export interface ProcedureGroupItem {
   name: string;
   groupCode?: string | null;
   label: string;
-  procedures: { id: string; code: string; name: string; label: string }[];
+  hasQuota?: boolean;
+  quotaTotal?: number;
+  procedures: { id: string; code: string; name: string; label: string; hasQuota?: boolean; quotaTotal?: number }[];
 }
 
 export interface ScheduleDependencies {
   healthCenters: { id: string; name: string; cnes: string; label: string }[];
   procedureGroups: ProcedureGroupItem[];
-  procedures: { id: string; code: string; name: string; procedureGroupId?: string; label: string }[];
+  procedures: { id: string; code: string; name: string; procedureGroupId?: string; label: string; hasQuota?: boolean; quotaTotal?: number }[];
   doctors: { id: string; name: string; crm: string; label: string }[];
   cbos: { cbo: string; specialtyId: string; name: string; label: string }[];
 }
