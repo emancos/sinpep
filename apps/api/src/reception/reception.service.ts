@@ -458,15 +458,61 @@ export class ReceptionService {
           }
 
           if (!specialtyId && esusData.noProcedimentoInterno) {
-            const procName = esusData.noProcedimentoInterno.replace('CONSULTA EM ', '').replace('CONSULTA DE ', '').split(' ')[0];
-            if (procName.length > 3) {
-              const specs = await this.db.select().from(schema.specialties).where(ilike(schema.specialties.name, `%${procName}%`));
+            const rawProc = (esusData.noProcedimentoInterno || '')
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .toUpperCase();
+
+            let targetCbo: string | null = null;
+            if (rawProc.includes('CARDIOLOG')) targetCbo = '225120';
+            else if (rawProc.includes('ORTOPED') || rawProc.includes('TRAUMATO')) targetCbo = '225270';
+            else if (rawProc.includes('PEDIAT') || rawProc.includes('INFANTIL')) targetCbo = '225124';
+            else if (rawProc.includes('PSIQUIAT') || rawProc.includes('MENTAL')) targetCbo = '225133';
+            else if (rawProc.includes('DERMATO')) targetCbo = '225135';
+            else if (rawProc.includes('GINECO') || rawProc.includes('OBSTETR')) targetCbo = '225250';
+            else if (rawProc.includes('UROLOG')) targetCbo = '225285';
+            else if (rawProc.includes('OFTALMO')) targetCbo = '225265';
+            else if (rawProc.includes('OTORRINO')) targetCbo = '225275';
+            else if (rawProc.includes('ENDOCRINO') || rawProc.includes('METABOL')) targetCbo = '225155';
+            else if (rawProc.includes('NEUROCIRURG')) targetCbo = '225260';
+            else if (rawProc.includes('NEUROLOG')) targetCbo = '225112';
+            else if (rawProc.includes('GASTRO')) targetCbo = '225165';
+            else if (rawProc.includes('REUMATO')) targetCbo = '225136';
+            else if (rawProc.includes('ANGIOLOG') || rawProc.includes('VASCULAR')) targetCbo = '225203';
+            else if (rawProc.includes('INFECTO')) targetCbo = '225103';
+            else if (rawProc.includes('PNEUMO')) targetCbo = '225127';
+            else if (rawProc.includes('NEFROLOG')) targetCbo = '225109';
+            else if (rawProc.includes('GERIAT')) targetCbo = '225180';
+            else if (rawProc.includes('HEMATO')) targetCbo = '225185';
+            else if (rawProc.includes('MASTOLOG')) targetCbo = '225255';
+            else if (rawProc.includes('COLOPROCTO')) targetCbo = '225280';
+            else if (rawProc.includes('ALERG') || rawProc.includes('IMUNO')) targetCbo = '225110';
+            else if (rawProc.includes('ONCOLOG') || rawProc.includes('CANCER')) targetCbo = '225121';
+            else if (rawProc.includes('CIRURGIA GERAL')) targetCbo = '225225';
+            else if (rawProc.includes('ENDOSCOP')) targetCbo = '225310';
+            else if (rawProc.includes('ULTRASS') || rawProc.includes('TOMOGRAF') || rawProc.includes('RESSON') || rawProc.includes('RADIOLOG') || rawProc.includes('MAMOGRAF')) targetCbo = '225320';
+            else if (rawProc.includes('CITOPATOL')) targetCbo = '225305';
+            else if (rawProc.includes('ANATOMOPATOL') || rawProc.includes('BIOPSIA')) targetCbo = '225148';
+            else if (rawProc.includes('FAMILIA') || rawProc.includes('ESF')) targetCbo = '225130';
+            else if (rawProc.includes('GENERALISTA')) targetCbo = '225170';
+            else if (rawProc.includes('CLINIC') || rawProc.includes('CONSULTA')) targetCbo = '225125';
+
+            if (targetCbo) {
+              const specs = await this.db.select().from(schema.specialties).where(eq(schema.specialties.cbo, targetCbo)).limit(1);
               if (specs.length > 0) specialtyId = specs[0].id;
+            }
+
+            if (!specialtyId) {
+              const procName = esusData.noProcedimentoInterno.replace(/^CONSULTA\s+(EM|DE)\s+/i, '').trim().split(' ')[0];
+              if (procName.length > 3) {
+                const specs = await this.db.select().from(schema.specialties).where(ilike(schema.specialties.name, `%${procName}%`));
+                if (specs.length > 0) specialtyId = specs[0].id;
+              }
             }
           }
 
           if (!specialtyId) {
-             const specs = await this.db.select().from(schema.specialties).where(ilike(schema.specialties.name, `%CLINIC%`)).limit(1);
+             const specs = await this.db.select().from(schema.specialties).where(or(eq(schema.specialties.cbo, '225125'), ilike(schema.specialties.name, `%CLINIC%`))).limit(1);
              if (specs.length > 0) specialtyId = specs[0].id;
              else {
                const firstSpec = await this.db.select().from(schema.specialties).limit(1);

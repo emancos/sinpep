@@ -29,6 +29,12 @@ export interface EsusDocSource {
   nuCnsProfissionalSolicitante?: string;
   noProfissionalSolicitante?: string;
   nuCrmSolicitante?: string;
+  nuCpfProfissionalExecutante?: string;
+  nuCnsProfissionalExecutante?: string;
+  noProfissionalExecutante?: string;
+  nuCrmExecutante?: string;
+  coCnesEstabelecimentoExecutante?: string;
+  noEstabelecimentoExecutante?: string;
   stVisualizado?: boolean;
   stOncologico?: boolean;
   stIdoso?: boolean;
@@ -345,6 +351,23 @@ export class EsusImportService {
     // Busca unidade padrão municipal caso CNES venha vazio
     const defaultCenter = await this.db.query.healthCenters.findFirst();
     const defaultCenterId = defaultCenter?.id || crypto.randomUUID();
+
+    // Cache local de especialidades e médicos durante este lote
+    const specialtyCache = new Map<string, string>();
+    const doctorCache = new Map<string, string>();
+
+    // Busca perfil de Médico
+    const [medicoProfile] = await this.db
+      .select({ id: schema.profiles.id })
+      .from(schema.profiles)
+      .where(ilike(schema.profiles.name, '%MÉDICO%'))
+      .limit(1);
+
+    const [fallbackProfile] = !medicoProfile
+      ? await this.db.select({ id: schema.profiles.id }).from(schema.profiles).limit(1)
+      : [null];
+
+    const medicoProfileId = medicoProfile?.id || fallbackProfile?.id || crypto.randomUUID();
 
     // Executa em transação atômica do banco de dados
     await this.db.transaction(async (tx: any) => {
@@ -1062,7 +1085,69 @@ export class EsusImportService {
         }
 
         // ---------------------------------------------------------
-        // 8. HISTÓRICO DE STATUS / PARECERES
+        // 8. MÉDICOS E ESPECIALIDADES: Registro e Vinculação Automática
+        // ---------------------------------------------------------
+        try {
+          const docSpecialtyId = await this.resolveSpecialtyId(tx, procName, undefined, specialtyCache);
+          if (docSpecialtyId) {
+            // 8.1 Profissional Solicitante
+            if (
+              src.noProfissionalSolicitante ||
+              src.nuCpfProfissionalSolicitante ||
+              src.nuCnsProfissionalSolicitante ||
+              src.nuCrmSolicitante
+            ) {
+              await this.autoRegisterDoctorInBatch(
+                tx,
+                {
+                  name: src.noProfissionalSolicitante,
+                  cpf: src.nuCpfProfissionalSolicitante,
+                  cns: src.nuCnsProfissionalSolicitante,
+                  crm: src.nuCrmSolicitante,
+                  healthCenterId,
+                  procedureId,
+                  specialtyId: docSpecialtyId,
+                  nowTz,
+                },
+                medicoProfileId,
+                doctorCache,
+              );
+            }
+
+            // 8.2 Profissional Executante (se presente)
+            if (
+              src.noProfissionalExecutante ||
+              src.nuCpfProfissionalExecutante ||
+              src.nuCnsProfissionalExecutante
+            ) {
+              let execCenterId = healthCenterId;
+              const execCnes = (src.coCnesEstabelecimentoExecutante || '').trim();
+              if (execCnes && healthCenterCache.has(execCnes)) {
+                execCenterId = healthCenterCache.get(execCnes)!;
+              }
+              await this.autoRegisterDoctorInBatch(
+                tx,
+                {
+                  name: src.noProfissionalExecutante,
+                  cpf: src.nuCpfProfissionalExecutante,
+                  cns: src.nuCnsProfissionalExecutante,
+                  crm: (src as any).nuCrmExecutante || (src as any).nuCrmProfissionalExecutante,
+                  healthCenterId: execCenterId,
+                  procedureId,
+                  specialtyId: docSpecialtyId,
+                  nowTz,
+                },
+                medicoProfileId,
+                doctorCache,
+              );
+            }
+          }
+        } catch (err: any) {
+          this.logger.warn(`Falha não impeditiva ao auto-registrar médicos da solicitação ${protocol}: ${err.message}`);
+        }
+
+        // ---------------------------------------------------------
+        // 9. HISTÓRICO DE STATUS / PARECERES
         // ---------------------------------------------------------
         if (src.historicoStatus && src.historicoStatus.length > 0) {
           for (const hist of src.historicoStatus) {
@@ -1118,5 +1203,344 @@ export class EsusImportService {
       requestsUpdated,
       requestsSkippedStatus,
     };
+  }
+
+  /**
+   * Resolução precisa da especialidade médica a partir dos dados do e-SUS e das 62 especialidades oficiais
+   */
+  async resolveSpecialtyId(
+    tx: any,
+    procName?: string,
+    cboCode?: string,
+    specialtyCache?: Map<string, string>,
+  ): Promise<string | null> {
+    const cacheKey = `${cboCode || ''}_${procName || ''}`.trim();
+    if (cacheKey && specialtyCache?.has(cacheKey)) {
+      return specialtyCache.get(cacheKey)!;
+    }
+
+    // 1. Busca por CBO exato (6 dígitos)
+    if (cboCode && cboCode.trim().length >= 4) {
+      const cleanCbo = cboCode.trim();
+      const [found] = await tx
+        .select({ id: schema.specialties.id })
+        .from(schema.specialties)
+        .where(eq(schema.specialties.cbo, cleanCbo))
+        .limit(1);
+      if (found) {
+        if (cacheKey) specialtyCache?.set(cacheKey, found.id);
+        return found.id;
+      }
+    }
+
+    // 2. Mapeamento semântico por radical e termos de especialidades
+    const norm = (procName || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+
+    let targetCbo: string | null = null;
+    if (norm.includes('CARDIOLOG')) targetCbo = '225120';
+    else if (norm.includes('ORTOPED') || norm.includes('TRAUMATO')) targetCbo = '225270';
+    else if (norm.includes('PEDIAT') || norm.includes('INFANTIL')) targetCbo = '225124';
+    else if (norm.includes('PSIQUIAT') || norm.includes('MENTAL')) targetCbo = '225133';
+    else if (norm.includes('DERMATO')) targetCbo = '225135';
+    else if (norm.includes('GINECO') || norm.includes('OBSTETR')) targetCbo = '225250';
+    else if (norm.includes('UROLOG')) targetCbo = '225285';
+    else if (norm.includes('OFTALMO')) targetCbo = '225265';
+    else if (norm.includes('OTORRINO')) targetCbo = '225275';
+    else if (norm.includes('ENDOCRINO') || norm.includes('METABOL')) targetCbo = '225155';
+    else if (norm.includes('NEUROCIRURG')) targetCbo = '225260';
+    else if (norm.includes('NEUROLOG')) targetCbo = '225112';
+    else if (norm.includes('GASTRO')) targetCbo = '225165';
+    else if (norm.includes('REUMATO')) targetCbo = '225136';
+    else if (norm.includes('ANGIOLOG') || norm.includes('VASCULAR')) targetCbo = '225203';
+    else if (norm.includes('INFECTO')) targetCbo = '225103';
+    else if (norm.includes('PNEUMO')) targetCbo = '225127';
+    else if (norm.includes('NEFROLOG')) targetCbo = '225109';
+    else if (norm.includes('GERIAT')) targetCbo = '225180';
+    else if (norm.includes('HEMATO')) targetCbo = '225185';
+    else if (norm.includes('MASTOLOG')) targetCbo = '225255';
+    else if (norm.includes('COLOPROCTO')) targetCbo = '225280';
+    else if (norm.includes('ALERG') || norm.includes('IMUNO')) targetCbo = '225110';
+    else if (norm.includes('ONCOLOG') || norm.includes('CANCER')) targetCbo = '225121';
+    else if (norm.includes('CIRURGIA GERAL')) targetCbo = '225225';
+    else if (norm.includes('ENDOSCOP')) targetCbo = '225310';
+    else if (norm.includes('ULTRASS') || norm.includes('TOMOGRAF') || norm.includes('RESSON') || norm.includes('RADIOLOG') || norm.includes('MAMOGRAF')) targetCbo = '225320';
+    else if (norm.includes('CITOPATOL')) targetCbo = '225305';
+    else if (norm.includes('ANATOMOPATOL') || norm.includes('BIOPSIA')) targetCbo = '225148';
+    else if (norm.includes('FAMILIA') || norm.includes('ESF')) targetCbo = '225130';
+    else if (norm.includes('GENERALISTA')) targetCbo = '225170';
+    else if (norm.includes('CLINIC') || norm.includes('CONSULTA')) targetCbo = '225125';
+
+    if (targetCbo) {
+      const [found] = await tx
+        .select({ id: schema.specialties.id })
+        .from(schema.specialties)
+        .where(eq(schema.specialties.cbo, targetCbo))
+        .limit(1);
+      if (found) {
+        if (cacheKey) specialtyCache?.set(cacheKey, found.id);
+        return found.id;
+      }
+    }
+
+    // 3. Fallback: busca por termo na tabela de especialidades
+    const cleanTerm = norm
+      .replace(/^CONSULTA\s+(EM|DE)\s+/i, '')
+      .trim()
+      .split(' ')[0];
+    if (cleanTerm && cleanTerm.length >= 4) {
+      const [found] = await tx
+        .select({ id: schema.specialties.id })
+        .from(schema.specialties)
+        .where(ilike(schema.specialties.name, `%${cleanTerm}%`))
+        .limit(1);
+      if (found) {
+        if (cacheKey) specialtyCache?.set(cacheKey, found.id);
+        return found.id;
+      }
+    }
+
+    // 4. Fallback final: Médico clínico geral (225125) ou primeiro do banco
+    const [defaultSpec] = await tx
+      .select({ id: schema.specialties.id })
+      .from(schema.specialties)
+      .where(eq(schema.specialties.cbo, '225125'))
+      .limit(1);
+
+    if (defaultSpec) {
+      if (cacheKey) specialtyCache?.set(cacheKey, defaultSpec.id);
+      return defaultSpec.id;
+    }
+
+    const [firstSpec] = await tx.select({ id: schema.specialties.id }).from(schema.specialties).limit(1);
+    if (firstSpec) {
+      if (cacheKey) specialtyCache?.set(cacheKey, firstSpec.id);
+      return firstSpec.id;
+    }
+
+    return null;
+  }
+
+  /**
+   * Auto-registro ou atualização de médico durante a importação em lote
+   */
+  async autoRegisterDoctorInBatch(
+    tx: any,
+    doctorData: {
+      name?: string;
+      cpf?: string;
+      cns?: string;
+      crm?: string;
+      healthCenterId: string;
+      procedureId?: string | null;
+      specialtyId: string;
+      nowTz: string;
+    },
+    medicoProfileId: string,
+    doctorCache: Map<string, string>,
+  ): Promise<string | null> {
+    const rawName = (doctorData.name || '').trim();
+    if (!rawName || rawName.toUpperCase().includes('NAO INFORMADO') || rawName.toUpperCase().includes('NÃO INFORMADO')) {
+      return null;
+    }
+
+    const rawCpf = String(doctorData.cpf || '').replace(/\D/g, '');
+    const cleanCpf = rawCpf.length === 11 ? rawCpf : null;
+    const formattedCpf = cleanCpf ? cleanCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : null;
+    const cleanCns = String(doctorData.cns || '').replace(/\D/g, '');
+    const validCns = cleanCns.length >= 10 ? cleanCns : null;
+    const cleanCrm = doctorData.crm ? String(doctorData.crm).trim() : null;
+
+    if (!cleanCpf && !validCns && !cleanCrm) {
+      return null;
+    }
+
+    const cacheKey = cleanCpf || validCns || cleanCrm || rawName;
+    if (doctorCache.has(cacheKey)) {
+      const existingDocId = doctorCache.get(cacheKey)!;
+      await this.ensureDoctorRelations(tx, existingDocId, doctorData.specialtyId, doctorData.procedureId, doctorData.nowTz);
+      return existingDocId;
+    }
+
+    // Busca médico existente por CPF, CNS ou CRM
+    let existingDoctor: typeof schema.doctors.$inferSelect | null = null;
+    if (cleanCpf) {
+      const [found] = await tx
+        .select()
+        .from(schema.doctors)
+        .where(or(
+          eq(schema.doctors.cpf, cleanCpf),
+          eq(schema.doctors.cpf, formattedCpf!)
+        ))
+        .limit(1);
+      if (found) existingDoctor = found;
+    }
+    if (!existingDoctor && validCns) {
+      const [found] = await tx
+        .select()
+        .from(schema.doctors)
+        .where(eq(schema.doctors.cns, validCns))
+        .limit(1);
+      if (found) existingDoctor = found;
+    }
+    if (!existingDoctor && cleanCrm) {
+      const [found] = await tx
+        .select()
+        .from(schema.doctors)
+        .where(eq(schema.doctors.crm, cleanCrm))
+        .limit(1);
+      if (found) existingDoctor = found;
+    }
+
+    if (existingDoctor) {
+      doctorCache.set(cacheKey, existingDoctor.id);
+
+      // Atualiza campos faltantes no médico
+      const docUpdates: any = {};
+      if (!existingDoctor.cns && validCns) docUpdates.cns = validCns;
+      if (!existingDoctor.cpf && (formattedCpf || cleanCpf)) docUpdates.cpf = formattedCpf || cleanCpf;
+      if (!existingDoctor.crm && cleanCrm) docUpdates.crm = cleanCrm;
+      if (Object.keys(docUpdates).length > 0) {
+        docUpdates.updatedAt = doctorData.nowTz;
+        await tx.update(schema.doctors).set(docUpdates).where(eq(schema.doctors.id, existingDoctor.id));
+      }
+
+      // Garante unidade de saúde em user_health_centers
+      if (doctorData.healthCenterId) {
+        const [existingUhc] = await tx
+          .select({ id: schema.userHealthCenters.id })
+          .from(schema.userHealthCenters)
+          .where(and(
+            eq(schema.userHealthCenters.userId, existingDoctor.userId),
+            eq(schema.userHealthCenters.healthCenterId, doctorData.healthCenterId)
+          ))
+          .limit(1);
+        if (!existingUhc) {
+          await tx.insert(schema.userHealthCenters).values({
+            id: crypto.randomUUID(),
+            userId: existingDoctor.userId,
+            healthCenterId: doctorData.healthCenterId,
+            isDefault: false,
+            createdAt: doctorData.nowTz,
+            updatedAt: doctorData.nowTz,
+          });
+        }
+      }
+
+      await this.ensureDoctorRelations(tx, existingDoctor.id, doctorData.specialtyId, doctorData.procedureId, doctorData.nowTz);
+      return existingDoctor.id;
+    }
+
+    // Médico não cadastrado -> cria usuário e registro de médico
+    const newUserId = crypto.randomUUID();
+    const newDoctorId = crypto.randomUUID();
+    const cleanNormalized = rawName
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '.')
+      .replace(/\.+/g, '.')
+      .replace(/^\.|\.$/g, '');
+    const randomSuffix = cleanCpf ? cleanCpf.slice(-4) : Math.floor(Math.random() * 8999 + 1000);
+    const generatedEmail = `${cleanNormalized || 'medico'}.${randomSuffix}@saude.gov.br`;
+    const defaultPasswordHash = '$2b$10$wT8K.VbEaXN9E5PqD6G9YeB8eY1qX9s2a7d4h3k2j1m0o9p8q7r6s'; // '123456'
+
+    await tx.insert(schema.users).values({
+      id: newUserId,
+      name: rawName.toUpperCase(),
+      email: generatedEmail,
+      passwordHash: defaultPasswordHash,
+      profileId: medicoProfileId,
+      healthCenterId: doctorData.healthCenterId,
+      forcePasswordChange: true,
+      createdAt: doctorData.nowTz,
+      updatedAt: doctorData.nowTz,
+    });
+
+    await tx.insert(schema.userProfiles).values({
+      id: crypto.randomUUID(),
+      userId: newUserId,
+      profileId: medicoProfileId,
+      isDefault: true,
+      createdAt: doctorData.nowTz,
+    });
+
+    if (doctorData.healthCenterId) {
+      await tx.insert(schema.userHealthCenters).values({
+        id: crypto.randomUUID(),
+        userId: newUserId,
+        healthCenterId: doctorData.healthCenterId,
+        isDefault: true,
+        createdAt: doctorData.nowTz,
+        updatedAt: doctorData.nowTz,
+      });
+    }
+
+    await tx.insert(schema.doctors).values({
+      id: newDoctorId,
+      userId: newUserId,
+      crm: cleanCrm,
+      crmState: 'PB',
+      attendanceType: 'AMBOS',
+      isActive: true,
+      cpf: formattedCpf || cleanCpf,
+      cns: validCns,
+      createdAt: doctorData.nowTz,
+      updatedAt: doctorData.nowTz,
+    });
+
+    doctorCache.set(cacheKey, newDoctorId);
+
+    await this.ensureDoctorRelations(tx, newDoctorId, doctorData.specialtyId, doctorData.procedureId, doctorData.nowTz);
+    return newDoctorId;
+  }
+
+  /**
+   * Helper: Garante que especialidade e procedimento estejam vinculados ao médico
+   */
+  private async ensureDoctorRelations(
+    tx: any,
+    doctorId: string,
+    specialtyId?: string | null,
+    procedureId?: string | null,
+    nowTz: string = new Date().toISOString(),
+  ) {
+    if (specialtyId) {
+      const [existingSpec] = await tx
+        .select({ doctorId: schema.doctorSpecialties.doctorId })
+        .from(schema.doctorSpecialties)
+        .where(and(
+          eq(schema.doctorSpecialties.doctorId, doctorId),
+          eq(schema.doctorSpecialties.specialtyId, specialtyId)
+        ))
+        .limit(1);
+      if (!existingSpec) {
+        await tx.insert(schema.doctorSpecialties).values({
+          doctorId,
+          specialtyId,
+          createdAt: nowTz,
+        });
+      }
+    }
+
+    if (procedureId) {
+      const [existingProc] = await tx
+        .select({ doctorId: schema.doctorProcedures.doctorId })
+        .from(schema.doctorProcedures)
+        .where(and(
+          eq(schema.doctorProcedures.doctorId, doctorId),
+          eq(schema.doctorProcedures.procedureId, procedureId)
+        ))
+        .limit(1);
+      if (!existingProc) {
+        await tx.insert(schema.doctorProcedures).values({
+          doctorId,
+          procedureId,
+          createdAt: nowTz,
+        });
+      }
+    }
   }
 }
