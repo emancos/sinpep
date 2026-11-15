@@ -2,7 +2,8 @@ import { Injectable, OnModuleInit, Inject, Logger } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DATABASE_CONNECTION } from './database.constants';
 import * as schema from './schema';
-import { sql } from 'drizzle-orm';
+import { sql, eq } from 'drizzle-orm';
+import * as crypto from 'crypto';
 import { MEDICAL_SPECIALTIES_SEED } from './specialties-seed.data';
 
 @Injectable()
@@ -474,37 +475,61 @@ export class DatabaseMigrationService implements OnModuleInit {
           ON regulation_requests (status, priority, created_at ASC);
       `);
 
-      // Seed das 62 Especialidades Médicas e CBOs Oficiais
-      await this.db.execute(sql`
-        DO $$
-        DECLARE
-          r RECORD;
-          v_id UUID;
-        BEGIN
-          FOR r IN SELECT * FROM (VALUES
-            ${sql.join(
-              MEDICAL_SPECIALTIES_SEED.map(
-                (s) => sql`(${s.cbo}, ${s.name})`
-              ),
-              sql`, `
-            )}
-          ) AS t(cbo, name)
-          LOOP
-            SELECT id INTO v_id FROM specialties WHERE cbo = r.cbo LIMIT 1;
-            IF v_id IS NOT NULL THEN
-              UPDATE specialties SET name = r.name, is_active = true, updated_at = CURRENT_TIMESTAMP WHERE id = v_id;
-            ELSE
-              SELECT id INTO v_id FROM specialties WHERE UPPER(name) = UPPER(r.name) LIMIT 1;
-              IF v_id IS NOT NULL THEN
-                UPDATE specialties SET cbo = r.cbo, name = r.name, is_active = true, updated_at = CURRENT_TIMESTAMP WHERE id = v_id;
-              ELSE
-                INSERT INTO specialties (id, name, cbo, is_active, created_at, updated_at)
-                VALUES (gen_random_uuid(), r.name, r.cbo, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
-              END IF;
-            END IF;
-          END LOOP;
-        END $$;
-      `);
+      // Seed das 62 Especialidades Médicas e CBOs Oficiais (idempotente)
+      const existingSpecialties = await this.db.select().from(schema.specialties);
+      const byCbo = new Map<string, typeof schema.specialties.$inferSelect>();
+      const byName = new Map<string, typeof schema.specialties.$inferSelect>();
+
+      for (const spec of existingSpecialties) {
+        if (spec.cbo) byCbo.set(spec.cbo.trim(), spec);
+        if (spec.name) byName.set(spec.name.trim().toUpperCase(), spec);
+      }
+
+      const nowIso = new Date().toISOString();
+
+      for (const item of MEDICAL_SPECIALTIES_SEED) {
+        const normCbo = item.cbo.trim();
+        const normName = item.name.trim();
+        const upperName = normName.toUpperCase();
+        const existing = byCbo.get(normCbo) || byName.get(upperName);
+
+        if (existing) {
+          if (existing.cbo !== normCbo || existing.name !== normName || !existing.isActive) {
+            await this.db
+              .update(schema.specialties)
+              .set({
+                cbo: normCbo,
+                name: normName,
+                isActive: true,
+                updatedAt: nowIso,
+              })
+              .where(eq(schema.specialties.id, existing.id));
+
+            existing.cbo = normCbo;
+            existing.name = normName;
+            existing.isActive = true;
+            byCbo.set(normCbo, existing);
+            byName.set(upperName, existing);
+          }
+        } else {
+          const newId = crypto.randomUUID();
+          const [inserted] = await this.db
+            .insert(schema.specialties)
+            .values({
+              id: newId,
+              name: normName,
+              cbo: normCbo,
+              isActive: true,
+              createdAt: nowIso,
+              updatedAt: nowIso,
+            })
+            .returning();
+          if (inserted) {
+            byCbo.set(normCbo, inserted);
+            byName.set(upperName, inserted);
+          }
+        }
+      }
 
       this.logger.log('Database migrations for procedures, quotas, auto-scheduling, user health centers & esus import applied successfully.');
     } catch (error) {
