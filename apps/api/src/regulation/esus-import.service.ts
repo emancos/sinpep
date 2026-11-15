@@ -357,17 +357,38 @@ export class EsusImportService {
     const doctorCache = new Map<string, string>();
 
     // Busca perfil de Médico
-    const [medicoProfile] = await this.db
+    let [medicoProfile] = await this.db
       .select({ id: schema.profiles.id })
       .from(schema.profiles)
-      .where(ilike(schema.profiles.name, '%MÉDICO%'))
+      .where(or(
+        eq(schema.profiles.name, 'Médico'),
+        eq(schema.profiles.name, 'Medico'),
+        ilike(schema.profiles.name, '%médico%'),
+        ilike(schema.profiles.name, '%medico%')
+      ))
       .limit(1);
 
-    const [fallbackProfile] = !medicoProfile
-      ? await this.db.select({ id: schema.profiles.id }).from(schema.profiles).limit(1)
-      : [null];
+    if (!medicoProfile) {
+      const [newProf] = await this.db
+        .insert(schema.profiles)
+        .values({
+          id: crypto.randomUUID(),
+          name: 'Médico',
+          description: 'Acesso às rotinas clínicas (prontuários, pacientes e consulta de procedimentos)',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+        .onConflictDoNothing()
+        .returning({ id: schema.profiles.id });
+      if (newProf) {
+        medicoProfile = newProf;
+      } else {
+        const [existing] = await this.db.select({ id: schema.profiles.id }).from(schema.profiles).limit(1);
+        medicoProfile = existing;
+      }
+    }
 
-    const medicoProfileId = medicoProfile?.id || fallbackProfile?.id || crypto.randomUUID();
+    const medicoProfileId = medicoProfile.id;
 
     // Executa em transação atômica do banco de dados
     await this.db.transaction(async (tx: any) => {
@@ -1089,58 +1110,58 @@ export class EsusImportService {
         // ---------------------------------------------------------
         try {
           const docSpecialtyId = await this.resolveSpecialtyId(tx, procName, undefined, specialtyCache);
-          if (docSpecialtyId) {
-            // 8.1 Profissional Solicitante
-            if (
-              src.noProfissionalSolicitante ||
-              src.nuCpfProfissionalSolicitante ||
-              src.nuCnsProfissionalSolicitante ||
-              src.nuCrmSolicitante
-            ) {
-              await this.autoRegisterDoctorInBatch(
-                tx,
-                {
-                  name: src.noProfissionalSolicitante,
-                  cpf: src.nuCpfProfissionalSolicitante,
-                  cns: src.nuCnsProfissionalSolicitante,
-                  crm: src.nuCrmSolicitante,
-                  healthCenterId,
-                  procedureId,
-                  specialtyId: docSpecialtyId,
-                  nowTz,
-                },
-                medicoProfileId,
-                doctorCache,
-              );
-            }
 
-            // 8.2 Profissional Executante (se presente)
-            if (
-              src.noProfissionalExecutante ||
-              src.nuCpfProfissionalExecutante ||
-              src.nuCnsProfissionalExecutante
-            ) {
-              let execCenterId = healthCenterId;
-              const execCnes = (src.coCnesEstabelecimentoExecutante || '').trim();
-              if (execCnes && healthCenterCache.has(execCnes)) {
-                execCenterId = healthCenterCache.get(execCnes)!;
-              }
-              await this.autoRegisterDoctorInBatch(
-                tx,
-                {
-                  name: src.noProfissionalExecutante,
-                  cpf: src.nuCpfProfissionalExecutante,
-                  cns: src.nuCnsProfissionalExecutante,
-                  crm: (src as any).nuCrmExecutante || (src as any).nuCrmProfissionalExecutante,
-                  healthCenterId: execCenterId,
-                  procedureId,
-                  specialtyId: docSpecialtyId,
-                  nowTz,
-                },
-                medicoProfileId,
-                doctorCache,
-              );
+          // 8.1 Profissional Solicitante
+          const solName = src.noProfissionalSolicitante || (src as any).noProfissional || (src as any).nomeProfissionalSolicitante;
+          const solCpf = src.nuCpfProfissionalSolicitante || (src as any).nuCpfProfissional || (src as any).cpfProfissionalSolicitante;
+          const solCns = src.nuCnsProfissionalSolicitante || (src as any).nuCnsProfissional || (src as any).cnsProfissionalSolicitante;
+          const solCrm = src.nuCrmSolicitante || (src as any).nuCrm || (src as any).crmSolicitante;
+
+          if (solName || solCpf || solCns || solCrm) {
+            await this.autoRegisterDoctorInBatch(
+              tx,
+              {
+                name: solName,
+                cpf: solCpf,
+                cns: solCns,
+                crm: solCrm,
+                healthCenterId,
+                procedureId,
+                specialtyId: docSpecialtyId || undefined,
+                nowTz,
+              },
+              medicoProfileId,
+              doctorCache,
+            );
+          }
+
+          // 8.2 Profissional Executante (se presente)
+          const execName = src.noProfissionalExecutante || (src as any).noExecutante || (src as any).nomeProfissionalExecutante;
+          const execCpf = src.nuCpfProfissionalExecutante || (src as any).nuCpfExecutante || (src as any).cpfProfissionalExecutante;
+          const execCns = src.nuCnsProfissionalExecutante || (src as any).nuCnsExecutante || (src as any).cnsProfissionalExecutante;
+          const execCrm = src.nuCrmExecutante || (src as any).crmExecutante || (src as any).nuCrmProfissionalExecutante;
+
+          if (execName || execCpf || execCns || execCrm) {
+            let execCenterId = healthCenterId;
+            const execCnes = (src.coCnesEstabelecimentoExecutante || '').trim();
+            if (execCnes && healthCenterCache.has(execCnes)) {
+              execCenterId = healthCenterCache.get(execCnes)!;
             }
+            await this.autoRegisterDoctorInBatch(
+              tx,
+              {
+                name: execName,
+                cpf: execCpf,
+                cns: execCns,
+                crm: execCrm,
+                healthCenterId: execCenterId,
+                procedureId,
+                specialtyId: docSpecialtyId || undefined,
+                nowTz,
+              },
+              medicoProfileId,
+              doctorCache,
+            );
           }
         } catch (err: any) {
           this.logger.warn(`Falha não impeditiva ao auto-registrar médicos da solicitação ${protocol}: ${err.message}`);
@@ -1335,7 +1356,7 @@ export class EsusImportService {
       crm?: string;
       healthCenterId: string;
       procedureId?: string | null;
-      specialtyId: string;
+      specialtyId?: string | null;
       nowTz: string;
     },
     medicoProfileId: string,
@@ -1353,18 +1374,18 @@ export class EsusImportService {
     const validCns = cleanCns.length >= 10 ? cleanCns : null;
     const cleanCrm = doctorData.crm ? String(doctorData.crm).trim() : null;
 
-    if (!cleanCpf && !validCns && !cleanCrm) {
+    if (!cleanCpf && !validCns && !cleanCrm && (!rawName || rawName.length < 3)) {
       return null;
     }
 
-    const cacheKey = cleanCpf || validCns || cleanCrm || rawName;
+    const cacheKey = cleanCpf || validCns || cleanCrm || rawName.toUpperCase();
     if (doctorCache.has(cacheKey)) {
       const existingDocId = doctorCache.get(cacheKey)!;
       await this.ensureDoctorRelations(tx, existingDocId, doctorData.specialtyId, doctorData.procedureId, doctorData.nowTz);
       return existingDocId;
     }
 
-    // Busca médico existente por CPF, CNS ou CRM
+    // Busca médico existente por CPF, CNS, CRM ou Nome
     let existingDoctor: typeof schema.doctors.$inferSelect | null = null;
     if (cleanCpf) {
       const [found] = await tx
@@ -1392,6 +1413,21 @@ export class EsusImportService {
         .where(eq(schema.doctors.crm, cleanCrm))
         .limit(1);
       if (found) existingDoctor = found;
+    }
+    if (!existingDoctor && rawName && rawName.length >= 3) {
+      const [foundUser] = await tx
+        .select({ id: schema.users.id })
+        .from(schema.users)
+        .where(eq(schema.users.name, rawName.toUpperCase()))
+        .limit(1);
+      if (foundUser) {
+        const [foundDoc] = await tx
+          .select()
+          .from(schema.doctors)
+          .where(eq(schema.doctors.userId, foundUser.id))
+          .limit(1);
+        if (foundDoc) existingDoctor = foundDoc;
+      }
     }
 
     if (existingDoctor) {
@@ -1444,7 +1480,16 @@ export class EsusImportService {
       .replace(/\.+/g, '.')
       .replace(/^\.|\.$/g, '');
     const randomSuffix = cleanCpf ? cleanCpf.slice(-4) : Math.floor(Math.random() * 8999 + 1000);
-    const generatedEmail = `${cleanNormalized || 'medico'}.${randomSuffix}@saude.gov.br`;
+    let generatedEmail = `${cleanNormalized || 'medico'}.${randomSuffix}@saude.gov.br`;
+    const [existingEmail] = await tx
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.email, generatedEmail))
+      .limit(1);
+    if (existingEmail) {
+      generatedEmail = `${cleanNormalized || 'medico'}.${Date.now().toString().slice(-6)}@saude.gov.br`;
+    }
+
     const defaultPasswordHash = '$2b$10$wT8K.VbEaXN9E5PqD6G9YeB8eY1qX9s2a7d4h3k2j1m0o9p8q7r6s'; // '123456'
 
     await tx.insert(schema.users).values({
