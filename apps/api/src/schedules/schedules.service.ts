@@ -138,6 +138,57 @@ export class SchedulesService {
   }
 
   /**
+   * Helper: Verifica se o médico está vinculado a uma unidade de saúde (diretamente ou via userHealthCenters)
+   */
+  private isDoctorInCenter(d: any, centerId: string): boolean {
+    if (!d || !centerId) return false;
+    if (d.user?.healthCenterId === centerId) return true;
+    if (d.user?.userHealthCenters?.some((uhc: any) => uhc.healthCenterId === centerId)) return true;
+    return false;
+  }
+
+  /**
+   * Helper: Verifica se o médico está habilitado/autorizado a realizar um procedimento
+   */
+  private isDoctorAllowedForProcedure(
+    doctor: any,
+    procedure: { id: string; name: string; procedureGroupId?: string | null },
+    scheduleType: string,
+  ): boolean {
+    if (!doctor || !procedure) return false;
+
+    // 1. Vínculo explícito em doctorProcedures tem prioridade máxima
+    const isExplicit = doctor.doctorProcedures?.some(
+      (dp: any) => dp.procedureId === procedure.id,
+    );
+    if (isExplicit) return true;
+
+    // 2. Para CONSULTA: verifica compatibilidade semântica com as especialidades/CBOs do profissional
+    if (scheduleType === 'CONSULTA') {
+      const docSpecs = doctor.doctorSpecialties?.map((ds: any) => ds.specialty) || [];
+      return docSpecs.some((spec: any) =>
+        this.isProcedureCompatibleWithSpecialty(procedure.name, spec.name, spec.cbo),
+      );
+    }
+
+    // 3. Para EXAME ou PROCEDIMENTO:
+    // Se o profissional tiver procedimentos cadastrados especificamente, restringe estritamente a eles
+    if (doctor.doctorProcedures && doctor.doctorProcedures.length > 0) {
+      return false;
+    }
+
+    // Se não tiver procedimentos restritos, verifica compatibilidade semântica com a especialidade
+    const docSpecs = doctor.doctorSpecialties?.map((ds: any) => ds.specialty) || [];
+    if (docSpecs.length > 0) {
+      return docSpecs.some((spec: any) =>
+        this.isProcedureCompatibleWithSpecialty(procedure.name, spec.name, spec.cbo),
+      );
+    }
+
+    return true;
+  }
+
+  /**
    * 1. Endpoints de dependências reativas dos 4 selects (Estabelecimento, Procedimento, Profissional, CBO)
    */
   async getDependencies(filters: {
@@ -192,13 +243,6 @@ export class SchedulesService {
       },
       orderBy: [asc(schema.doctors.crm)],
     });
-
-    // Helper: Verifica se o médico pertence ao estabelecimento de saúde
-    const isDoctorInCenter = (d: any, centerId: string) => {
-      if (d.user?.healthCenterId === centerId) return true;
-      if (d.user?.userHealthCenters?.some((uhc: any) => uhc.healthCenterId === centerId)) return true;
-      return false;
-    };
 
     // 1.5 Especialidades com CBO
     const allSpecialties = await this.db.query.specialties.findMany({
@@ -338,16 +382,14 @@ export class SchedulesService {
     // =========================================================================
     if (filters.healthCenterId) {
       // 1. Médicos vinculados à unidade executante selecionada (direto ou via userHealthCenters)
-      filteredDoctors = filteredDoctors.filter((d) => isDoctorInCenter(d, filters.healthCenterId!));
+      filteredDoctors = filteredDoctors.filter((d) => this.isDoctorInCenter(d, filters.healthCenterId!));
 
       // 2. CBOs dos médicos vinculados a esta unidade
       const unitCbos = new Set<string>();
-      const unitSpecialties: typeof allSpecialties = [];
       filteredDoctors.forEach((d) => {
         d.doctorSpecialties?.forEach((ds) => {
-          if (ds.specialty.cbo) {
+          if (ds.specialty?.cbo) {
             unitCbos.add(ds.specialty.cbo);
-            unitSpecialties.push(ds.specialty);
           }
         });
       });
@@ -357,53 +399,13 @@ export class SchedulesService {
       }
 
       // 3. Resolução de Procedimentos e Grupos com Cotas Configuradas na Unidade
-      const configuredProcs = allProcedures.filter(
+      // Exibe estritamente os procedimentos e grupos que possuem cotas configuradas na unidade executante selecionada
+      filteredProcedures = allProcedures.filter(
         (p) => quotaProcedureIds.has(p.id) || (p.procedureGroupId && quotaGroupIds.has(p.procedureGroupId)),
       );
-      const configuredGroups = allGroups.filter(
+      filteredGroups = allGroups.filter(
         (g) => quotaGroupIds.has(g.id) || (g.procedures || []).some((p) => quotaProcedureIds.has(p.id)),
       );
-
-      const hasConfiguredQuotas = configuredProcs.length > 0 || configuredGroups.length > 0;
-
-      if (hasConfiguredQuotas) {
-        // Quando a unidade possui cotas configuradas para o tipo selecionado,
-        // exibe prioritariamente os procedimentos e grupos com cotas configuradas
-        filteredProcedures = configuredProcs;
-        filteredGroups = configuredGroups;
-
-        // Se for CONSULTA e houver especialidades dos médicos da unidade, inclui também consultas compatíveis
-        if (scheduleType === 'CONSULTA' && unitSpecialties.length > 0) {
-          const compatibleDoctorProcs = allProcedures.filter((proc) => {
-            const isExplicitDoctorProc = filteredDoctors.some((d) =>
-              d.doctorProcedures?.some((dp) => dp.procedureId === proc.id),
-            );
-            if (isExplicitDoctorProc) return true;
-            return unitSpecialties.some((spec) =>
-              this.isProcedureCompatibleWithSpecialty(proc.name, spec.name, spec.cbo),
-            );
-          });
-          const combined = new Map<string, typeof allProcedures[0]>();
-          filteredProcedures.forEach((p) => combined.set(p.id, p));
-          compatibleDoctorProcs.forEach((p) => combined.set(p.id, p));
-          filteredProcedures = Array.from(combined.values());
-        }
-      } else {
-        // Se a unidade ainda não configurou cotas para este tipo:
-        // Se for CONSULTA e houver médicos na unidade, filtra por compatibilidade
-        if (scheduleType === 'CONSULTA' && unitSpecialties.length > 0) {
-          filteredProcedures = filteredProcedures.filter((proc) => {
-            const isExplicitDoctorProc = filteredDoctors.some((d) =>
-              d.doctorProcedures?.some((dp) => dp.procedureId === proc.id),
-            );
-            if (isExplicitDoctorProc) return true;
-            return unitSpecialties.some((spec) =>
-              this.isProcedureCompatibleWithSpecialty(proc.name, spec.name, spec.cbo),
-            );
-          });
-        }
-        // Caso a unidade não tenha médicos vinculados ainda, mantém a lista de catálogo disponível para agendamento
-      }
     }
 
     // =========================================================================
@@ -413,6 +415,10 @@ export class SchedulesService {
       filteredGroups = filteredGroups.filter((g) => g.id === filters.procedureGroupId);
       filteredProcedures = filteredProcedures.filter(
         (p) => p.procedureGroupId === filters.procedureGroupId,
+      );
+      // Médicos que podem executar ao menos um procedimento do grupo
+      filteredDoctors = filteredDoctors.filter((d) =>
+        filteredProcedures.some((proc) => this.isDoctorAllowedForProcedure(d, proc, scheduleType)),
       );
     }
 
@@ -434,23 +440,23 @@ export class SchedulesService {
 
         // CBOs específicos do médico
         const docCbos = new Set(
-          selectedDoc.doctorSpecialties?.map((ds) => ds.specialty.cbo).filter(Boolean) as string[],
+          selectedDoc.doctorSpecialties?.map((ds) => ds.specialty?.cbo).filter(Boolean) as string[],
         );
         if (docCbos.size > 0) {
           filteredCbos = filteredCbos.filter((s) => docCbos.has(s.cbo!));
         }
 
-        // Se for consulta, procedimentos compatíveis com o médico
-        if (scheduleType === 'CONSULTA') {
-          const docSpecs = selectedDoc.doctorSpecialties?.map((ds) => ds.specialty) || [];
-          filteredProcedures = filteredProcedures.filter((proc) => {
-            const isExplicit = selectedDoc.doctorProcedures?.some((dp) => dp.procedureId === proc.id);
-            if (isExplicit) return true;
-            return docSpecs.some((spec) =>
-              this.isProcedureCompatibleWithSpecialty(proc.name, spec.name, spec.cbo),
-            );
-          });
-        }
+        // Filtra procedimentos estritamente permitidos para o médico
+        filteredProcedures = filteredProcedures.filter((proc) =>
+          this.isDoctorAllowedForProcedure(selectedDoc, proc, scheduleType),
+        );
+
+        // Filtra grupos que possuam ao menos um procedimento permitido para o médico
+        filteredGroups = filteredGroups.filter((group) =>
+          (group.procedures || []).some((proc) =>
+            this.isDoctorAllowedForProcedure(selectedDoc, proc, scheduleType),
+          ),
+        );
       }
     }
 
@@ -462,7 +468,7 @@ export class SchedulesService {
 
       // Médicos que possuem esse CBO
       filteredDoctors = filteredDoctors.filter((d) =>
-        d.doctorSpecialties?.some((ds) => ds.specialty.cbo === filters.cbo),
+        d.doctorSpecialties?.some((ds) => ds.specialty?.cbo === filters.cbo),
       );
 
       // Estabelecimentos que possuem médicos com esse CBO
@@ -501,15 +507,9 @@ export class SchedulesService {
         }
 
         // Médicos compatíveis (possuem especialidade compatível ou vínculo explícito)
-        if (scheduleType === 'CONSULTA') {
-          filteredDoctors = filteredDoctors.filter((d) => {
-            const hasExplicit = d.doctorProcedures?.some((dp) => dp.procedureId === selectedProc.id);
-            if (hasExplicit) return true;
-            return d.doctorSpecialties?.some((ds) =>
-              this.isProcedureCompatibleWithSpecialty(selectedProc.name, ds.specialty.name, ds.specialty.cbo),
-            );
-          });
-        }
+        filteredDoctors = filteredDoctors.filter((d) =>
+          this.isDoctorAllowedForProcedure(d, selectedProc, scheduleType),
+        );
 
         // Estabelecimentos que possuem médicos compatíveis
         const centersWithDoc = new Set(
@@ -521,6 +521,19 @@ export class SchedulesService {
         if (centersWithDoc.size > 0 && !filters.healthCenterId) {
           filteredCenters = filteredCenters.filter((c) => centersWithDoc.has(c.id));
         }
+      }
+    }
+
+    // Refinamento de CBOs para consultas: exibe apenas CBOs que possuem procedimentos correspondentes
+    if (scheduleType === 'CONSULTA' && (filters.healthCenterId || filters.doctorId)) {
+      if (filteredProcedures.length === 0) {
+        filteredCbos = [];
+      } else {
+        filteredCbos = filteredCbos.filter((spec) =>
+          filteredProcedures.some((proc) =>
+            this.isProcedureCompatibleWithSpecialty(proc.name, spec.name, spec.cbo),
+          ),
+        );
       }
     }
 
@@ -1053,6 +1066,233 @@ export class SchedulesService {
   }
 
   /**
+   * Validação estrita de elegibilidade e cotas:
+   * 1. Unidade Executante ativa e com perfil de Coordenador respeitado.
+   * 2. Vínculo do profissional com a unidade executante.
+   * 3. Vínculo do CBO informado com o profissional.
+   * 4. Existência de cotas pactuadas/configuradas para o procedimento/grupo na unidade executante.
+   * 5. Habilitação/compatibilidade do profissional para realizar o procedimento selecionado.
+   */
+  private async validateScheduleEligibility(
+    params: {
+      executingHealthCenterId: string;
+      doctorId: string;
+      cbo: string;
+      scheduleType?: string;
+      procedureId?: string | null;
+      procedureGroupId?: string | null;
+      enabledProcedureIds?: string[] | null;
+    },
+    user: AuthUser,
+  ) {
+    const {
+      executingHealthCenterId,
+      doctorId,
+      cbo,
+      scheduleType = 'CONSULTA',
+      procedureId,
+      procedureGroupId,
+      enabledProcedureIds,
+    } = params;
+
+    // 1. Unidade Executante
+    const healthCenter = await this.db.query.healthCenters.findFirst({
+      where: eq(schema.healthCenters.id, executingHealthCenterId),
+    });
+
+    if (!healthCenter) {
+      throw new BadRequestException('Unidade Executante informada não encontrada.');
+    }
+    if (!healthCenter.stExecutante) {
+      throw new BadRequestException(
+        `A unidade "${healthCenter.name}" não está configurada como estabelecimento executante.`
+      );
+    }
+
+    const isCoordinator = user.activeProfileName === 'Coordenador de Unidade';
+    if (isCoordinator && user.healthCenterId && executingHealthCenterId !== user.healthCenterId) {
+      throw new ForbiddenException(
+        'Coordenadores de Unidade só podem criar ou editar escalas para sua própria unidade de saúde.'
+      );
+    }
+
+    // 2. Médico e vínculo com a unidade executante
+    const doctor = await this.db.query.doctors.findFirst({
+      where: eq(schema.doctors.id, doctorId),
+      with: {
+        user: {
+          with: { userHealthCenters: true },
+        },
+        doctorSpecialties: {
+          with: { specialty: true },
+        },
+        doctorProcedures: {
+          with: { procedure: true },
+        },
+      },
+    });
+
+    if (!doctor || !doctor.isActive) {
+      throw new BadRequestException('Profissional selecionado não encontrado ou inativo.');
+    }
+
+    const isLinked = this.isDoctorInCenter(doctor, executingHealthCenterId);
+    if (!isLinked) {
+      throw new BadRequestException(
+        `O profissional "${doctor.user?.name || doctor.crm}" não possui vínculo ativo com a unidade executante "${healthCenter.name}".`
+      );
+    }
+
+    // 3. Vínculo do CBO com o profissional
+    const doctorCbos = (doctor.doctorSpecialties || [])
+      .map((ds) => ds.specialty?.cbo)
+      .filter(Boolean);
+
+    if (cbo && doctorCbos.length > 0 && !doctorCbos.includes(cbo)) {
+      throw new BadRequestException(
+        `O CBO "${cbo}" informado não pertence às especialidades cadastradas do profissional "${doctor.user?.name || doctor.crm}".`
+      );
+    }
+
+    // 4. Cotas Pactuadas/Configuradas na Unidade Executante
+    if (procedureId) {
+      const [hcProc, solQuota, procData] = await Promise.all([
+        this.db.query.healthCenterProcedures.findFirst({
+          where: and(
+            eq(schema.healthCenterProcedures.healthCenterId, executingHealthCenterId),
+            eq(schema.healthCenterProcedures.procedureId, procedureId),
+            or(
+              eq(schema.healthCenterProcedures.isOffered, true),
+              gt(schema.healthCenterProcedures.monthlyQuantity, 0),
+            ),
+          ),
+        }),
+        this.db.query.procedureSolicitorQuotas.findFirst({
+          where: and(
+            eq(schema.procedureSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+            eq(schema.procedureSolicitorQuotas.procedureId, procedureId),
+            gt(schema.procedureSolicitorQuotas.monthlyQuota, 0),
+          ),
+        }),
+        this.db.query.procedures.findFirst({
+          where: eq(schema.procedures.id, procedureId),
+        }),
+      ]);
+
+      if (!procData) {
+        throw new BadRequestException('Procedimento informado não encontrado.');
+      }
+
+      let groupHasQuota = false;
+      if (procData.procedureGroupId) {
+        const [hcGroup, groupSolQuota] = await Promise.all([
+          this.db.query.healthCenterProcedureGroups.findFirst({
+            where: and(
+              eq(schema.healthCenterProcedureGroups.healthCenterId, executingHealthCenterId),
+              eq(schema.healthCenterProcedureGroups.procedureGroupId, procData.procedureGroupId),
+              or(
+                eq(schema.healthCenterProcedureGroups.isOffered, true),
+                gt(schema.healthCenterProcedureGroups.monthlyQuantity, 0),
+              ),
+            ),
+          }),
+          this.db.query.procedureGroupSolicitorQuotas.findFirst({
+            where: and(
+              eq(schema.procedureGroupSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+              eq(schema.procedureGroupSolicitorQuotas.procedureGroupId, procData.procedureGroupId),
+              gt(schema.procedureGroupSolicitorQuotas.monthlyQuota, 0),
+            ),
+          }),
+        ]);
+        groupHasQuota = Boolean(hcGroup || groupSolQuota);
+      }
+
+      const hasQuota = Boolean(hcProc || solQuota || groupHasQuota);
+      if (!hasQuota) {
+        throw new BadRequestException(
+          `O procedimento "${procData.name}" não possui cotas configuradas na unidade executante "${healthCenter.name}".`
+        );
+      }
+
+      // 5. Habilitação do Profissional para o Procedimento
+      const isAllowed = this.isDoctorAllowedForProcedure(doctor, procData, scheduleType);
+      if (!isAllowed) {
+        throw new BadRequestException(
+          `O profissional "${doctor.user?.name || doctor.crm}" não possui autorização ou especialidade compatível para realizar o procedimento "${procData.name}".`
+        );
+      }
+    } else if (procedureGroupId) {
+      const [hcGroup, groupSolQuota] = await Promise.all([
+        this.db.query.healthCenterProcedureGroups.findFirst({
+          where: and(
+            eq(schema.healthCenterProcedureGroups.healthCenterId, executingHealthCenterId),
+            eq(schema.healthCenterProcedureGroups.procedureGroupId, procedureGroupId),
+            or(
+              eq(schema.healthCenterProcedureGroups.isOffered, true),
+              gt(schema.healthCenterProcedureGroups.monthlyQuantity, 0),
+            ),
+          ),
+        }),
+        this.db.query.procedureGroupSolicitorQuotas.findFirst({
+          where: and(
+            eq(schema.procedureGroupSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+            eq(schema.procedureGroupSolicitorQuotas.procedureGroupId, procedureGroupId),
+            gt(schema.procedureGroupSolicitorQuotas.monthlyQuota, 0),
+          ),
+        }),
+      ]);
+
+      const groupProcs = await this.db.query.procedures.findMany({
+        where: eq(schema.procedures.procedureGroupId, procedureGroupId),
+      });
+
+      const enabled = enabledProcedureIds && enabledProcedureIds.length > 0
+        ? groupProcs.filter((p) => enabledProcedureIds.includes(p.id))
+        : groupProcs;
+
+      let anyProcQuota = false;
+      if (enabled.length > 0) {
+        const procIds = enabled.map((p) => p.id);
+        const [foundHc, foundSol] = await Promise.all([
+          this.db.query.healthCenterProcedures.findFirst({
+            where: and(
+              eq(schema.healthCenterProcedures.healthCenterId, executingHealthCenterId),
+              inArray(schema.healthCenterProcedures.procedureId, procIds),
+              or(
+                eq(schema.healthCenterProcedures.isOffered, true),
+                gt(schema.healthCenterProcedures.monthlyQuantity, 0),
+              ),
+            ),
+          }),
+          this.db.query.procedureSolicitorQuotas.findFirst({
+            where: and(
+              eq(schema.procedureSolicitorQuotas.executingHealthCenterId, executingHealthCenterId),
+              inArray(schema.procedureSolicitorQuotas.procedureId, procIds),
+              gt(schema.procedureSolicitorQuotas.monthlyQuota, 0),
+            ),
+          }),
+        ]);
+        anyProcQuota = Boolean(foundHc || foundSol);
+      }
+
+      if (!hcGroup && !groupSolQuota && !anyProcQuota) {
+        throw new BadRequestException(
+          `O grupo de procedimentos selecionado não possui cotas configuradas na unidade executante "${healthCenter.name}".`
+        );
+      }
+
+      const anyAllowed = enabled.some((proc) =>
+        this.isDoctorAllowedForProcedure(doctor, proc, scheduleType),
+      );
+      if (!anyAllowed) {
+        throw new BadRequestException(
+          `O profissional "${doctor.user?.name || doctor.crm}" não possui autorização ou especialidade compatível para os procedimentos deste grupo.`
+        );
+      }
+    }
+  }
+
+  /**
    * 6. Criação de Agenda com Validação Anti-Conflito e Geração de Vagas
    */
   async create(dto: CreateScheduleDto, user: AuthUser) {
@@ -1070,6 +1310,20 @@ export class SchedulesService {
     if (!dto.procedureId && !dto.procedureGroupId) {
       throw new BadRequestException('É obrigatório informar o procedimento ou grupo de procedimentos.');
     }
+
+    // Validação estrita de elegibilidade, vínculos e cotas
+    await this.validateScheduleEligibility(
+      {
+        executingHealthCenterId,
+        doctorId: dto.doctorId,
+        cbo: dto.cbo,
+        scheduleType: dto.scheduleType,
+        procedureId: dto.procedureId,
+        procedureGroupId: dto.procedureGroupId,
+        enabledProcedureIds: dto.enabledProcedureIds,
+      },
+      user,
+    );
 
     // Validação de intervalo de datas (limite máximo de 180 dias / 6 meses)
     const startDate = new Date(`${dto.startDate}T00:00:00`);
@@ -1197,6 +1451,27 @@ export class SchedulesService {
     const returnMinutes = dto.returnMinutes !== undefined ? dto.returnMinutes : existing.returnMinutes;
     const regulatorReservedQuantity = dto.regulatorReservedQuantity !== undefined ? dto.regulatorReservedQuantity : existing.regulatorReservedQuantity;
     const regulatorReservedMinutes = dto.regulatorReservedMinutes !== undefined ? dto.regulatorReservedMinutes : existing.regulatorReservedMinutes;
+
+    const executingHealthCenterId = existing.executingHealthCenterId;
+    const procedureId = dto.procedureId !== undefined ? dto.procedureId : existing.procedureId;
+    const procedureGroupId = dto.procedureGroupId !== undefined ? dto.procedureGroupId : existing.procedureGroupId;
+    const cbo = dto.cbo || existing.cbo;
+    const scheduleType = dto.scheduleType || existing.scheduleType;
+    const enabledProcedureIds = dto.enabledProcedureIds !== undefined ? dto.enabledProcedureIds : existing.enabledProcedureIds;
+
+    // Validação estrita de elegibilidade, vínculos e cotas
+    await this.validateScheduleEligibility(
+      {
+        executingHealthCenterId,
+        doctorId,
+        cbo,
+        scheduleType,
+        procedureId,
+        procedureGroupId,
+        enabledProcedureIds,
+      },
+      user,
+    );
 
     // Valida capacidade do turno vs soma do tempo de atendimento configurado
     this.validateTurnCapacity(

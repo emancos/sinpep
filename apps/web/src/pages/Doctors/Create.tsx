@@ -155,7 +155,7 @@ export const CreateOrEditDoctor: React.FC = () => {
   const consultationOptions = consultationProcedures.map(p => ({ value: p.id, label: p.name }));
   const examOptions = examProcedures.map(p => ({ value: p.id, label: p.name }));
   const procedureGroupOptions = procedureGroupsData?.map(pg => ({ value: pg.id, label: pg.name })) || [];
-  const specialtyOptions = specialtiesData?.data?.filter(s => s.name.toUpperCase().includes('MEDICO') || s.name.toUpperCase().includes('MÉDICO')).map(s => ({ value: s.id, label: s.name })) || [];
+  const specialtyOptions = specialtiesData?.data?.map(s => ({ value: s.id, label: s.name })) || [];
 
 
   const handleSearchCnes = async (e: React.FormEvent) => {

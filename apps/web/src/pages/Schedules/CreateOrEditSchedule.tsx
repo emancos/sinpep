@@ -152,28 +152,28 @@ export const CreateOrEditSchedule: React.FC = () => {
     if (!deps) return;
 
     // Se o estabelecimento selecionado não for mais válido
-    if (healthCenterId && !isCoordinator && deps.healthCenters.length > 0 && !deps.healthCenters.some((c) => c.id === healthCenterId)) {
+    if (healthCenterId && !isCoordinator && !deps.healthCenters.some((c) => c.id === healthCenterId)) {
       setHealthCenterId('');
     }
 
     // Se o procedimento selecionado não for compatível com as opções filtradas
-    if (procedureId && deps.procedures.length > 0 && !deps.procedures.some((p) => p.id === procedureId)) {
+    if (procedureId && !deps.procedures.some((p) => p.id === procedureId)) {
       setProcedureId('');
     }
 
     // Se o grupo de procedimento selecionado não for compatível
-    if (procedureGroupId && deps.procedureGroups.length > 0 && !deps.procedureGroups.some((g) => g.id === procedureGroupId)) {
+    if (procedureGroupId && !deps.procedureGroups.some((g) => g.id === procedureGroupId)) {
       setProcedureGroupId('');
       setEnabledProcedureIds([]);
     }
 
     // Se o médico selecionado não for compatível com as opções filtradas
-    if (doctorId && deps.doctors.length > 0 && !deps.doctors.some((d) => d.id === doctorId)) {
+    if (doctorId && !deps.doctors.some((d) => d.id === doctorId)) {
       setDoctorId('');
     }
 
     // Se o CBO selecionado não for compatível com as opções filtradas
-    if (cbo && deps.cbos.length > 0 && !deps.cbos.some((c) => c.cbo === cbo)) {
+    if (cbo && !deps.cbos.some((c) => c.cbo === cbo)) {
       setCbo('');
     }
   }, [deps, healthCenterId, procedureId, procedureGroupId, doctorId, cbo, isCoordinator]);
@@ -613,8 +613,12 @@ export const CreateOrEditSchedule: React.FC = () => {
                   >
                     <option value="">
                       {scheduleType === 'CONSULTA'
-                        ? 'Selecione o Procedimento...'
-                        : 'Selecione o Procedimento ou Grupo...'}
+                        ? deps && deps.procedures.length === 0 && (healthCenterId || doctorId)
+                          ? 'Nenhum procedimento com cota disponível'
+                          : 'Selecione o Procedimento...'
+                        : deps && deps.procedures.length === 0 && (deps.procedureGroups?.length || 0) === 0 && (healthCenterId || doctorId)
+                          ? 'Nenhum procedimento com cota disponível'
+                          : 'Selecione o Procedimento ou Grupo...'}
                     </option>
 
                     {/* Se não for consulta e existirem grupos, lista os grupos primeiro */}
@@ -629,13 +633,15 @@ export const CreateOrEditSchedule: React.FC = () => {
                     )}
 
                     {/* Procedimentos Individuais */}
-                    <optgroup label={scheduleType !== 'CONSULTA' ? 'Procedimentos Individuais' : 'Consultas'}>
-                      {deps?.procedures.map((p) => (
-                        <option key={`PROC:${p.id}`} value={`PROC:${p.id}`}>
-                          {p.label}
-                        </option>
-                      ))}
-                    </optgroup>
+                    {deps?.procedures && deps.procedures.length > 0 && (
+                      <optgroup label={scheduleType !== 'CONSULTA' ? 'Procedimentos Individuais' : 'Consultas'}>
+                        {deps.procedures.map((p) => (
+                          <option key={`PROC:${p.id}`} value={`PROC:${p.id}`}>
+                            {p.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                   {currentProcedureValue && (
                     <button
@@ -648,12 +654,17 @@ export const CreateOrEditSchedule: React.FC = () => {
                     </button>
                   )}
                 </div>
-                {healthCenterId && (deps?.procedures?.some((p) => p.hasQuota) || deps?.procedureGroups?.some((g) => g.hasQuota)) && (
+                {healthCenterId && (deps?.procedures?.some((p) => p.hasQuota) || deps?.procedureGroups?.some((g) => g.hasQuota)) ? (
                   <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                     Exibindo procedimentos com cotas pactuadas nesta unidade executante.
                   </p>
-                )}
+                ) : healthCenterId && deps && deps.procedures.length === 0 && (deps.procedureGroups?.length || 0) === 0 ? (
+                  <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    Nenhum procedimento com cota configurada para esta unidade ou profissional selecionado.
+                  </p>
+                ) : null}
               </div>
 
               {/* Profissional */}

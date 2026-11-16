@@ -107,4 +107,55 @@ describe('CreateOrEditSchedule - Quotas in Selects', () => {
     expect(screen.getByText(/\[02\] GRUPO - ULTRASSONOGRAFIA - GERAL \[Cota: 120\/mês\]/i)).toBeInTheDocument();
     expect(screen.getByText(/0205020097 - ULTRASSONOGRAFIA DE MAMAS \[Cota: 80\/mês\]/i)).toBeInTheDocument();
   });
+
+  it('exibe o select de procedimento vazio e alerta quando não há cotas configuradas para o médico selecionado', async () => {
+    vi.spyOn(useSchedulesModule, 'useScheduleDependencies').mockReturnValue({
+      data: {
+        healthCenters: [
+          { id: 'center-1', name: 'POLICLÍNICA CENTRAL', cnes: '1234567', label: '1234567 - POLICLÍNICA CENTRAL' },
+        ],
+        procedureGroups: [],
+        procedures: [], // Vazio: médico cardiologista selecionado, mas só há cota de dermatologia na unidade
+        doctors: [
+          { id: 'doc-cardio', name: 'Dr. Cardiologista', crm: '5566/PB', label: 'Dr. Cardiologista (CRM: 5566)' },
+        ],
+        cbos: [],
+      },
+      isLoading: false,
+    } as any);
+
+    vi.spyOn(useSchedulesModule, 'useSchedule').mockReturnValue({
+      data: undefined,
+      isLoading: false,
+    } as any);
+
+    vi.spyOn(useSchedulesModule, 'useCheckScheduleConflicts').mockReturnValue({
+      data: { conflicts: [], susAppointments: [] },
+      isLoading: false,
+    } as any);
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <CreateOrEditSchedule />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    // Deve exibir o placeholder indicando que não há procedimentos com cota
+    expect(
+      await screen.findByText('Nenhum procedimento com cota disponível'),
+    ).toBeInTheDocument();
+
+    // Deve exibir o alerta indicando que não há cotas configuradas para a unidade/profissional
+    expect(
+      screen.getByText(/Nenhum procedimento com cota configurada para esta unidade ou profissional selecionado/i),
+    ).toBeInTheDocument();
+
+    // O select de procedimentos não deve ter nenhuma opção de consulta
+    const select = screen.getByRole('combobox', { name: /Procedimento/i });
+    expect(select).toBeInTheDocument();
+    // Apenas a opção de placeholder deve existir
+    expect(select.children).toHaveLength(1);
+  });
 });
