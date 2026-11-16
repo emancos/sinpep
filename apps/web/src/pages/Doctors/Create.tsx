@@ -52,15 +52,26 @@ const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','P
 type FormData = zod.infer<typeof doctorSchema>;
 
 const customSelectStyles = {
-  control: () => "px-2 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white shadow-sm hover:border-blue-500 transition-colors flex items-center",
-  menu: () => "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-lg mt-2 overflow-hidden z-50",
+  control: () => "px-2 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md text-sm text-slate-900 dark:text-white shadow-sm hover:border-blue-500 transition-colors flex items-center min-h-[42px]",
+  menu: () => "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-2xl mt-1 overflow-hidden z-[9999] w-full",
+  menuList: () => "max-h-60 overflow-y-auto py-1 custom-scrollbar text-sm",
   option: ({ isFocused, isSelected }: any) => `px-4 py-2 text-sm cursor-pointer ${isSelected ? 'bg-blue-600 text-white' : isFocused ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`,
   multiValue: () => "bg-blue-100 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded-md m-1 flex items-center",
   multiValueLabel: () => "px-2 py-0.5 text-xs font-semibold",
   multiValueRemove: () => "px-1.5 py-1 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-r-lg cursor-pointer transition-colors",
   input: () => "text-slate-900 dark:text-white",
   placeholder: () => "text-slate-400 dark:text-slate-500",
-  singleValue: () => "text-slate-900 dark:text-white"
+  singleValue: () => "text-slate-900 dark:text-white",
+  menuPortal: () => "z-[9999]",
+};
+
+const selectPortalProps = {
+  menuPortalTarget: typeof document !== 'undefined' ? document.body : undefined,
+  menuPosition: 'fixed' as const,
+  menuPlacement: 'auto' as const,
+  styles: {
+    menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
+  },
 };
 
 export const CreateOrEditDoctor: React.FC = () => {
@@ -342,7 +353,7 @@ export const CreateOrEditDoctor: React.FC = () => {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-xl shadow-slate-200/50 dark:shadow-none dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md overflow-hidden">
+      <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-xl shadow-slate-200/50 dark:shadow-none dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md">
         
         {/* Step 1: Unidade de Vínculo */}
         <div className={`p-4 md:p-6 space-y-5 ${step === 1 ? 'block' : 'hidden'}`}>
@@ -764,6 +775,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                     placeholder="Selecione as especialidades..."
                     noOptionsMessage={() => "Nenhuma especialidade encontrada"}
                     classNames={customSelectStyles}
+                    {...selectPortalProps}
                     isLoading={loadingSpecialties}
                   />
                 )}
@@ -824,6 +836,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                       placeholder="Selecione as consultas permitidas..."
                       noOptionsMessage={() => "Nenhuma consulta encontrada"}
                       classNames={customSelectStyles}
+                      {...selectPortalProps}
                       isLoading={loadingProcedures}
                     />
                   )}
@@ -865,6 +878,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                         placeholder="Selecione os grupos de procedimentos..."
                         noOptionsMessage={() => "Nenhum grupo encontrado"}
                         classNames={customSelectStyles}
+                        {...selectPortalProps}
                         isLoading={loadingProcedureGroups}
                       />
                     )}
@@ -887,6 +901,7 @@ export const CreateOrEditDoctor: React.FC = () => {
                         placeholder="Selecione os exames que o médico realiza..."
                         noOptionsMessage={() => "Nenhum exame encontrado"}
                         classNames={customSelectStyles}
+                        {...selectPortalProps}
                         isLoading={loadingProcedures}
                       />
                     )}
