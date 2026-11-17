@@ -91,8 +91,8 @@ describe('EsusImportService - Specialty and Doctor Import', () => {
   describe('resolveDoctorCnesInfo', () => {
     it('should prioritize executing unit (Policlinica 2606712) and return its specialty CBO', async () => {
       (integraSusService.findProfessionalInCnes as jest.Mock).mockResolvedValue({
-        cns: '700005530602201',
-        nome: 'CAMILA KARLA PESSOA FRAZAO DIAS',
+        cns: '700000000000002',
+        nome: 'DRA. MEDICA MODELO TESTE',
         unidades: [
           {
             codigo: '2606720',
@@ -129,8 +129,8 @@ describe('EsusImportService - Specialty and Doctor Import', () => {
       const result = await service.resolveDoctorCnesInfo(
         mockTx,
         {
-          name: 'CAMILA KARLA PESSOA FRAZAO DIAS',
-          cns: '700005530602201',
+          name: 'DRA. MEDICA MODELO TESTE',
+          cns: '700000000000002',
           targetCnes: '2606712',
           defaultHealthCenterId: 'default-hc-id',
         },

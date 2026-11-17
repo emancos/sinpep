@@ -53,3 +53,8 @@ lerna-debug.log*
 # Coverage directory used by tools
 coverage/
 *.lcov
+
+# LGPD / Local Private Seeds & Data (Never commit real patient/doctor/ACS data)
+*.local.json
+*.local.ts
+*.local.*

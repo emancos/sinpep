@@ -9,7 +9,7 @@ async function run() {
   const c = new Client({ connectionString: process.env.DATABASE_URL });
   await c.connect();
 
-  console.log('Seeding consultation procedures and doctor Monique...');
+  console.log('Seeding consultation procedures and doctor...');
 
   // 1. Obter grupo 'CONSULTAS / ATENDIMENTOS / ACOMPANHAMENTOS'
   let groupRes = await c.query("SELECT id FROM procedure_groups WHERE name = 'CONSULTAS / ATENDIMENTOS / ACOMPANHAMENTOS' LIMIT 1");
@@ -70,10 +70,10 @@ async function run() {
   const dermRes = await c.query("SELECT id FROM specialties WHERE cbo = '225135' LIMIT 1");
   const dermSpecId = dermRes.rows[0]?.id;
 
-  // 6. Cadastrar Dra. Monique de Oliveira Valdek se não existir
+  // 6. Cadastrar Dr. Médico Dermatologista Teste se não existir
   if (policlinicaId && doctorProfileId && dermSpecId) {
-    const checkMonique = await c.query("SELECT id FROM users WHERE name ILIKE '%MONIQUE DE OLIVEIRA VALDEK%'");
-    if (checkMonique.rows.length === 0) {
+    const checkDoctor = await c.query("SELECT id FROM users WHERE email = 'medico.dermatologia@sinpep.local' OR name ILIKE '%MEDICO DERMATOLOGISTA TESTE%'");
+    if (checkDoctor.rows.length === 0) {
       const userId = randomUUID();
       const doctorId = randomUUID();
 
@@ -82,8 +82,8 @@ async function run() {
          VALUES ($1, $2, $3, $4, true, $5, $6, CURRENT_TIMESTAMP)`,
         [
           userId,
-          'MONIQUE DE OLIVEIRA VALDEK',
-          'monique.valdek@sinpep.com.br',
+          'DR. MEDICO DERMATOLOGISTA TESTE',
+          'medico.dermatologia@sinpep.local',
           '$2b$10$wNqV5b.v7o8zW8D1eB7R3O5F5v1b0E3K5L7M9N1P3Q5R7S9T1U3V5', // dummy hash
           doctorProfileId,
           policlinicaId,
@@ -102,7 +102,7 @@ async function run() {
         [doctorId, dermSpecId]
       );
 
-      console.log('✓ Dra. MONIQUE DE OLIVEIRA VALDEK cadastrada com sucesso na Policlínica Roberval Medeiros!');
+      console.log('✓ Dr. MEDICO DERMATOLOGISTA TESTE cadastrado com sucesso na Policlínica Roberval Medeiros!');
     }
   }
 

@@ -16,6 +16,8 @@ scripts/*
 !scripts/seed-receptionist-profile.ts
 !scripts/alter-regulation-requests-cid10.ts
 !scripts/seed-health-agents.ts
+!scripts/seed-health-agents.example.json
+scripts/*.local.*
 node_modules/
 dist/
 .agents/

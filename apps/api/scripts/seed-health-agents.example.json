@@ -1,0 +1,23 @@
+[
+  {
+    "name": "PSF UNIDADE DE SAUDE MODELO 01",
+    "searchKeywords": ["MODELO", "01"],
+    "neighborhood": "BAIRRO CENTRO",
+    "nurse": "ENFERMEIRO(A) MODELO 01",
+    "agents": [
+      { "name": "AGENTE COMUNITARIO 01", "phoneRaw": "98888-0001", "microArea": "01" },
+      { "name": "AGENTE COMUNITARIO 02", "phoneRaw": "98888-0002", "microArea": "02" },
+      { "name": "AGENTE COMUNITARIO 03", "phoneRaw": "98888-0003", "microArea": "03" }
+    ]
+  },
+  {
+    "name": "PSF UNIDADE DE SAUDE MODELO 02",
+    "searchKeywords": ["MODELO", "02"],
+    "neighborhood": "BAIRRO SÃO BERNARDO",
+    "nurse": "ENFERMEIRO(A) MODELO 02",
+    "agents": [
+      { "name": "AGENTE COMUNITARIO 04", "phoneRaw": "98888-0004", "microArea": "04" },
+      { "name": "AGENTE COMUNITARIO 05", "phoneRaw": "98888-0005", "microArea": "05" }
+    ]
+  }
+]

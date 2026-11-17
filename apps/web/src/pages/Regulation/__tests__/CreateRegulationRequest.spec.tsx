@@ -117,7 +117,7 @@ describe('CreateRegulationRequest (grupos de exames)', () => {
       status: 'PENDENTE_REGULACAO',
       procedureId: 'proc-tc-1',
       procedureGroupId: 'grp-tc',
-      patient: { id: 'pat-1', name: 'CARLOS ALBERTO LUCENA PONCIANO' },
+      patient: { id: 'pat-1', name: 'PACIENTE MODELO TESTE' },
       procedureGroup: { id: 'grp-tc', name: 'GRUPO - TOMOGRAFIA - GERAL' },
       procedure: {
         id: 'proc-tc-1',
@@ -140,9 +140,9 @@ describe('CreateRegulationRequest (grupos de exames)', () => {
 
     const patientState = {
       id: 'pat-1',
-      name: 'CARLOS ALBERTO LUCENA PONCIANO',
-      cpf: '21628734434',
-      cns: '707308020952070',
+      name: 'PACIENTE MODELO TESTE',
+      cpf: '11122233344',
+      cns: '700000000000001',
       birthDate: '1975-05-10',
       gender: 'M',
       healthCenter: { id: 'hc-1', name: 'UBS Centro' },
@@ -242,9 +242,9 @@ describe('CreateRegulationRequest (grupos de exames)', () => {
 
     const patientState = {
       id: 'pat-1',
-      name: 'CARLOS ALBERTO LUCENA PONCIANO',
-      cpf: '21628734434',
-      cns: '707308020952070',
+      name: 'PACIENTE MODELO TESTE',
+      cpf: '11122233344',
+      cns: '700000000000001',
       birthDate: '1975-05-10',
       gender: 'M',
       healthCenter: { id: 'hc-1', name: 'UBS Centro' },
