@@ -10,9 +10,10 @@ export class ReceptionController {
   @Get('schedule')
   async getSchedule(
     @Query('date') date: string,
-    @Query('cnes') cnes: string
+    @Query('cnes') cnes: string,
+    @Query('includeMeta') includeMeta?: string,
   ) {
-    return this.receptionService.getEsusSchedule(date, cnes);
+    return this.receptionService.getEsusSchedule(date, cnes, includeMeta === 'true');
   }
 
   @Post('enqueue')

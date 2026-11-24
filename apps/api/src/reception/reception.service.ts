@@ -17,8 +17,24 @@ export class ReceptionService {
     private readonly eventsGateway: EventsGateway,
   ) {}
 
-  async getEsusSchedule(date: string, cnes: string) {
+  async getEsusSchedule(date: string, cnes: string, includeMeta = false): Promise<any> {
     let records: any[] = [];
+    const normalizedCnes = (cnes || '2606712').replace(/\D/g, '');
+    const normalizeSpecKey = (name?: string | null) => (name || 'GERAL').trim().toUpperCase();
+
+    let resolvedExecutingUnit: { name: string; cnes: string } | null = null;
+    try {
+      if (normalizedCnes) {
+        const unit = await this.db.query.healthCenters?.findFirst({
+          where: eq(schema.healthCenters.cnes, normalizedCnes),
+        });
+        if (unit) {
+          resolvedExecutingUnit = { name: unit.name, cnes: unit.cnes || normalizedCnes };
+        }
+      }
+    } catch {
+      // Fallback silencioso caso o query builder não esteja mockado em testes
+    }
 
     // 1. Consulta registros remotos na API do e-SUS Regulação (se configurado)
     if (process.env.ESUS_API_SECRET) {
@@ -39,7 +55,7 @@ export class ReceptionService {
                 must: [
                   {
                     term: {
-                      "coCnesEstabelecimentoExecutante": cnes || "2606712"
+                      "coCnesEstabelecimentoExecutante": normalizedCnes || "2606712"
                     }
                   },
                   {
@@ -66,7 +82,10 @@ export class ReceptionService {
         );
 
         const hits = response.data?.hits?.hits || [];
-        records = hits.map((hit: any) => hit._source);
+        records = hits.map((hit: any) => ({
+          ...hit._source,
+          source: 'ESUS',
+        }));
 
         // Sincroniza / atualiza CPF e credenciais dos médicos do e-SUS
         for (const record of records) {
@@ -96,18 +115,55 @@ export class ReceptionService {
       }
     }
 
-    // 2. Consulta agendamentos nativos do SINPeP na data e estabelecimento executante
+    const existingProtocols = new Set(records.map((r) => r.coSolicitacao).filter(Boolean));
+    const existingRegulationRequestIds = new Set<string>();
+
+    // Metadados de escalas nativas do SINPeP por especialidade/procedimento normalizado
+    const sinpepMetaBySpec: Record<
+      string,
+      {
+        availableSlots: number;
+        bookedSlots: number;
+        totalSlots: number;
+        schedulesMap: Map<
+          string,
+          {
+            scheduleId: string;
+            doctorName: string;
+            startTime: string;
+            endTime: string;
+            scheduleType: string;
+          }
+        >;
+      }
+    > = {};
+
+    const ensureSinpepMeta = (specKey: string) => {
+      if (!sinpepMetaBySpec[specKey]) {
+        sinpepMetaBySpec[specKey] = {
+          availableSlots: 0,
+          bookedSlots: 0,
+          totalSlots: 0,
+          schedulesMap: new Map(),
+        };
+      }
+      return sinpepMetaBySpec[specKey];
+    };
+
+    // 2. Consulta escalas e vagas (agendadas e disponíveis) nativas do SINPeP na data e unidade executante
     try {
       const localSlots = await this.db.query.scheduleSlots.findMany({
         where: and(
           eq(schema.scheduleSlots.date, date),
-          eq(schema.scheduleSlots.status, 'AGENDADO'),
+          inArray(schema.scheduleSlots.status, ['AGENDADO', 'DISPONIVEL']),
         ),
         with: {
           patient: true,
           regulationRequest: {
             with: {
               requestingHealthCenter: true,
+              procedure: true,
+              procedureGroup: true,
             },
           },
           schedule: {
@@ -124,33 +180,69 @@ export class ReceptionService {
         orderBy: [asc(schema.scheduleSlots.time)],
       });
 
-      // Filtra pelo CNES da unidade executante (se cnes informado)
-      const filteredSlots = cnes
-        ? localSlots.filter((s) => !s.schedule?.executingHealthCenter?.cnes || s.schedule?.executingHealthCenter?.cnes === cnes)
-        : localSlots;
-
-      const existingProtocols = new Set(records.map((r) => r.coSolicitacao).filter(Boolean));
+      // Filtra apenas escalas ativas e pertencentes ao CNES da unidade executante
+      const filteredSlots = localSlots.filter((s) => {
+        if (!s.schedule || s.schedule.isActive === false) return false;
+        if (!normalizedCnes) return true;
+        const slotCnes = (s.schedule.executingHealthCenter?.cnes || '').replace(/\D/g, '');
+        return !slotCnes || slotCnes === normalizedCnes;
+      });
 
       for (const slot of filteredSlots) {
+        const scheduleSpecRaw =
+          slot.schedule?.procedure?.name ||
+          slot.schedule?.procedureGroup?.name ||
+          'CONSULTA GERAL';
+        const scheduleSpecKey = normalizeSpecKey(scheduleSpecRaw);
+
+        const doctorName = (slot.schedule as any)?.doctor?.user?.name || 'Profissional';
+        const unitName = slot.schedule?.executingHealthCenter?.name || resolvedExecutingUnit?.name || 'Unidade Executante';
+        const unitCnes = (slot.schedule?.executingHealthCenter?.cnes || normalizedCnes || '2606712').replace(/\D/g, '');
+
+        if (!resolvedExecutingUnit && (unitName || unitCnes)) {
+          resolvedExecutingUnit = { name: unitName, cnes: unitCnes };
+        }
+
+        const meta = ensureSinpepMeta(scheduleSpecKey);
+        meta.totalSlots += 1;
+        if (slot.status === 'DISPONIVEL') {
+          meta.availableSlots += 1;
+        } else if (slot.status === 'AGENDADO') {
+          meta.bookedSlots += 1;
+        }
+
+        if (slot.schedule?.id && !meta.schedulesMap.has(slot.schedule.id)) {
+          meta.schedulesMap.set(slot.schedule.id, {
+            scheduleId: slot.schedule.id,
+            doctorName,
+            startTime: slot.schedule.startTime || '',
+            endTime: slot.schedule.endTime || '',
+            scheduleType: slot.schedule.scheduleType || 'CONSULTA',
+          });
+        }
+
+        if (slot.status !== 'AGENDADO') {
+          continue;
+        }
+
         const protocolNumber = slot.regulationRequest?.protocolNumber || `SINPEP-${slot.id.slice(0, 8)}`;
         if (existingProtocols.has(protocolNumber)) {
           continue; // Evita duplicações caso já tenha vindo do e-SUS
         }
+        existingProtocols.add(protocolNumber);
+        if (slot.regulationRequestId) {
+          existingRegulationRequestIds.add(slot.regulationRequestId);
+        }
 
-        const specName =
-          slot.schedule?.procedure?.name ||
-          slot.schedule?.procedureGroup?.name ||
-          'CONSULTA GERAL';
-
-        const doctorName = (slot.schedule as any)?.doctor?.user?.name || 'Profissional';
-        const unitName = slot.schedule?.executingHealthCenter?.name || 'Unidade Executante';
-        const unitCnes = slot.schedule?.executingHealthCenter?.cnes || cnes || '2606712';
+        const bookedSpecName =
+          slot.regulationRequest?.procedure?.name ||
+          scheduleSpecRaw;
 
         records.push({
           coSolicitacao: protocolNumber,
           hrMarcacao: slot.time || 'Sem horário',
           dtMarcacao: slot.date,
-          noProcedimentoInterno: specName,
+          noProcedimentoInterno: normalizeSpecKey(bookedSpecName),
           pacienteNome: slot.patient?.name || 'Paciente',
           pacienteNuCpf: slot.patient?.cpf || '',
           pacienteNuCns: slot.patient?.cns || '',
@@ -163,12 +255,84 @@ export class ReceptionService {
           confirmationToken: slot.regulationRequest?.confirmationToken || null,
           regulationRequestId: slot.regulationRequestId || null,
           slotId: slot.id,
+          slotType: slot.slotType,
           source: 'SINPEP',
           patientId: slot.patientId,
         });
       }
     } catch (localErr) {
-      console.error('[Reception] Erro ao carregar agendamentos nativos do SINPeP:', localErr);
+      console.error('[Reception] Erro ao carregar escalas e agendamentos nativos do SINPeP:', localErr);
+    }
+
+    // 3. Consulta solicitações de regulação do SINPeP agendadas diretamente (sem slot vinculado)
+    try {
+      const scheduledRequests = await this.db.query.regulationRequests?.findMany({
+        where: and(
+          eq(schema.regulationRequests.scheduledDate, date),
+          eq(schema.regulationRequests.status, 'AGENDADA'),
+        ),
+        with: {
+          patient: true,
+          executingHealthCenter: true,
+          procedure: true,
+          procedureGroup: true,
+          specialty: true,
+          attendingDoctor: true,
+        },
+        orderBy: [asc(schema.regulationRequests.scheduledTime)],
+      });
+
+      for (const req of scheduledRequests || []) {
+        if (existingRegulationRequestIds.has(req.id)) continue;
+        const protocolNumber = req.protocolNumber || `SINPEP-REQ-${req.id.slice(0, 8)}`;
+        if (existingProtocols.has(protocolNumber)) continue;
+
+        const reqCnes = (req.executingHealthCenter?.cnes || '').replace(/\D/g, '');
+        if (normalizedCnes && reqCnes && reqCnes !== normalizedCnes) continue;
+
+        existingProtocols.add(protocolNumber);
+        existingRegulationRequestIds.add(req.id);
+
+        const specName =
+          req.procedure?.name ||
+          req.procedureGroup?.name ||
+          req.specialty?.name ||
+          'CONSULTA GERAL';
+        const specKey = normalizeSpecKey(specName);
+        const unitName = req.executingHealthCenter?.name || resolvedExecutingUnit?.name || 'Unidade Executante';
+        const unitCnes = reqCnes || normalizedCnes || '2606712';
+
+        if (!resolvedExecutingUnit && (unitName || unitCnes)) {
+          resolvedExecutingUnit = { name: unitName, cnes: unitCnes };
+        }
+
+        const meta = ensureSinpepMeta(specKey);
+        meta.bookedSlots += 1;
+        meta.totalSlots += 1;
+
+        records.push({
+          coSolicitacao: protocolNumber,
+          hrMarcacao: req.scheduledTime || 'Sem horário',
+          dtMarcacao: req.scheduledDate || date,
+          noProcedimentoInterno: specKey,
+          pacienteNome: req.patient?.name || 'Paciente',
+          pacienteNuCpf: req.patient?.cpf || '',
+          pacienteNuCns: req.patient?.cns || '',
+          pacienteNoMunicipioResidencia: 'São Bento',
+          noEstabelecimentoExecutante: unitName,
+          coCnesEstabelecimentoExecutante: unitCnes,
+          noProfissionalExecutante: req.attendingDoctor?.name || 'Profissional',
+          nuCnsProfissionalExecutante: '',
+          nuCpfProfissionalExecutante: '',
+          confirmationToken: req.confirmationToken || null,
+          regulationRequestId: req.id,
+          slotId: null,
+          source: 'SINPEP',
+          patientId: req.patientId,
+        });
+      }
+    } catch (reqErr) {
+      console.error('[Reception] Erro ao carregar solicitações agendadas do SINPeP:', reqErr);
     }
 
     // Extract CPFs
@@ -189,7 +353,7 @@ export class ReceptionService {
 
     const queueItems = await this.db.select().from(schema.attendanceQueue).where(eq(schema.attendanceQueue.date, date));
 
-    // Mapear o horário marcado (hrMarcacao) de cada agendamento do e-SUS
+    // Mapear o horário marcado (hrMarcacao) de cada agendamento
     const timeByEsusId = new Map<string, string>();
     for (const record of records) {
       if (record.coSolicitacao) {
@@ -201,7 +365,7 @@ export class ReceptionService {
     const queueBySpecAndTime: Record<string, typeof queueItems> = {};
     for (const q of queueItems) {
       const time = (q.esusSolicitacaoId && timeByEsusId.get(q.esusSolicitacaoId)) || 'Sem horário';
-      const groupKey = `${q.specialtyName}___${time}`;
+      const groupKey = `${normalizeSpecKey(q.specialtyName)}___${time}`;
       if (!queueBySpecAndTime[groupKey]) {
         queueBySpecAndTime[groupKey] = [];
       }
@@ -242,7 +406,7 @@ export class ReceptionService {
     const groupedBySpecialty: Record<string, any[]> = {};
 
     for (const record of records) {
-      const spec = record.noProcedimentoInterno || 'GERAL';
+      const spec = normalizeSpecKey(record.noProcedimentoInterno);
       if (!groupedBySpecialty[spec]) {
         groupedBySpecialty[spec] = [];
       }
@@ -253,6 +417,7 @@ export class ReceptionService {
 
       groupedBySpecialty[spec].push({
         ...record,
+        source: record.source || 'ESUS',
         isRegistered: !!patientId,
         patientId: patientId || null,
         isQueued: !!qItem,
@@ -265,7 +430,74 @@ export class ReceptionService {
       });
     }
 
-    return groupedBySpecialty;
+    if (!includeMeta) {
+      return groupedBySpecialty;
+    }
+
+    const specialtyMeta: Record<
+      string,
+      {
+        sources: Array<'ESUS' | 'SINPEP'>;
+        esusCount: number;
+        sinpepBookedCount: number;
+        sinpepAvailableSlots: number;
+        sinpepTotalSlots: number;
+        sinpepSchedules: Array<{
+          scheduleId: string;
+          doctorName: string;
+          startTime: string;
+          endTime: string;
+          scheduleType: string;
+        }>;
+      }
+    > = {};
+
+    for (const [specKey, list] of Object.entries(groupedBySpecialty)) {
+      const esusCount = list.filter((item) => item.source !== 'SINPEP').length;
+      const sinpepRecordsCount = list.filter((item) => item.source === 'SINPEP').length;
+      const sinpepInfo = sinpepMetaBySpec[specKey];
+      const sinpepAvailableSlots = sinpepInfo?.availableSlots || 0;
+      const sinpepTotalSlots = sinpepInfo?.totalSlots || sinpepRecordsCount;
+      const sinpepSchedules = sinpepInfo ? Array.from(sinpepInfo.schedulesMap.values()) : [];
+
+      const sources: Array<'ESUS' | 'SINPEP'> = [];
+      if (esusCount > 0) sources.push('ESUS');
+      if (sinpepRecordsCount > 0 || sinpepTotalSlots > 0 || sinpepSchedules.length > 0) {
+        sources.push('SINPEP');
+      }
+
+      specialtyMeta[specKey] = {
+        sources,
+        esusCount,
+        sinpepBookedCount: sinpepRecordsCount,
+        sinpepAvailableSlots,
+        sinpepTotalSlots,
+        sinpepSchedules,
+      };
+    }
+
+    if (!resolvedExecutingUnit) {
+      for (const list of Object.values(groupedBySpecialty)) {
+        const itemWithUnit = list.find(
+          (item: any) => item.noEstabelecimentoExecutante || item.coCnesEstabelecimentoExecutante,
+        );
+        if (itemWithUnit) {
+          resolvedExecutingUnit = {
+            name: itemWithUnit.noEstabelecimentoExecutante || '',
+            cnes: itemWithUnit.coCnesEstabelecimentoExecutante || normalizedCnes,
+          };
+          break;
+        }
+      }
+    }
+
+    return {
+      specialties: groupedBySpecialty,
+      meta: {
+        executingUnit: resolvedExecutingUnit,
+        specialtyMeta,
+      },
+    };
   }
 
   async enqueuePatient(
@@ -276,7 +508,7 @@ export class ReceptionService {
     esusData?: any,
     priority: string = 'CONVENCIONAL'
   ) {
-    if (esusData) {
+    if (esusData && esusData.source !== 'SINPEP') {
       await this.autoRegisterDoctor(esusData);
     }
 

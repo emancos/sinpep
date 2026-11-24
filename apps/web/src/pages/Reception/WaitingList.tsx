@@ -315,6 +315,16 @@ export const WaitingList: React.FC = () => {
                     </span>
 
                     <div className="flex items-center gap-1.5">
+                      {p.source === 'SINPEP' ? (
+                        <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                          SINPeP
+                        </span>
+                      ) : (
+                        <span className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                          e-SUS
+                        </span>
+                      )}
+
                       {p.priority === 'PRIORITARIO' ? (
                         <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm">
                           <Star className="w-3 h-3 fill-amber-500 text-amber-500" />

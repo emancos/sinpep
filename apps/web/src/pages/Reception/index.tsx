@@ -1,6 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getReceptionSchedule, enqueuePatient } from '../../services/reception';
+import {
+  getReceptionScheduleWithMeta,
+  enqueuePatient,
+  type SpecialtyScheduleMeta,
+} from '../../services/reception';
 import { getRoomAllocations, deallocateRoom, type RoomAllocation } from '../../services/rooms';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCurrentDoctor } from '../../hooks/useDoctors';
@@ -97,16 +101,22 @@ export const Reception: React.FC = () => {
     }
   }, [searchParams]);
 
-  const { data: schedule, isLoading: isLoadingSchedule } = useQuery({
+  const { data: scheduleResponse, isLoading: isLoadingSchedule } = useQuery({
     queryKey: ['reception-schedule', date, cnes],
-    queryFn: () => getReceptionSchedule(date, cnes, token!),
+    queryFn: () => getReceptionScheduleWithMeta(date, cnes, token!),
     enabled: !!token,
     refetchInterval: 3000,
     refetchIntervalInBackground: true,
   });
 
-  // Obtém o nome e CNES da unidade executante vinculada nos agendamentos (e-SUS)
+  const schedule = scheduleResponse?.specialties;
+  const specialtyMetaMap = scheduleResponse?.meta?.specialtyMeta || {};
+
+  // Obtém o nome e CNES da unidade executante vinculada nos agendamentos/escalas (e-SUS & SINPeP)
   const executingUnit = useMemo(() => {
+    if (scheduleResponse?.meta?.executingUnit?.name || scheduleResponse?.meta?.executingUnit?.cnes) {
+      return scheduleResponse.meta.executingUnit;
+    }
     if (!schedule) return null;
     for (const list of Object.values(schedule)) {
       if (Array.isArray(list) && list.length > 0) {
@@ -120,7 +130,7 @@ export const Reception: React.FC = () => {
       }
     }
     return null;
-  }, [schedule]);
+  }, [schedule, scheduleResponse]);
 
   // Sincroniza a unidade executante no armazenamento para documentos clínicos
   useEffect(() => {
@@ -201,10 +211,12 @@ export const Reception: React.FC = () => {
 
   const isLoading = isLoadingSchedule || isLoadingDoctor || isLoadingAllocations;
 
-  // Filtra as especialidades/procedimentos autorizados para o médico
+  // Filtra apenas agendas que possuam pacientes agendados e (para médicos) procedimentos autorizados
   const authorizedScheduleEntries = useMemo(() => {
     if (!schedule) return [];
-    const entries = Object.entries(schedule);
+    const entries = Object.entries(schedule).filter(
+      ([, patients]) => Array.isArray(patients) && patients.length > 0,
+    );
     if (!isDoctor) return entries;
     return entries.filter(([spec]) => isProcedureAuthorizedForDoctor(spec, currentDoctor));
   }, [schedule, isDoctor, currentDoctor]);
@@ -455,6 +467,22 @@ export const Reception: React.FC = () => {
               </button>
             )}
 
+            {p.source === 'SINPEP' ? (
+              <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full">
+                SINPeP
+              </span>
+            ) : (
+              <span className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full">
+                e-SUS
+              </span>
+            )}
+
+            {p.confirmationToken && (
+              <span className="bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300 border border-teal-200 dark:border-teal-800/60 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md">
+                Chave: {p.confirmationToken}
+              </span>
+            )}
+
             {p.isRegistered ? (
               <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full">
                 Cadastrado
@@ -544,12 +572,12 @@ export const Reception: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Activity className="w-6 h-6 text-blue-500" />
-            Recepção e Fila (e-SUS)
+            Agenda &amp; Recepção (e-SUS &amp; SINPeP)
           </h1>
           <p className="text-slate-500 dark:text-slate-400">
             {isDoctor 
               ? 'Acompanhe a sua fila de atendimentos ordenados pela ordem de prioridade.'
-              : 'Gerencie os atendimentos agendados via Central de Regulação.'}
+              : 'Gerencie os atendimentos e escalas agendados via e-SUS Regulação e SINPeP.'}
           </p>
           {executingUnit?.name && (
             <div className="inline-flex items-center gap-2 mt-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-xs font-semibold shadow-2xs">
@@ -599,7 +627,7 @@ export const Reception: React.FC = () => {
             Nenhum agendamento para seus procedimentos autorizados
           </h3>
           <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-            Não foram encontrados agendamentos no e-SUS para seus procedimentos autorizados na data selecionada.
+            Não foram encontrados agendamentos ou escalas no e-SUS Regulação e no SINPeP para seus procedimentos autorizados na data selecionada.
           </p>
         </div>
       ) : schedule && (Object.keys(schedule).length > 0 || hasSingleAuthorizedProcedure) ? (
@@ -609,17 +637,47 @@ export const Reception: React.FC = () => {
             {authorizedScheduleEntries.map(([specialty, patients]: [string, any]) => {
               const queuedCount = (patients as any[]).filter((p: any) => p.isQueued).length;
               const specAllocation = roomAllocationsMap[specialty.trim().toUpperCase()];
+              const specMeta: SpecialtyScheduleMeta | undefined = specialtyMetaMap[specialty];
+              const sources = specMeta?.sources || [];
+              const hasEsus = sources.includes('ESUS') || (patients as any[]).some((p: any) => p.source !== 'SINPEP');
+              const hasSinpep = sources.includes('SINPEP') || (patients as any[]).some((p: any) => p.source === 'SINPEP');
+              const availableSlots = specMeta?.sinpepAvailableSlots || 0;
+              const sinpepSchedules = specMeta?.sinpepSchedules || [];
 
               return (
                 <button 
                   key={specialty}
                   onClick={() => handleSelectSpecialty(specialty)}
-                  className="flex flex-col justify-between p-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md hover:border-blue-300 transition-all text-left group min-h-[140px]"
+                  className="flex flex-col justify-between p-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md hover:border-blue-300 transition-all text-left group min-h-[155px]"
                 >
                   <div>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                      {hasEsus && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                          e-SUS
+                        </span>
+                      )}
+                      {hasSinpep && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          SINPeP
+                        </span>
+                      )}
+                    </div>
+
                     <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {specialty}
                     </h3>
+
+                    {sinpepSchedules.length > 0 && (
+                      <div className="mt-1.5 space-y-0.5">
+                        {sinpepSchedules.slice(0, 2).map((sch) => (
+                          <p key={sch.scheduleId} className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                            <span className="font-semibold text-slate-600 dark:text-slate-300">{sch.doctorName}</span>
+                            {sch.startTime && sch.endTime ? ` • ${sch.startTime} - ${sch.endTime}` : ''}
+                          </p>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Badge do Ambulatório / Sala Alocada no Dia */}
                     <div className="mt-3">
@@ -637,13 +695,20 @@ export const Reception: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 mt-5 pt-3 border-t border-slate-100 dark:border-slate-700/60 text-slate-500 dark:text-slate-400">
-                    <Users className="w-4 h-4" />
-                    <span className="font-medium text-xs">
-                      {isDoctor
-                        ? `${queuedCount} na fila (${patients.length} agendados)`
-                        : `${patients.length} pacientes`}
-                    </span>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mt-5 pt-3 border-t border-slate-100 dark:border-slate-700/60 text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      <span className="font-medium text-xs">
+                        {isDoctor
+                          ? `${queuedCount} na fila (${patients.length} agendados)`
+                          : `${patients.length} ${patients.length === 1 ? 'paciente' : 'pacientes'}`}
+                      </span>
+                    </div>
+                    {availableSlots > 0 && (
+                      <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                        {availableSlots} {availableSlots === 1 ? 'vaga livre' : 'vagas livres'}
+                      </span>
+                    )}
                   </div>
                 </button>
               );
@@ -773,6 +838,37 @@ export const Reception: React.FC = () => {
               )}
             </div>
 
+            {/* Banner informativo de escalas nativas do SINPeP ativas no dia */}
+            {selectedSpecialty && specialtyMetaMap[selectedSpecialty]?.sinpepSchedules?.length > 0 && (
+              <div className="p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-600 text-white">
+                      Escala SINPeP Ativa
+                    </span>
+                    <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                      {specialtyMetaMap[selectedSpecialty].sinpepBookedCount} agendados •{' '}
+                      {specialtyMetaMap[selectedSpecialty].sinpepAvailableSlots}{' '}
+                      {specialtyMetaMap[selectedSpecialty].sinpepAvailableSlots === 1 ? 'vaga disponível' : 'vagas disponíveis'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-700 dark:text-slate-300">
+                    {specialtyMetaMap[selectedSpecialty].sinpepSchedules.map((sch) => (
+                      <span key={sch.scheduleId} className="flex items-center gap-1.5">
+                        <Stethoscope className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <strong>{sch.doctorName}</strong>
+                        {sch.startTime && sch.endTime && (
+                          <span className="text-slate-500 dark:text-slate-400">
+                            ({sch.startTime} - {sch.endTime})
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Abas de seleção de horário e opção Fila Completa / Todos */}
             {sortedPatientsInSpecialty.length > 0 && (
               <div className="w-full overflow-x-auto pb-2">
@@ -843,6 +939,8 @@ export const Reception: React.FC = () => {
                   <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm">
                     {isDoctor 
                       ? 'Não há pacientes adicionados à fila de espera para este horário/procedimento no momento.'
+                      : selectedSpecialty && (specialtyMetaMap[selectedSpecialty]?.sinpepAvailableSlots || 0) > 0
+                      ? `Escala SINPeP ativa para esta data com ${specialtyMetaMap[selectedSpecialty].sinpepAvailableSlots} vaga(s) disponível(is), ainda sem pacientes agendados.`
                       : 'Não foram encontrados pacientes neste horário.'}
                   </p>
                 </div>
@@ -855,7 +953,7 @@ export const Reception: React.FC = () => {
           <Calendar className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-1">Nenhum agendamento</h3>
           <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-            Não foram encontrados agendamentos no e-SUS Regulação para a data selecionada.
+            Não foram encontrados agendamentos ou escalas no e-SUS Regulação e no SINPeP para a data selecionada.
           </p>
         </div>
       )}

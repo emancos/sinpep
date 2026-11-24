@@ -2,12 +2,59 @@ import axios from 'axios';
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+export interface SinpepScheduleSummary {
+  scheduleId: string;
+  doctorName: string;
+  startTime: string;
+  endTime: string;
+  scheduleType: string;
+}
+
+export interface SpecialtyScheduleMeta {
+  sources: Array<'ESUS' | 'SINPEP'>;
+  esusCount: number;
+  sinpepBookedCount: number;
+  sinpepAvailableSlots: number;
+  sinpepTotalSlots: number;
+  sinpepSchedules: SinpepScheduleSummary[];
+}
+
+export interface ReceptionScheduleWithMeta {
+  specialties: Record<string, any[]>;
+  meta: {
+    executingUnit: { name: string; cnes: string } | null;
+    specialtyMeta: Record<string, SpecialtyScheduleMeta>;
+  };
+}
+
 export const getReceptionSchedule = async (date: string, cnes: string, token: string) => {
   const response = await axios.get(`${apiUrl}/reception/schedule`, {
     params: { date, cnes },
     headers: { Authorization: `Bearer ${token}` }
   });
   return response.data;
+};
+
+export const getReceptionScheduleWithMeta = async (
+  date: string,
+  cnes: string,
+  token: string
+): Promise<ReceptionScheduleWithMeta> => {
+  const response = await axios.get(`${apiUrl}/reception/schedule`, {
+    params: { date, cnes, includeMeta: 'true' },
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = response.data;
+  if (data && typeof data === 'object' && 'specialties' in data && 'meta' in data) {
+    return data as ReceptionScheduleWithMeta;
+  }
+  return {
+    specialties: (data || {}) as Record<string, any[]>,
+    meta: {
+      executingUnit: null,
+      specialtyMeta: {},
+    },
+  };
 };
 
 export const enqueuePatient = async (
