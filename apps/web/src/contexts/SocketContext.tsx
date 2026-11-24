@@ -19,6 +19,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
  const [isConnected, setIsConnected] = useState(false);
  const [extensionInstalled, setExtensionInstalled] = useState(false);
  const user = useAuthStore((state) => state.user);
+ const token = useAuthStore((state) => state.token);
 
  useEffect(() => {
  const handleExtensionInit = (event: MessageEvent) => {
@@ -35,13 +36,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
  }, []);
 
  useEffect(() => {
- // Only connect if we have a logged-in user
- if (!user) return;
+ // Only connect if we have a logged-in user and valid token
+ if (!user || !token) return;
 
  const apiUrl = (import.meta.env.VITE_API_URL as string) || 'http://localhost:3000';
  
  const newSocket = io(apiUrl, {
- auth: { userId: user.id },
+ auth: { userId: user.id, token },
  transports: ['websocket', 'polling'],
  });
 
@@ -60,7 +61,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
  return () => {
  newSocket.disconnect();
  };
- }, [user]);
+ }, [user, token]);
 
  return (
  <SocketContext.Provider value={{ socket, isConnected, extensionInstalled }}>
