@@ -1,12 +1,11 @@
 import api from './api';
 
 export interface EsusConfigResponse {
-  apiUrl: string;
-  authorizationHeader: string;
   defaultStartDate: string;
   defaultEndDate: string;
   cityCode: string;
   cityName: string;
+  configured?: boolean;
 }
 
 export interface EsusImportJob {
@@ -193,33 +192,19 @@ export const esusImportService = {
   },
 
   /**
-   * Consulta diretamente o OpenSearch do e-SUS pelo Navegador (Client-Side)
-   * para contornar restrições de IP de VPS
+   * Executa a consulta ao OpenSearch do e-SUS via proxy seguro do backend
+   * (mantendo as credenciais estritamente no servidor).
    */
-  async queryOpenSearch(apiUrl: string, authHeader: string, body: any): Promise<any> {
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': authHeader,
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Falha na comunicação com o e-SUS Regulação (${response.status}): ${errText.slice(0, 200)}`);
-    }
-
-    return response.json();
+  async queryOpenSearch(body: any): Promise<any> {
+    const res = await api.post('/regulation/esus-import/query', body);
+    return res.data;
   },
 
   /**
    * Executa a prévia estatística diretamente do navegador
    */
   async fetchPreview(
-    config: EsusConfigResponse,
+    _config: EsusConfigResponse,
     startDate: string,
     endDate: string,
     dateField: EsusDateFieldType = 'dtSolicitacao',
@@ -246,7 +231,7 @@ export const esusImportService = {
       },
     };
 
-    const res = await this.queryOpenSearch(config.apiUrl, config.authorizationHeader, query);
+    const res = await this.queryOpenSearch(query);
     const totalHits = typeof res.hits?.total?.value === 'number' ? res.hits.total.value : 0;
     const statusBuckets: EsusPreviewStatusBucket[] = res.aggregations?.statuses?.buckets || [];
     const livingBuckets: Array<{ key: any; doc_count: number }> = res.aggregations?.living?.buckets || [];
@@ -294,7 +279,7 @@ export const esusImportService = {
    * Busca um lote de registros via search_after
    */
   async fetchBatch(
-    config: EsusConfigResponse,
+    _config: EsusConfigResponse,
     startDate: string,
     endDate: string,
     dateField: EsusDateFieldType = 'dtSolicitacao',
@@ -315,7 +300,7 @@ export const esusImportService = {
       body.search_after = searchAfter;
     }
 
-    const res = await this.queryOpenSearch(config.apiUrl, config.authorizationHeader, body);
+    const res = await this.queryOpenSearch(body);
     return {
       hits: res.hits?.hits || [],
       total: res.hits?.total?.value || 0,

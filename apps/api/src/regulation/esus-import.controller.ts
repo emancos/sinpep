@@ -18,12 +18,21 @@ export class EsusImportController {
   constructor(private readonly esusImportService: EsusImportService) {}
 
   /**
-   * 1. Obtém as credenciais e parâmetros de conexão com o e-SUS Regulação OpenSearch
+   * 1. Obtém os parâmetros de configuração da importação e-SUS Regulação (sem credenciais)
    */
   @Get('config')
   @Permissions('regulation-operator:read')
   getConfig() {
     return this.esusImportService.getConfig();
+  }
+
+  /**
+   * 1.1 Proxy autenticado no backend para consultas ao OpenSearch do e-SUS Regulação
+   */
+  @Post('query')
+  @Permissions('regulation-operator:read')
+  queryOpenSearch(@Body() queryBody: any) {
+    return this.esusImportService.queryOpenSearch(queryBody);
   }
 
   /**

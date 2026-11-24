@@ -1,4 +1,5 @@
-import { Injectable, Inject, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException, Optional, BadGatewayException } from '@nestjs/common';
+import axios from 'axios';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database';
 import { DATABASE_CONNECTION } from '../database/database.constants';
@@ -213,20 +214,49 @@ export class EsusImportService {
    * Obtém as configurações e credenciais para o cliente frontend
    */
   getConfig() {
-    const rawUrl = process.env.BASIC_URL || process.env.ESUS_API_URL || 'https://regulacao-api.saude.gov.br/regulacao-producao/_search';
-    const rawAuth = process.env.BASIC_AUTHENTICATION || process.env.ESUS_API_SECRET || '';
-
-    // Normaliza o cabeçalho Authorization
-    const authorizationHeader = rawAuth.startsWith('Basic ') ? rawAuth : `Basic ${rawAuth}`;
-
     return {
-      apiUrl: rawUrl,
-      authorizationHeader,
       defaultStartDate: '2025-05-01',
       defaultEndDate: '2026-11-03',
       cityCode: '251390', // São Bento - PB
       cityName: 'SÃO BENTO',
+      configured: Boolean(process.env.BASIC_AUTHENTICATION || process.env.ESUS_API_SECRET),
     };
+  }
+
+  /**
+   * Proxy seguro server-side para consultas ao OpenSearch do e-SUS Regulação.
+   * Mantém as credenciais estritamente no servidor sem expô-las ao navegador.
+   */
+  async queryOpenSearch(queryBody: any) {
+    const rawUrl =
+      process.env.BASIC_URL ||
+      process.env.ESUS_API_URL ||
+      'https://regulacao-api.saude.gov.br/regulacao-producao/_search';
+    const rawAuth = process.env.BASIC_AUTHENTICATION || process.env.ESUS_API_SECRET || '';
+
+    if (!rawAuth) {
+      throw new BadGatewayException('Credenciais do e-SUS Regulação não configuradas no servidor.');
+    }
+
+    const authorizationHeader = rawAuth.startsWith('Basic ') ? rawAuth : `Basic ${rawAuth}`;
+
+    try {
+      const response = await axios.post(rawUrl, queryBody, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: authorizationHeader,
+          Accept: 'application/json',
+          'User-Agent': 'SINPeP-Regulacao/1.0',
+        },
+        timeout: 30000,
+      });
+      return response.data;
+    } catch (error: any) {
+      const status = error?.response?.status || 502;
+      const msg = error?.message || 'Erro ao consultar o e-SUS Regulação';
+      this.logger.error(`[e-SUS Proxy] Falha na consulta (${status}): ${msg}`);
+      throw new BadGatewayException(`Falha na comunicação com o e-SUS Regulação (${status}).`);
+    }
   }
 
   /**
