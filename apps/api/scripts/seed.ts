@@ -220,8 +220,11 @@ async function main() {
     }
 
     // 5. Criar / Atualizar Usuário Administrador
-    const adminEmail = 'admin@system.com';
-    const adminPassword = 'admin';
+    const adminEmail = process.env.ADMIN_INITIAL_EMAIL || 'admin@system.com';
+    const adminPassword = process.env.ADMIN_INITIAL_PASSWORD || (process.env.NODE_ENV === 'production' ? '' : 'admin');
+    if (!adminPassword) {
+      throw new Error('ADMIN_INITIAL_PASSWORD deve ser definida em ambiente de produção.');
+    }
     const passwordHash = await bcrypt.hash(adminPassword, 10);
 
     const userCheck = await client.query(

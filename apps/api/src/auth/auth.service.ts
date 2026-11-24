@@ -8,6 +8,7 @@ import { eq, asc } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import * as nodemailer from 'nodemailer';
 import { extractLinkedHealthCenterIds } from './utils/role-scope.util';
+import { getJwtSecret } from './utils/jwt-secret.util';
 
 export interface ValidatedUser {
   id: string;
@@ -262,16 +263,18 @@ export class AuthService {
       ],
     };
 
-    const defaultPerms = this.resolveDefaultPermissions(roleDefaults, targetProfile.name);
-    for (const p of defaultPerms) {
-      permissionMap.set(p, true);
-    }
-
-    if (fullProfile && fullProfile.profilePermissions) {
-      for (const pp of fullProfile.profilePermissions) {
+    const dbProfilePerms = fullProfile?.profilePermissions || [];
+    if (dbProfilePerms.length > 0) {
+      for (const pp of dbProfilePerms) {
         if (pp.permission && pp.permission.name) {
           permissionMap.set(pp.permission.name, true);
         }
+      }
+    } else {
+      // Aplica roleDefaults apenas como fallback quando o perfil não possui permissões cadastradas no banco
+      const defaultPerms = this.resolveDefaultPermissions(roleDefaults, targetProfile.name);
+      for (const p of defaultPerms) {
+        permissionMap.set(p, true);
       }
     }
 
@@ -369,13 +372,15 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
-    if (!user.isActive) {
-      throw new UnauthorizedException('Usuário inativo. Entre em contato com o administrador.');
-    }
-
     const isMatch = await bcrypt.compare(pass, user.passwordHash);
     if (!isMatch) {
+      this.logger.warn(`[SECURITY] Tentativa de login com senha inválida para: ${email}`);
       throw new UnauthorizedException('Credenciais inválidas');
+    }
+
+    if (!user.isActive) {
+      this.logger.warn(`[SECURITY] Tentativa de login em conta inativa: ${email}`);
+      throw new UnauthorizedException('Usuário inativo. Entre em contato com o administrador.');
     }
 
     const availableProfiles = await this.getAvailableProfiles(user);
@@ -394,6 +399,7 @@ export class AuthService {
       activeProfileId: activeProfile?.id,
       activeHealthCenterId: activeHealthCenter?.id,
       permissions,
+      tv: user.tokenVersion ?? 0,
     };
 
     return {
@@ -443,6 +449,7 @@ export class AuthService {
       activeProfileId: profileId,
       activeHealthCenterId: activeHealthCenter?.id,
       permissions,
+      tv: user.tokenVersion ?? 0,
     };
 
     const accessToken = this.jwtService.sign(payload);
@@ -492,6 +499,7 @@ export class AuthService {
       activeProfileId: activeProfile?.id,
       activeHealthCenterId: chosenCenter.id,
       permissions,
+      tv: user.tokenVersion ?? 0,
     };
 
     const accessToken = this.jwtService.sign(payload);
@@ -558,14 +566,19 @@ export class AuthService {
     };
   }
 
+  async logout(userId: string): Promise<void> {
+    await this.usersService.incrementTokenVersion(userId);
+    this.logger.log(`[SECURITY] Sessões revogadas (logout) para o usuário ${userId}`);
+  }
+
   async forgotPassword(email: string): Promise<void> {
     const user = await this.usersService.findByEmail(email);
-    if (!user) {
-      this.logger.log(`Tentativa de recuperação para email inexistente: ${email}`);
+    if (!user || !user.isActive) {
+      this.logger.log(`Tentativa de recuperação para email inexistente ou inativo: ${email}`);
       return;
     }
 
-    const secret = (process.env.JWT_SECRET || 'supersecretkey_dev_only') + user.passwordHash;
+    const secret = getJwtSecret() + user.passwordHash;
     const payload = { sub: user.id, email: user.email };
     const token = this.jwtService.sign(payload, { secret, expiresIn: '1h' });
 
@@ -640,11 +653,11 @@ export class AuthService {
     }
 
     const user = await this.usersService.findByEmail(decodedPayload.email);
-    if (!user) {
-      throw new BadRequestException('Usuário não encontrado.');
+    if (!user || !user.isActive) {
+      throw new BadRequestException('Usuário não encontrado ou inativo.');
     }
 
-    const secret = (process.env.JWT_SECRET || 'supersecretkey_dev_only') + user.passwordHash;
+    const secret = getJwtSecret() + user.passwordHash;
 
     try {
       this.jwtService.verify(token, { secret });
@@ -653,6 +666,6 @@ export class AuthService {
     }
 
     await this.usersService.update(user.id, { password: newPassword });
-    this.logger.log(`Senha redefinida com sucesso para o usuário ${user.id}`);
+    this.logger.log(`[SECURITY] Senha redefinida e sessões revogadas para o usuário ${user.id}`);
   }
 }

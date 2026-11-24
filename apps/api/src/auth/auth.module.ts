@@ -5,6 +5,7 @@ import { UsersModule } from '../users/users.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { getJwtSecret } from './utils/jwt-secret.util';
 
 @Module({
   imports: [
@@ -12,7 +13,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     PassportModule,
     JwtModule.registerAsync({
       useFactory: () => ({
-        secret: process.env.JWT_SECRET || 'supersecretkey_dev_only',
+        secret: getJwtSecret(),
         signOptions: {
           expiresIn: (process.env.JWT_EXPIRES_IN || '8h') as any,
         },

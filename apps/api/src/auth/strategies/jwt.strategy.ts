@@ -4,6 +4,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { UsersService } from '../../users/users.service';
 import { AuthService } from '../auth.service';
 import { extractLinkedHealthCenterIds } from '../utils/role-scope.util';
+import { getJwtSecret } from '../utils/jwt-secret.util';
 
 interface JwtPayload {
   sub: string;
@@ -11,6 +12,7 @@ interface JwtPayload {
   activeProfileId?: string;
   activeHealthCenterId?: string;
   permissions?: string[];
+  tv?: number;
 }
 
 @Injectable()
@@ -22,7 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'supersecretkey_dev_only',
+      secretOrKey: getJwtSecret(),
     });
   }
 
@@ -32,13 +34,27 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Sessão expirada ou usuário inativo');
     }
 
+    // Valida versão do token para suportar revogação imediata (logout / troca de senha)
+    if (payload.tv !== undefined && payload.tv !== (user.tokenVersion ?? 0)) {
+      throw new UnauthorizedException('Sessão revogada. Faça login novamente.');
+    }
+
     const { permissions, activeProfile } = await this.authService.consolidatePermissionsForProfile(
       user,
       payload.activeProfileId,
     );
 
     const linkedHealthCenterIds = extractLinkedHealthCenterIds(user);
-    const effectiveHealthCenterId = payload.activeHealthCenterId || user.healthCenterId;
+    const isAdminOrMunicipal =
+      permissions.includes('admin:access') || Boolean(user.isMunicipalRegulator);
+
+    // Revalida se o activeHealthCenterId do JWT ainda pertence aos vínculos do usuário
+    let effectiveHealthCenterId = user.healthCenterId;
+    if (payload.activeHealthCenterId) {
+      if (isAdminOrMunicipal || linkedHealthCenterIds.includes(payload.activeHealthCenterId)) {
+        effectiveHealthCenterId = payload.activeHealthCenterId;
+      }
+    }
 
     return {
       id: user.id,
