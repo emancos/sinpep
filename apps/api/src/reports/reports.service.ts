@@ -259,23 +259,39 @@ export class ReportsService {
     status?: string;
     origin?: string;
   }) {
-    const baseConditions: string[] = ['1=1'];
-    if (filters.startDate) baseConditions.push(`r.created_at >= '${filters.startDate} 00:00:00'`);
-    if (filters.endDate) baseConditions.push(`r.created_at <= '${filters.endDate} 23:59:59'`);
-    if (filters.specialtyId) baseConditions.push(`(r.specialty_id = '${filters.specialtyId}' OR proc.id = '${filters.specialtyId}' OR pg.id = '${filters.specialtyId}')`);
+    const isIsoDate = (v?: string) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    const isUuid = (v?: string) =>
+      !!v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
+    const baseConditions = [sql`1 = 1`];
+    if (isIsoDate(filters.startDate)) {
+      baseConditions.push(sql`r.created_at >= ${`${filters.startDate} 00:00:00`}`);
+    }
+    if (isIsoDate(filters.endDate)) {
+      baseConditions.push(sql`r.created_at <= ${`${filters.endDate} 23:59:59`}`);
+    }
+    if (isUuid(filters.specialtyId)) {
+      baseConditions.push(
+        sql`(r.specialty_id = ${filters.specialtyId} OR proc.id = ${filters.specialtyId} OR pg.id = ${filters.specialtyId})`,
+      );
+    }
     if (filters.origin === 'SINPEP') {
-      baseConditions.push(`r.protocol_number LIKE 'REG-%'`);
+      baseConditions.push(sql`r.protocol_number LIKE 'REG-%'`);
     } else if (filters.origin === 'ESUS') {
-      baseConditions.push(`r.protocol_number NOT LIKE 'REG-%'`);
+      baseConditions.push(sql`r.protocol_number NOT LIKE 'REG-%'`);
     }
 
-    const baseWhereClause = sql.raw(baseConditions.join(' AND '));
+    const baseWhereClause = sql.join(baseConditions, sql` AND `);
 
     // Condições filtradas para os gráficos segmentados
     const filteredConditions = [...baseConditions];
-    if (filters.risk) filteredConditions.push(`r.priority::text = '${filters.risk}'`);
-    if (filters.status) filteredConditions.push(`r.status = '${filters.status}'`);
-    const filteredWhereClause = sql.raw(filteredConditions.join(' AND '));
+    if (filters.risk) {
+      filteredConditions.push(sql`r.priority::text = ${filters.risk}`);
+    }
+    if (filters.status) {
+      filteredConditions.push(sql`r.status = ${filters.status}`);
+    }
+    const filteredWhereClause = sql.join(filteredConditions, sql` AND `);
 
     // Status counts consolidados com segregação de origem (calculado sobre o panorama sem zerar os cards)
     const statusRes = await this.db.execute(sql`
@@ -381,26 +397,34 @@ export class ReportsService {
     status?: string;
     origin?: string;
   }) {
-    const baseConditions: string[] = ['1=1'];
-    if (healthCenterId) {
-      baseConditions.push(`r.requesting_health_center_id = '${healthCenterId}'`);
+    const isIsoDate = (v?: string) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    const isUuid = (v?: string) =>
+      !!v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
+    const baseConditions = [sql`1 = 1`];
+    if (isUuid(healthCenterId)) {
+      baseConditions.push(sql`r.requesting_health_center_id = ${healthCenterId}`);
     }
-    if (filters.startDate) baseConditions.push(`r.created_at >= '${filters.startDate} 00:00:00'`);
-    if (filters.endDate) baseConditions.push(`r.created_at <= '${filters.endDate} 23:59:59'`);
+    if (isIsoDate(filters.startDate)) {
+      baseConditions.push(sql`r.created_at >= ${`${filters.startDate} 00:00:00`}`);
+    }
+    if (isIsoDate(filters.endDate)) {
+      baseConditions.push(sql`r.created_at <= ${`${filters.endDate} 23:59:59`}`);
+    }
     if (filters.origin === 'SINPEP') {
-      baseConditions.push(`r.protocol_number LIKE 'REG-%'`);
+      baseConditions.push(sql`r.protocol_number LIKE 'REG-%'`);
     } else if (filters.origin === 'ESUS') {
-      baseConditions.push(`r.protocol_number NOT LIKE 'REG-%'`);
+      baseConditions.push(sql`r.protocol_number NOT LIKE 'REG-%'`);
     }
 
-    const baseWhereClause = sql.raw(baseConditions.join(' AND '));
+    const baseWhereClause = sql.join(baseConditions, sql` AND `);
 
     // Condição para a listagem nominal de solicitações (filtra pelo status se fornecido)
     const listConditions = [...baseConditions];
     if (filters.status) {
-      listConditions.push(`r.status = '${filters.status}'`);
+      listConditions.push(sql`r.status = ${filters.status}`);
     }
-    const listWhereClause = sql.raw(listConditions.join(' AND '));
+    const listWhereClause = sql.join(listConditions, sql` AND `);
 
     // Resumo da UBS com contagens e procedência (calculado sobre o panorama da unidade sem zerar os cards de status)
     const summaryRes = await this.db.execute(sql`
