@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useProcedure, useProcedurePreparation, useSaveProcedurePreparation } from '../../hooks/useProcedures';
 import { toast } from 'sonner';
 import { formatDateBR } from '../../utils/brazilianFormatters';
+import { sanitizeHtml } from '../../utils/sanitizeHtml';
 import {
     ArrowLeft,
     Save,
@@ -601,7 +602,7 @@ export const PreparationEditor: React.FC<{ procedureIdProp?: string; onBackProp?
                             {/* Conteúdo Formatado */}
                             <div
                                 className="prose prose-sm max-w-none text-slate-800 leading-relaxed"
-                                dangerouslySetInnerHTML={{ __html: contentHtml || '<p class="italic text-slate-400">Nenhuma instrução cadastrada.</p>' }}
+                                dangerouslySetInnerHTML={{ __html: sanitizeHtml(contentHtml) || '<p class="italic text-slate-400">Nenhuma instrução cadastrada.</p>' }}
                             />
 
                             {/* Rodapé da Guia */}
