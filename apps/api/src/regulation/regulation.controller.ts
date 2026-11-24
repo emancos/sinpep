@@ -11,10 +11,12 @@ import {
   UploadedFiles,
   Req,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { RateLimit, RateLimitGuard } from '../common/guards/rate-limit.guard';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { RegulationService } from './regulation.service';
@@ -58,13 +60,29 @@ export class RegulationController {
     @Query() query: any,
     @Req() req: any,
   ) {
+    const isAdminOrMunicipal =
+      req.user?.permissions?.includes('admin:access') ||
+      Boolean(req.user?.isMunicipalRegulator);
+    const linkedIds: string[] = Array.isArray(req.user?.linkedHealthCenterIds)
+      ? req.user.linkedHealthCenterIds
+      : req.user?.healthCenterId
+      ? [req.user.healthCenterId]
+      : [];
+
+    if (queryHealthCenterId && !isAdminOrMunicipal && !linkedIds.includes(queryHealthCenterId)) {
+      throw new ForbiddenException(
+        'Você não possui vínculo autorizado para consultar solicitações desta unidade de saúde.',
+      );
+    }
+
     const healthCenterId = queryHealthCenterId || req.user.healthCenterId;
     return this.regulationService.findRequestsByHealthCenter(healthCenterId, query);
   }
 
   @Get('requests/:id')
-  async findOne(@Param('id') id: string) {
-    return this.regulationService.findOne(id);
+  @Permissions('regulation:read')
+  async findOne(@Param('id') id: string, @Req() req: any) {
+    return this.regulationService.findOne(id, req.user);
   }
 
   @Patch('requests/:id/resubmit')
@@ -192,6 +210,9 @@ export class RegulationController {
   // =========================================================================
 
   @Post('validate-token')
+  @UseGuards(RateLimitGuard)
+  @RateLimit(10, 60_000)
+  @Permissions('schedules:book')
   async validateToken(
     @Body('token') token: string,
     @Body('executingHealthCenterId') executingHealthCenterId: string,

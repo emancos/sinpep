@@ -1322,7 +1322,6 @@ export class RegulationService implements OnModuleInit {
     this.eventsGateway.server?.emit('regulation_updated', {
       type: 'REQUEST_SCHEDULED',
       requestId: id,
-      confirmationToken,
       targetDate,
       executingHealthCenterId,
     });
@@ -1448,7 +1447,6 @@ export class RegulationService implements OnModuleInit {
     this.eventsGateway.server?.emit('regulation_updated', {
       type: 'TOKEN_VALIDATED',
       requestId: request.id,
-      token: cleanToken,
     });
 
     return this.findOne(request.id);
@@ -1511,7 +1509,7 @@ export class RegulationService implements OnModuleInit {
   // CONSULTA DETALHADA
   // =========================================================================
 
-  async findOne(id: string) {
+  async findOne(id: string, user?: any) {
     const item = await this.db.query.regulationRequests.findFirst({
       where: eq(schema.regulationRequests.id, id),
       with: {
@@ -1537,6 +1535,33 @@ export class RegulationService implements OnModuleInit {
     });
 
     if (!item) throw new NotFoundException('Solicitação de regulação não encontrada');
+
+    if (user) {
+      const perms: string[] = Array.isArray(user.permissions) ? user.permissions : [];
+      const canViewAcrossUnits =
+        perms.includes('admin:access') ||
+        perms.includes('regulation-operator:read') ||
+        Boolean(user.isMunicipalRegulator);
+
+      if (!canViewAcrossUnits) {
+        const linkedIds: string[] = Array.isArray(user.linkedHealthCenterIds)
+          ? user.linkedHealthCenterIds
+          : user.healthCenterId
+          ? [user.healthCenterId]
+          : [];
+        const allowedByUnit =
+          (item.requestingHealthCenterId && linkedIds.includes(item.requestingHealthCenterId)) ||
+          (item.executingHealthCenterId && linkedIds.includes(item.executingHealthCenterId)) ||
+          item.requestingUserId === user.id;
+
+        if (!allowedByUnit) {
+          throw new ForbiddenException(
+            'Você não possui permissão para visualizar solicitações de outra unidade de saúde.',
+          );
+        }
+      }
+    }
+
     return item;
   }
 }

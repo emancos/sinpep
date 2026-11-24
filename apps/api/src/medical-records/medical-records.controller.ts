@@ -54,8 +54,8 @@ export class MedicalRecordsController {
 
   @Get(':id')
   @Permissions('medical-records:read')
-  findOne(@Param('id') id: string) {
-    return this.medicalRecordsService.findOne(id);
+  findOne(@Param('patientId') patientId: string, @Param('id') id: string) {
+    return this.medicalRecordsService.findOne(id, patientId);
   }
 
   @Patch(':id/status')

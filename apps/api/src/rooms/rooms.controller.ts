@@ -16,23 +16,28 @@ import { UpdateRoomDto } from './dto/update-room.dto';
 import { AllocateRoomDto, DeallocateRoomDto } from './dto/allocate-room.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { NonDoctorGuard } from '../auth/guards/non-doctor.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('rooms')
 export class RoomsController {
   constructor(private readonly roomsService: RoomsService) {}
 
   @Get()
+  @Permissions('rooms:read')
   async findAll(@Query() query: { search?: string; date?: string; activeOnly?: string }) {
     return this.roomsService.findAll(query);
   }
 
   @Get('allocations')
+  @Permissions('schedules:read')
   async getAllocations(@Query('date') date: string) {
     return this.roomsService.getAllocations(date);
   }
 
   @Get('allocation-for-specialty')
+  @Permissions('schedules:read')
   async getAllocationForSpecialty(
     @Query('specialtyName') specialtyName: string,
     @Query('date') date: string
@@ -40,41 +45,50 @@ export class RoomsController {
     return this.roomsService.getAllocationForSpecialty(specialtyName, date);
   }
 
+  @UseGuards(NonDoctorGuard)
+  @Permissions('rooms:read')
   @Post('allocate')
   async allocateRoom(@Body() dto: AllocateRoomDto, @Req() req: any) {
     return this.roomsService.allocateRoom(dto.roomId, dto.specialtyName, dto.date, req.user?.id);
   }
 
+  @UseGuards(NonDoctorGuard)
+  @Permissions('rooms:read')
   @Post('deallocate')
   async deallocateRoom(@Body() dto: DeallocateRoomDto) {
     return this.roomsService.deallocateRoom(dto.specialtyName, dto.date);
   }
 
   @Get(':id')
+  @Permissions('rooms:read')
   async findOne(@Param('id') id: string) {
     return this.roomsService.findOne(id);
   }
 
-  // Endpoints administrativos de cadastro de ambulatórios/salas: proibidos para Médicos
+  // Endpoints administrativos de cadastro de ambulatórios/salas: exigem permissão rooms:write e bloqueiam Médicos
   @UseGuards(NonDoctorGuard)
+  @Permissions('rooms:write')
   @Post()
   async create(@Body() dto: CreateRoomDto) {
     return this.roomsService.create(dto);
   }
 
   @UseGuards(NonDoctorGuard)
+  @Permissions('rooms:write')
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateRoomDto) {
     return this.roomsService.update(id, dto);
   }
 
   @UseGuards(NonDoctorGuard)
+  @Permissions('rooms:write')
   @Patch(':id/toggle-active')
   async toggleActive(@Param('id') id: string) {
     return this.roomsService.toggleActive(id);
   }
 
   @UseGuards(NonDoctorGuard)
+  @Permissions('rooms:write')
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return this.roomsService.remove(id);

@@ -830,6 +830,23 @@ export class DashboardService {
       throw new ForbiddenException('Você não tem permissão para editar este aviso.');
     }
 
+    // Não-administradores não podem elevar escopo para GLOBAL nem redirecionar aviso para outra unidade
+    let nextScope: string | undefined = dto.scope;
+    let nextHealthCenterId: string | null | undefined = dto.healthCenterId;
+    if (!isAdmin) {
+      if (dto.scope && dto.scope === 'GLOBAL') {
+        throw new ForbiddenException('Apenas Administradores podem publicar avisos globais.');
+      }
+      if (
+        dto.healthCenterId !== undefined &&
+        dto.healthCenterId !== user.healthCenterId
+      ) {
+        throw new ForbiddenException('Você só pode vincular avisos à sua própria unidade de saúde.');
+      }
+      nextScope = notice.scope;
+      nextHealthCenterId = notice.healthCenterId;
+    }
+
     const now = new Date().toISOString();
     await this.db
       .update(schema.dashboardNotices)
@@ -837,8 +854,8 @@ export class DashboardService {
         ...(dto.title ? { title: dto.title } : {}),
         ...(dto.content ? { content: dto.content } : {}),
         ...(dto.type ? { type: dto.type } : {}),
-        ...(dto.scope ? { scope: dto.scope } : {}),
-        ...(dto.healthCenterId !== undefined ? { healthCenterId: dto.healthCenterId } : {}),
+        ...(nextScope ? { scope: nextScope } : {}),
+        ...(nextHealthCenterId !== undefined ? { healthCenterId: nextHealthCenterId } : {}),
         ...(dto.isPinned !== undefined ? { isPinned: dto.isPinned } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
         ...(dto.expiresAt !== undefined ? { expiresAt: dto.expiresAt } : {}),

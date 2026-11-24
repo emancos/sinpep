@@ -253,7 +253,7 @@ export class MedicalRecordsService {
     return { data: items, total: items.length };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, expectedPatientId?: string) {
     const record = await this.db.query.medicalRecords.findFirst({
       where: eq(schema.medicalRecords.id, id),
       with: {
@@ -273,7 +273,9 @@ export class MedicalRecordsService {
         attachments: true,
       }
     });
-    if (!record) throw new NotFoundException('Medical Record not found');
+    if (!record || (expectedPatientId && record.patientId !== expectedPatientId)) {
+      throw new NotFoundException('Medical Record not found');
+    }
     return record;
   }
 

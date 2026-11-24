@@ -9,20 +9,47 @@ import {
   Res,
   UseGuards,
   ParseFilePipe,
-  MaxFileSizeValidator
+  MaxFileSizeValidator,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { StorageService } from './storage.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 import { Response } from 'express';
 
+const ALLOWED_STORAGE_MIMES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+]);
+
 @Controller('storage')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class StorageController {
   constructor(private readonly storageService: StorageService) {}
 
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @Permissions('patients:write')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      fileFilter: (_req, file, cb) => {
+        if (ALLOWED_STORAGE_MIMES.has(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(
+            new BadRequestException(
+              'Tipo de arquivo não permitido. Apenas PDF e imagens (JPEG, PNG, WEBP) são aceitos.',
+            ),
+            false,
+          );
+        }
+      },
+    }),
+  )
   async uploadFile(
     @UploadedFile(
       new ParseFilePipe({
@@ -39,15 +66,26 @@ export class StorageController {
   }
 
   @Get('file/:id')
+  @Permissions('patients:read')
   async getFile(@Param('id') id: string, @Res() res: Response) {
     const { stream, mimeType, name } = await this.storageService.getFileStream(id);
 
     const safeName = (name || 'arquivo').replace(/[\r\n"]/g, '_');
     const asciiFallback = safeName.replace(/[^\x20-\x7E]/g, '_') || 'arquivo';
+    const resolvedMime = mimeType || 'application/octet-stream';
+    const dangerousInlineMimes = new Set([
+      'text/html',
+      'application/xhtml+xml',
+      'image/svg+xml',
+      'application/javascript',
+      'text/javascript',
+    ]);
+    const disposition = dangerousInlineMimes.has(resolvedMime.toLowerCase()) ? 'attachment' : 'inline';
 
     res.set({
-      'Content-Type': mimeType || 'application/octet-stream',
-      'Content-Disposition': `inline; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(safeName)}`,
+      'Content-Type': resolvedMime,
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Disposition': `${disposition}; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(safeName)}`,
     });
 
     stream.pipe(res);
