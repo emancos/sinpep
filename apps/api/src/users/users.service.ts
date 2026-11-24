@@ -4,7 +4,7 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database/schema';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 @Injectable()
 export class UsersService {
@@ -174,6 +174,9 @@ export class UsersService {
   async findAll(includeInactive: boolean = false) {
     return this.db.query.users.findMany({
       where: includeInactive ? undefined : eq(schema.users.isActive, true),
+      columns: {
+        passwordHash: false,
+      },
       with: {
         profile: true,
         healthCenter: true,
@@ -214,6 +217,7 @@ export class UsersService {
     if (updateData.isMunicipalRegulator !== undefined) data.isMunicipalRegulator = Boolean(updateData.isMunicipalRegulator);
     if (updateData.password) {
       data.passwordHash = await bcrypt.hash(updateData.password, 10);
+      data.tokenVersion = sql`${schema.users.tokenVersion} + 1`;
     }
 
     // Sincronização de Perfis
@@ -312,11 +316,26 @@ export class UsersService {
     return this.findById(id);
   }
 
+  async incrementTokenVersion(id: string) {
+    await this.db
+      .update(schema.users)
+      .set({
+        tokenVersion: sql`${schema.users.tokenVersion} + 1`,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(schema.users.id, id));
+  }
+
   async toggleActive(id: string) {
     const user = await this.db.query.users.findFirst({ where: eq(schema.users.id, id) });
     if (!user) throw new Error('User not found');
+    const nextActive = !user.isActive;
     await this.db.update(schema.users)
-      .set({ isActive: !user.isActive, updatedAt: new Date().toISOString() })
+      .set({
+        isActive: nextActive,
+        ...(nextActive ? {} : { tokenVersion: sql`${schema.users.tokenVersion} + 1` }),
+        updatedAt: new Date().toISOString(),
+      })
       .where(eq(schema.users.id, id));
       
     return this.findById(id);

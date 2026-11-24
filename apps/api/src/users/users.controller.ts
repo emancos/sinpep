@@ -220,7 +220,12 @@ export class UsersController {
   @Permissions('users:read')
   async findAll(@Query('includeInactive') includeInactive?: string) {
     const include = includeInactive === 'true';
-    return this.usersService.findAll(include);
+    const users = await this.usersService.findAll(include);
+    return (users || []).map((user: any) => {
+      const safeUser = { ...user };
+      delete safeUser.passwordHash;
+      return safeUser;
+    });
   }
 
   @Put('profile')

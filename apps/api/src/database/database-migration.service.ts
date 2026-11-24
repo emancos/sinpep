@@ -39,6 +39,8 @@ export class DatabaseMigrationService implements OnModuleInit {
         ALTER TABLE procedures ADD COLUMN IF NOT EXISTS release_schedule_return_days INTEGER NOT NULL DEFAULT 10;
         ALTER TABLE procedures ADD COLUMN IF NOT EXISTS release_schedule_regulator_days INTEGER NOT NULL DEFAULT 0;
         ALTER TABLE procedures ADD COLUMN IF NOT EXISTS release_schedule_auto_days INTEGER NOT NULL DEFAULT 15;
+
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
       `);
 
       await this.db.execute(sql`

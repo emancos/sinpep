@@ -23,6 +23,7 @@ export const users = pgTable("users", {
 	avatar: text(),
 	isActive: boolean("is_active").default(true).notNull(),
 	forcePasswordChange: boolean("force_password_change").default(false).notNull(),
+	tokenVersion: integer("token_version").default(0).notNull(),
 	createdAt: timestamp("created_at", { precision: 3, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 	updatedAt: timestamp("updated_at", { precision: 3, mode: 'string' }).notNull(),
 	profileId: uuid("profile_id").notNull(),
